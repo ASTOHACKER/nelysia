@@ -113,7 +113,7 @@
 > **คำแนะนำ:** ควร `export const app` เสมอ เพื่อให้ตัว CLI และคอมไพเลอร์สามารถนำแอปไปวิเคราะห์ Route หรือ Build เป็น Bundle ได้โดยไม่เริ่มรัน Port ค้างไว้
 
 ```ts
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
   .get("/", () => "สวัสดีจาก Nelysia!")
@@ -157,7 +157,7 @@ curl http://localhost:3000/users/42
 คุณสามารถส่งค่าคอนฟิกให้กับ Constructor ได้ดังนี้:
 
 ```ts
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 
 const app = new Nelysia({
   // จำกัดขนาด Body สูงสุดเป็นไบต์ (ค่าเริ่มต้น: 1,048,576 หรือ 1 MB)
@@ -335,7 +335,7 @@ app.get("/stream", () => {
 Nelysia มีตัวสร้าง Schema น้ำหนักเบาในตัว ไม่ต้องลง Library เพิ่มเติม:
 
 ```ts
-import { Nelysia, t } from "nelysia"
+import { Nelysia, t } from "@narudom96/nelysia"
 
 const UserSchema = t.Object({
   name: t.String(),
@@ -356,7 +356,7 @@ Nelysia รองรับมาตรฐาน **Standard Schema (v1)** โด�
 
 ```ts
 import { z } from "zod"
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 
 const PostSchema = z.object({
   title: z.string().min(5),
@@ -445,7 +445,7 @@ app.onAfterHandle((context, response) => {
 จุดศูนย์กลางในการดักจับและแปลง Error ให้กลายเป็น JSON Response ที่สวยงาม:
 
 ```ts
-import { Nelysia, HttpError } from "nelysia"
+import { Nelysia, HttpError } from "@narudom96/nelysia"
 
 const app = new Nelysia()
   .onError((error, context) => {
@@ -465,7 +465,7 @@ const app = new Nelysia()
 ช่วยระบาย Request ที่ค้างอยู่ให้เสร็จสิ้นและปิด Connection ก่อนที่ Process จะหยุดทำงาน:
 
 ```ts
-import { gracefulShutdown } from "nelysia"
+import { gracefulShutdown } from "@narudom96/nelysia"
 
 const server = app.listen(3000)
 
@@ -510,7 +510,7 @@ app.websocket("/ws/chat", {
 จำกัดปริมาณคำขอตามช่วงเวลาเพื่อป้องกันการยิงสแปม (ป้องกัน DDoS/Brute Force):
 
 ```ts
-import { rateLimit } from "nelysia/plugins"
+import { rateLimit } from "@narudom96/nelysia/plugins"
 
 app.use(rateLimit({
   limit: 60,            // จำกัดไม่เกิน 60 ครั้ง
@@ -523,7 +523,7 @@ app.use(rateLimit({
 ### การให้บริการไฟล์ Static (`staticFile`)
 
 ```ts
-import { staticFile } from "nelysia/plugins"
+import { staticFile } from "@narudom96/nelysia/plugins"
 
 app.use(staticFile("/favicon.ico", "./public/favicon.ico"))
 app.use(staticFile("/logo.png", "./assets/logo.png"))
@@ -534,7 +534,7 @@ app.use(staticFile("/logo.png", "./assets/logo.png"))
 ช่วยบีบอัด Response Body ด้วย Gzip อัตโนมัติเมื่อ Client ร้องขอผ่าน `Accept-Encoding: gzip`:
 
 ```ts
-import { compression } from "nelysia/plugins"
+import { compression } from "@narudom96/nelysia/plugins"
 
 app.use(compression({
   threshold: 1024 // บีบอัดเฉพาะข้อมูลที่มีขนาดมากกว่า 1 KB
@@ -548,7 +548,7 @@ app.use(compression({
 สร้างเอกสารอ้างอิง API ตามมาตรฐาน OpenAPI 3.1 จาก Route Schemas ที่ระบุไว้โดยอัตโนมัติ
 
 ```ts
-import { openapi, openapiUi } from "nelysia/openapi"
+import { openapi, openapiUi } from "@narudom96/nelysia/openapi"
 
 app
   // ให้บริการ JSON Specification ที่ /openapi.json
@@ -575,7 +575,7 @@ app
 Nelysia รองรับการเก็บสถิติระยะเวลาประมวลผลและการส่ง Spans ไปยัง OpenTelemetry Collector (เช่น Jaeger, Grafana Tempo, Honeycomb) ผ่าน HTTP OTLP:
 
 ```ts
-import { otlpHttpExporter } from "nelysia/observability"
+import { otlpHttpExporter } from "@narudom96/nelysia/observability"
 
 const app = new Nelysia({
   telemetry: {
@@ -595,7 +595,7 @@ const app = new Nelysia({
 
 ```ts
 import { GraphQLSchema, GraphQLObjectType, GraphQLString } from "graphql"
-import { graphqlPlugin } from "nelysia/graphql"
+import { graphqlPlugin } from "@narudom96/nelysia/graphql"
 
 const schema = new GraphQLSchema({
   query: new GraphQLObjectType({
@@ -621,13 +621,13 @@ app.use(graphqlPlugin({
 
 ## 13. การเชื่อมต่อฐานข้อมูล (Drizzle & Prisma)
 
-### Drizzle ORM (`nelysia/drizzle`)
+### Drizzle ORM (`@narudom96/nelysia/drizzle`)
 
 ```ts
 import Database from "better-sqlite3"
 import { drizzle } from "drizzle-orm/better-sqlite3"
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
-import { drizzleRoute } from "nelysia/drizzle"
+import { drizzleRoute } from "@narudom96/nelysia/drizzle"
 
 const sqlite = new Database("app.db")
 const db = drizzle(sqlite)
@@ -646,11 +646,11 @@ app.use(drizzleRoute({
 
 > ข้อจำกัด: บน Bun ให้เลี่ยง `better-sqlite3` (native binding ไม่เสถียรบน Bun) — ใช้ Bun-native driver หรือรันบน Node.js
 
-### Prisma (`nelysia/prisma`)
+### Prisma (`@narudom96/nelysia/prisma`)
 
 ```ts
 import { PrismaClient } from "@prisma/client"
-import { prismaRoute } from "nelysia/prisma"
+import { prismaRoute } from "@narudom96/nelysia/prisma"
 
 const prisma = new PrismaClient()
 
@@ -676,7 +676,7 @@ npm run prisma:smoke      # push schema ลง SQLite + รัน smoke test จ
 
 ```ts
 import { betterAuth } from "better-auth"
-import { betterAuthPlugin } from "nelysia/better-auth"
+import { betterAuthPlugin } from "@narudom96/nelysia/better-auth"
 
 const auth = betterAuth({
   database: /* adapter ของคุณ (drizzle/prisma/kysely) */,
@@ -698,7 +698,7 @@ app.use(betterAuthPlugin(auth)) // ค่าเริ่มต้น prefix: /ap
 
 ```ts
 import { generateText, type LanguageModel } from "ai"
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 
 export function createAiSdkApp(model: LanguageModel): Nelysia {
   return new Nelysia().post("/ai", async ({ body, response }) => {
@@ -728,7 +728,7 @@ curl -X POST http://localhost:3001/ai \
 ไลบรารี Client น้ำหนักเบาที่ช่วยให้เรียกใช้ API ของ Nelysia ได้ง่ายและปลอดภัย:
 
 ```ts
-import { createClient } from "nelysia/client"
+import { createClient } from "@narudom96/nelysia/client"
 
 const api = createClient("http://localhost:3000")
 
@@ -786,7 +786,7 @@ npm run build -- ./src/app.ts --target node
 ### สร้าง Type สำหรับ Client (`generateClientTypes`)
 
 ```ts
-import { generateClientTypes } from "nelysia/openapi"
+import { generateClientTypes } from "@narudom96/nelysia/openapi"
 
 console.log(generateClientTypes(app))
 // export interface NelysiaRoutes {
@@ -807,18 +807,18 @@ console.log(generateClientTypes(app))
 | Streaming Response | รองรับสมบูรณ์ | รองรับสมบูรณ์ | รองรับสมบูรณ์ | รองรับสมบูรณ์ | รองรับสมบูรณ์ | รองรับสมบูรณ์ |
 | AOT Compiler Optimization | รองรับสมบูรณ์ | รองรับสมบูรณ์ | รองรับสมบูรณ์ | รองรับสมบูรณ์ | รองรับสมบูรณ์ | รองรับสมบูรณ์ |
 
-### Vercel (`nelysia/runtime-vercel`)
+### Vercel (`@narudom96/nelysia/runtime-vercel`)
 
 ```ts
-import { createVercelHandler } from "nelysia/runtime-vercel"
+import { createVercelHandler } from "@narudom96/nelysia/runtime-vercel"
 
 export default createVercelHandler(app)
 ```
 
-### Cloudflare Workers (`nelysia/runtime-cloudflare`)
+### Cloudflare Workers (`@narudom96/nelysia/runtime-cloudflare`)
 
 ```ts
-import { createCloudflareWorker } from "nelysia/runtime-cloudflare"
+import { createCloudflareWorker } from "@narudom96/nelysia/runtime-cloudflare"
 
 export default createCloudflareWorker(app) // { fetch(request, env, ctx) }
 ```
@@ -828,7 +828,7 @@ export default createCloudflareWorker(app) // { fetch(request, env, ctx) }
 ### Deno
 
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 
 Deno.serve(createFetchHandler(app))
 ```
@@ -843,7 +843,7 @@ Deno.serve(createFetchHandler(app))
 
 ### Next.js (App Router: `app/api/[[...slug]]/route.ts`)
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
 const handler = createFetchHandler(app)
@@ -856,7 +856,7 @@ export const DELETE = (req: Request) => handler(req)
 
 ### Nuxt (`server/api/[...].ts`)
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "~/server/app"
 
 const handler = createFetchHandler(app)
@@ -866,7 +866,7 @@ export default defineEventHandler((event) => handler(toWebRequest(event)))
 
 ### SvelteKit (`src/routes/api/nelysia/+server.ts`)
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "$lib/server/app"
 
 const fetchHandler = createFetchHandler(app)
@@ -878,7 +878,7 @@ export const POST = ({ request }: { request: Request }) => fetchHandler(request)
 
 ### Astro (`src/pages/api/nelysia.ts`)
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
 // Astro endpoint รับ Fetch-standard handler ได้โดยตรง
@@ -888,7 +888,7 @@ export const POST = createFetchHandler(app)
 
 ### TanStack Start (`src/routes/api/nelysia.ts`)
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
 // export Fetch boundary ให้ server route เรียกใช้

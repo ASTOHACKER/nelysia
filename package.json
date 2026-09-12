@@ -1,7 +1,10 @@
 {
-  "name": "nelysia",
+  "name": "@narudom96/nelysia",
   "version": "0.1.0",
   "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Compiler-first TypeScript backend framework for Bun, Node.js, and Web Standards",
   "license": "MIT",

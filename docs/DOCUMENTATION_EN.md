@@ -132,7 +132,7 @@ Sources live in `packages/*/src/*.ts`. Running `npm run package:build` emits com
 Always export the `app` instance so the compiler and CLI can inspect and build your service without prematurely starting the HTTP listener.
 
 ```ts
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
   .get("/", () => "Hello from Nelysia!")
@@ -176,7 +176,7 @@ curl http://localhost:3000/users/42
 Instantiate Nelysia with optional engine settings:
 
 ```ts
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 
 const app = new Nelysia({
   // Maximum allowed body payload in bytes (default: 1,048,576 = 1 MB)
@@ -374,7 +374,7 @@ app.get("/stream", () => {
 Nelysia provides a zero-dependency schema builder `t`:
 
 ```ts
-import { Nelysia, t } from "nelysia"
+import { Nelysia, t } from "@narudom96/nelysia"
 
 const UserSchema = t.Object({
   name: t.String(),
@@ -396,7 +396,7 @@ Nelysia natively supports the **Standard Schema (v1)** specification. Libraries 
 
 ```ts
 import { z } from "zod"
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 
 const CreatePost = z.object({
   title: z.string().min(3),
@@ -488,7 +488,7 @@ app.onAfterHandle((context, response) => {
 Catch and transform runtime errors into consistent client responses:
 
 ```ts
-import { Nelysia, HttpError } from "nelysia"
+import { Nelysia, HttpError } from "@narudom96/nelysia"
 
 const app = new Nelysia()
   .onError((error, context) => {
@@ -508,7 +508,7 @@ const app = new Nelysia()
 Gracefully terminate servers during deployments or SIGINT / SIGTERM signals:
 
 ```ts
-import { gracefulShutdown } from "nelysia"
+import { gracefulShutdown } from "@narudom96/nelysia"
 
 const server = app.listen(3000)
 
@@ -562,7 +562,7 @@ Plugins in Nelysia are composable functions that accept the `app` instance.
 In-memory sliding/fixed window rate limiting with standard `Retry-After` headers and `429 Too Many Requests`:
 
 ```ts
-import { rateLimit } from "nelysia/plugins"
+import { rateLimit } from "@narudom96/nelysia/plugins"
 
 app.use(rateLimit({
   limit: 100,           // Max 100 requests
@@ -576,7 +576,7 @@ app.use(rateLimit({
 Efficiently serve local static assets with automatic MIME detection:
 
 ```ts
-import { staticFile } from "nelysia/plugins"
+import { staticFile } from "@narudom96/nelysia/plugins"
 
 app.use(staticFile("/favicon.ico", "./public/favicon.ico"))
 app.use(staticFile("/robots.txt", "./public/robots.txt"))
@@ -587,7 +587,7 @@ app.use(staticFile("/robots.txt", "./public/robots.txt"))
 Automatically gzips response bodies if requested by client `Accept-Encoding: gzip`:
 
 ```ts
-import { compression } from "nelysia/plugins"
+import { compression } from "@narudom96/nelysia/plugins"
 
 app.use(compression({
   threshold: 1024 // Only compress bodies larger than 1KB
@@ -603,7 +603,7 @@ Nelysia inspects route schemas and builds fully compliant OpenAPI 3.1 specificat
 ### Enabling OpenAPI & Interactive Documentation
 
 ```ts
-import { openapi, openapiUi } from "nelysia/openapi"
+import { openapi, openapiUi } from "@narudom96/nelysia/openapi"
 
 app
   // Serves JSON spec at /openapi.json
@@ -628,7 +628,7 @@ Visit `http://localhost:3000/docs` to view documentation in browser.
 Generate TypeScript type declarations for client applications:
 
 ```ts
-import { generateClientTypes } from "nelysia/openapi"
+import { generateClientTypes } from "@narudom96/nelysia/openapi"
 
 const typeDefinitions = generateClientTypes(app)
 // Outputs:
@@ -649,7 +649,7 @@ Nelysia offers built-in distributed tracing and telemetry.
 Send spans directly to OpenTelemetry collectors (e.g. Jaeger, Grafana Tempo, Honeycomb):
 
 ```ts
-import { otlpHttpExporter } from "nelysia/observability"
+import { otlpHttpExporter } from "@narudom96/nelysia/observability"
 
 const app = new Nelysia({
   telemetry: {
@@ -677,7 +677,7 @@ Run GraphQL APIs natively within Nelysia via `graphqlPlugin`:
 
 ```ts
 import { GraphQLSchema, GraphQLObjectType, GraphQLString } from "graphql"
-import { graphqlPlugin } from "nelysia/graphql"
+import { graphqlPlugin } from "@narudom96/nelysia/graphql"
 
 const schema = new GraphQLSchema({
   query: new GraphQLObjectType({
@@ -712,13 +712,13 @@ POST to `/graphql` with `{ query, variables?, operationName? }`. A missing `quer
 
 ## 13. Database Integrations (Drizzle & Prisma)
 
-### Drizzle ORM (`nelysia/drizzle`)
+### Drizzle ORM (`@narudom96/nelysia/drizzle`)
 
 ```ts
 import Database from "better-sqlite3"
 import { drizzle } from "drizzle-orm/better-sqlite3"
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
-import { drizzleRoute } from "nelysia/drizzle"
+import { drizzleRoute } from "@narudom96/nelysia/drizzle"
 
 const sqlite = new Database("app.db")
 const db = drizzle(sqlite)
@@ -737,11 +737,11 @@ app.use(drizzleRoute({
 
 > Limitation: avoid `better-sqlite3` on Bun (its native binding is unstable there) — use a Bun-native driver or run on Node.js.
 
-### Prisma (`nelysia/prisma`)
+### Prisma (`@narudom96/nelysia/prisma`)
 
 ```ts
 import { PrismaClient } from "@prisma/client"
-import { prismaRoute } from "nelysia/prisma"
+import { prismaRoute } from "@narudom96/nelysia/prisma"
 
 const prisma = new PrismaClient()
 
@@ -767,7 +767,7 @@ npm run prisma:smoke      # push the schema to SQLite and run a real smoke test
 
 ```ts
 import { betterAuth } from "better-auth"
-import { betterAuthPlugin } from "nelysia/better-auth"
+import { betterAuthPlugin } from "@narudom96/nelysia/better-auth"
 
 const auth = betterAuth({
   database: /* your adapter (drizzle/prisma/kysely) */,
@@ -789,7 +789,7 @@ Call Vercel AI SDK `generateText` inside a route via an injectable helper (see `
 
 ```ts
 import { generateText, type LanguageModel } from "ai"
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 
 export function createAiSdkApp(model: LanguageModel): Nelysia {
   return new Nelysia().post("/ai", async ({ body, response }) => {
@@ -819,7 +819,7 @@ The checked-in example uses `MockLanguageModelV3` from `ai/test`, so it needs no
 A lightweight, type-friendly client for invoking Nelysia endpoints:
 
 ```ts
-import { createClient } from "nelysia/client"
+import { createClient } from "@narudom96/nelysia/client"
 
 const client = createClient("http://localhost:3000")
 
@@ -895,7 +895,7 @@ Build outputs:
 ### Client Type Generation (`generateClientTypes`)
 
 ```ts
-import { generateClientTypes } from "nelysia/openapi"
+import { generateClientTypes } from "@narudom96/nelysia/openapi"
 
 console.log(generateClientTypes(app))
 // export interface NelysiaRoutes {
@@ -919,18 +919,18 @@ Nelysia runs anywhere modern JavaScript executes:
 | WebSockets | Yes (native) | Yes (`ws`) | Optional | No | Optional | Optional |
 | AOT Compiler Optimization | Yes | Yes | Yes | Yes | Yes | Yes |
 
-### Vercel (`nelysia/runtime-vercel`)
+### Vercel (`@narudom96/nelysia/runtime-vercel`)
 
 ```ts
-import { createVercelHandler } from "nelysia/runtime-vercel"
+import { createVercelHandler } from "@narudom96/nelysia/runtime-vercel"
 
 export default createVercelHandler(app)
 ```
 
-### Cloudflare Workers (`nelysia/runtime-cloudflare`)
+### Cloudflare Workers (`@narudom96/nelysia/runtime-cloudflare`)
 
 ```ts
-import { createCloudflareWorker } from "nelysia/runtime-cloudflare"
+import { createCloudflareWorker } from "@narudom96/nelysia/runtime-cloudflare"
 
 export default createCloudflareWorker(app) // { fetch(request, env, ctx) }
 ```
@@ -940,7 +940,7 @@ Web APIs only — no Node globals required (see `examples/cloudflare/worker.ts`)
 ### Deno
 
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 
 Deno.serve(createFetchHandler(app))
 ```
@@ -952,7 +952,7 @@ Verify the contract with `npm run deno:check` (see `examples/deno/main.ts`).
 To mount Nelysia into any Web Standards runtime:
 
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "./app.ts"
 
 const handler = createFetchHandler(app)
@@ -974,7 +974,7 @@ Nelysia integrates seamlessly into popular full-stack frameworks via `createFetc
 
 `app/api/[[...slug]]/route.ts`:
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
 const handler = createFetchHandler(app)
@@ -988,7 +988,7 @@ export const DELETE = (request: Request) => handler(request)
 ### Nuxt (`server/api/[...].ts`)
 
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "~/server/app"
 
 const handler = createFetchHandler(app)
@@ -1001,7 +1001,7 @@ export default defineEventHandler((event) => {
 ### SvelteKit (`src/routes/api/nelysia/+server.ts`)
 
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "$lib/server/app"
 
 const fetchHandler = createFetchHandler(app)
@@ -1013,7 +1013,7 @@ export const GET = ({ request }: { request: Request }) => fetchHandler(request)
 ### Astro (`src/pages/api/nelysia.ts`)
 
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
 // Astro's endpoint method can use a Fetch-standard handler directly.
@@ -1023,7 +1023,7 @@ export const GET = createFetchHandler(app)
 ### TanStack Start (`src/routes/api/nelysia.ts`)
 
 ```ts
-import { createFetchHandler } from "nelysia/runtime-fetch"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
 // Export the Fetch boundary for a TanStack Start server route to call.
@@ -1094,7 +1094,7 @@ app.get("/users/:id", (req, res) => res.json({ id: req.params.id }))
 app.listen(3000)
 
 // Nelysia
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 const app = new Nelysia()
   .get("/users/:id", ({ params }) => ({ id: params.id }))
 app.listen(3000)
@@ -1110,7 +1110,7 @@ fastify.post("/users", {
 }, async (req, reply) => req.body)
 
 // Nelysia
-import { Nelysia, t } from "nelysia"
+import { Nelysia, t } from "@narudom96/nelysia"
 const app = new Nelysia()
   .post("/users", ({ body }) => body, {
     body: t.Object({ name: t.String() })

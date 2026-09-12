@@ -774,7 +774,7 @@ npm test</code></pre>
 
           <div class="code">
             <div class="code-bar"><span>src/app.ts</span><button>copy</button></div>
-            <pre><code><span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"nelysia"</span>
+            <pre><code><span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
 
 <span class="kw">export const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>()
   .<span class="fn">get</span>(<span class="str">"/"</span>, <span class="str">"Hello from Nelysia!"</span>)
@@ -814,7 +814,7 @@ curl http://localhost:3000/users/42</code></pre>
 
           <div class="code">
             <div class="code-bar"><span>Options Configuration</span><button>copy</button></div>
-            <pre><code><span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"nelysia"</span>
+            <pre><code><span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
 
 <span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>({
   <span class="com">// Max body payload in bytes (default: 1MB = 1048576)</span>
@@ -1106,7 +1106,7 @@ app
             <div class="code-bar"><span>Streaming and Response Types</span><button>copy</button></div>
             <pre><code><span class="com">// 1. Custom status and headers</span>
 app.<span class="fn">post</span>(<span class="str">"/create"</span>, ({ response }) =&gt; {
-  <span class="kw">return</span> <span class="fn">response</span>(<span class="num">201</span>, { created: <span class="kw">true</span> }, { <span class="str">"x-custom"</span>: <span class="str">"nelysia"</span> })
+  <span class="kw">return</span> <span class="fn">response</span>(<span class="num">201</span>, { created: <span class="kw">true</span> }, { <span class="str">"x-custom"</span>: <span class="str">"@narudom96/nelysia"</span> })
 })
 
 <span class="com">// 2. Chunked streaming via ReadableStream</span>
@@ -1141,7 +1141,7 @@ app.<span class="fn">get</span>(<span class="str">"/stream"</span>, () =&gt; {
 
           <div class="code">
             <div class="code-bar"><span>Built-in schema (t) & Zod</span><button>copy</button></div>
-            <pre><code><span class="kw">import</span> { Nelysia, t } <span class="kw">from</span> <span class="str">"nelysia"</span>
+            <pre><code><span class="kw">import</span> { Nelysia, t } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
 <span class="kw">import</span> { z } <span class="kw">from</span> <span class="str">"zod"</span>
 
 <span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>()
@@ -1243,7 +1243,7 @@ app.<span class="fn">get</span>(<span class="str">"/stream"</span>, () =&gt; {
 
           <div class="code">
             <div class="code-bar"><span>Lifecycle Pipeline</span><button>copy</button></div>
-            <pre><code><span class="kw">import</span> { Nelysia, HttpError } <span class="kw">from</span> <span class="str">"nelysia"</span>
+            <pre><code><span class="kw">import</span> { Nelysia, HttpError } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
 
 <span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>()
   <span class="com">// 1. Before hook: Authorization Guard</span>
@@ -1276,7 +1276,7 @@ app.<span class="fn">get</span>(<span class="str">"/stream"</span>, () =&gt; {
 
           <div class="code">
             <div class="code-bar"><span>Graceful Shutdown</span><button>copy</button></div>
-            <pre><code><span class="kw">import</span> { gracefulShutdown } <span class="kw">from</span> <span class="str">"nelysia"</span>
+            <pre><code><span class="kw">import</span> { gracefulShutdown } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
 
 <span class="kw">const</span> server = app.<span class="fn">listen</span>(<span class="num">3000</span>)
 
@@ -1439,7 +1439,7 @@ process.<span class="fn">on</span>(<span class="str">"SIGTERM"</span>, <span cla
 
           <div class="code">
             <div class="code-bar"><span>Using & Authoring Plugins</span><button>copy</button></div>
-            <pre><code><span class="kw">import</span> { rateLimit, staticFile, compression } <span class="kw">from</span> <span class="str">"nelysia/plugins"</span>
+            <pre><code><span class="kw">import</span> { rateLimit, staticFile, compression } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/plugins"</span>
 
 app
   .<span class="fn">use</span>(<span class="fn">rateLimit</span>({ limit: <span class="num">100</span>, windowMs: <span class="num">60000</span>, key: (ctx) =&gt; ctx.clientIp ?? <span class="str">"anonymous"</span> }))
@@ -1501,7 +1501,7 @@ app
 
           <div class="code">
             <div class="code-bar"><span>OpenAPI Integration</span><button>copy</button></div>
-            <pre><code><span class="kw">import</span> { openapi, openapiUi, generateClientTypes } <span class="kw">from</span> <span class="str">"nelysia/openapi"</span>
+            <pre><code><span class="kw">import</span> { openapi, openapiUi, generateClientTypes } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/openapi"</span>
 
 app
   .<span class="fn">use</span>(<span class="fn">openapi</span>({ title: <span class="str">"User Management API"</span>, version: <span class="str">"1.0.0"</span> }))
@@ -1548,13 +1548,13 @@ app
 
           <div class="code">
             <div class="code-bar"><span>OTLP Telemetry</span><button>copy</button></div>
-            <pre><code><span class="kw">import</span> { otlpHttpExporter } <span class="kw">from</span> <span class="str">"nelysia/observability"</span>
+            <pre><code><span class="kw">import</span> { otlpHttpExporter } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/observability"</span>
 
 <span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>({
   telemetry: {
     ...<span class="fn">otlpHttpExporter</span>({
       url: <span class="str">"http://localhost:4318/v1/traces"</span>,
-      serviceName: <span class="str">"nelysia-backend"</span>,       <span class="com">// default: "nelysia"</span>
+      serviceName: <span class="str">"nelysia-backend"</span>,       <span class="com">// default: "@narudom96/nelysia"</span>
       headers: { authorization: <span class="str">"Bearer …"</span> }, <span class="com">// optional extra headers</span>
       fetch: customFetch                        <span class="com">// optional transport override</span>
     })
@@ -1628,7 +1628,7 @@ app
           <div class="code">
             <div class="code-bar"><span>GraphQL Setup</span><button>copy</button></div>
             <pre><code><span class="kw">import</span> { GraphQLSchema, GraphQLObjectType, GraphQLString } <span class="kw">from</span> <span class="str">"graphql"</span>
-<span class="kw">import</span> { graphqlPlugin } <span class="kw">from</span> <span class="str">"nelysia/graphql"</span>
+<span class="kw">import</span> { graphqlPlugin } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/graphql"</span>
 
 <span class="kw">const</span> schema = <span class="kw">new</span> <span class="fn">GraphQLSchema</span>({
   query: <span class="kw">new</span> <span class="fn">GraphQLObjectType</span>({
@@ -1672,7 +1672,7 @@ app.<span class="fn">use</span>(<span class="fn">graphqlPlugin</span>({
             <pre><code><span class="kw">import</span> Database <span class="kw">from</span> <span class="str">"better-sqlite3"</span>
 <span class="kw">import</span> { drizzle } <span class="kw">from</span> <span class="str">"drizzle-orm/better-sqlite3"</span>
 <span class="kw">import</span> { integer, sqliteTable, text } <span class="kw">from</span> <span class="str">"drizzle-orm/sqlite-core"</span>
-<span class="kw">import</span> { drizzleRoute } <span class="kw">from</span> <span class="str">"nelysia/drizzle"</span>
+<span class="kw">import</span> { drizzleRoute } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/drizzle"</span>
 
 <span class="kw">const</span> db = <span class="fn">drizzle</span>(<span class="kw">new</span> <span class="fn">Database</span>(<span class="str">"app.db"</span>))
 <span class="kw">const</span> users = <span class="fn">sqliteTable</span>(<span class="str">"users"</span>, {
@@ -1690,7 +1690,7 @@ app.<span class="fn">use</span>(<span class="fn">drizzleRoute</span>({
           <div class="code">
             <div class="code-bar"><span>Prisma + SQLite</span><button>copy</button></div>
             <pre><code><span class="kw">import</span> { PrismaClient } <span class="kw">from</span> <span class="str">"@prisma/client"</span>
-<span class="kw">import</span> { prismaRoute } <span class="kw">from</span> <span class="str">"nelysia/prisma"</span>
+<span class="kw">import</span> { prismaRoute } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/prisma"</span>
 
 <span class="kw">const</span> prisma = <span class="kw">new</span> <span class="fn">PrismaClient</span>()
 
@@ -1733,7 +1733,7 @@ npm run prisma:smoke</code></pre>
           <div class="code">
             <div class="code-bar"><span>Better Auth Setup</span><button>copy</button></div>
             <pre><code><span class="kw">import</span> { betterAuth } <span class="kw">from</span> <span class="str">"better-auth"</span>
-<span class="kw">import</span> { betterAuthPlugin } <span class="kw">from</span> <span class="str">"nelysia/better-auth"</span>
+<span class="kw">import</span> { betterAuthPlugin } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/better-auth"</span>
 
 <span class="kw">const</span> auth = <span class="fn">betterAuth</span>({
   database: <span class="com">/* your adapter (drizzle / prisma / kysely) */</span>,
@@ -1768,7 +1768,7 @@ app.<span class="fn">use</span>(<span class="fn">betterAuthPlugin</span>(auth, <
           <div class="code">
             <div class="code-bar"><span>AI Route (examples/ai-sdk/app.ts)</span><button>copy</button></div>
             <pre><code><span class="kw">import</span> { generateText, type LanguageModel } <span class="kw">from</span> <span class="str">"ai"</span>
-<span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"nelysia"</span>
+<span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
 
 <span class="kw">export function</span> <span class="fn">createAiSdkApp</span>(model: LanguageModel): Nelysia {
   <span class="kw">return new</span> <span class="fn">Nelysia</span>().<span class="fn">post</span>(<span class="str">"/ai"</span>, <span class="kw">async</span> ({ body, response }) =&gt; {
@@ -1803,7 +1803,7 @@ curl -X POST http://localhost:3001/ai \
 
           <div class="code">
             <div class="code-bar"><span>Client SDK Usage</span><button>copy</button></div>
-            <pre><code><span class="kw">import</span> { createClient } <span class="kw">from</span> <span class="str">"nelysia/client"</span>
+            <pre><code><span class="kw">import</span> { createClient } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/client"</span>
 
 <span class="kw">const</span> api = <span class="fn">createClient</span>(<span class="str">"http://localhost:3000"</span>)
 
@@ -2015,15 +2015,15 @@ node --experimental-strip-types dist/server.node.ts</code></pre>
           <div class="code">
             <div class="code-bar"><span>Edge & Serverless Adapters</span><button>copy</button></div>
             <pre><code><span class="com">// Vercel (nelysia/runtime-vercel)</span>
-<span class="kw">import</span> { createVercelHandler } <span class="kw">from</span> <span class="str">"nelysia/runtime-vercel"</span>
+<span class="kw">import</span> { createVercelHandler } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/runtime-vercel"</span>
 <span class="kw">export default</span> <span class="fn">createVercelHandler</span>(app)
 
 <span class="com">// Cloudflare Workers (nelysia/runtime-cloudflare, Web APIs only)</span>
-<span class="kw">import</span> { createCloudflareWorker } <span class="kw">from</span> <span class="str">"nelysia/runtime-cloudflare"</span>
+<span class="kw">import</span> { createCloudflareWorker } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/runtime-cloudflare"</span>
 <span class="kw">export default</span> <span class="fn">createCloudflareWorker</span>(app) <span class="com">// { fetch(request, env, ctx) }</span>
 
 <span class="com">// Deno — verify with: npm run deno:check</span>
-<span class="kw">import</span> { createFetchHandler } <span class="kw">from</span> <span class="str">"nelysia/runtime-fetch"</span>
+<span class="kw">import</span> { createFetchHandler } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/runtime-fetch"</span>
 <span class="fn">Deno.serve</span>(<span class="fn">createFetchHandler</span>(app))</code></pre>
           </div>
         </section>
@@ -2064,7 +2064,7 @@ node --experimental-strip-types dist/server.node.ts</code></pre>
           <div class="code">
             <div class="code-bar"><span>Framework Wiring</span><button>copy</button></div>
             <pre><code><span class="com">// Next.js App Router — app/api/[[...slug]]/route.ts</span>
-<span class="kw">import</span> { createFetchHandler } <span class="kw">from</span> <span class="str">"nelysia/runtime-fetch"</span>
+<span class="kw">import</span> { createFetchHandler } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/runtime-fetch"</span>
 <span class="kw">const</span> handler = <span class="fn">createFetchHandler</span>(app)
 <span class="kw">export const</span> <span class="fn">GET</span> = (req: Request) =&gt; <span class="fn">handler</span>(req)
 <span class="kw">export const</span> <span class="fn">POST</span> = (req: Request) =&gt; <span class="fn">handler</span>(req)

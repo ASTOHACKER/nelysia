@@ -5,18 +5,18 @@ Compiler-first TypeScript backend framework for Bun and Node.js.
 ## Install
 
 ```bash
-npm install nelysia
+npm install @narudom96/nelysia
 # optional integrations — install only what you use
-npm install graphql          # for nelysia/graphql
-npm install drizzle-orm      # for nelysia/drizzle
-npm install @prisma/client   # for nelysia/prisma
-npm install better-auth      # for nelysia/better-auth
+npm install graphql          # for @narudom96/nelysia/graphql
+npm install drizzle-orm      # for @narudom96/nelysia/drizzle
+npm install @prisma/client   # for @narudom96/nelysia/prisma
+npm install better-auth      # for @narudom96/nelysia/better-auth
 npm install ai               # for AI SDK routes
 ```
 
 ```ts
 // app.ts
-import { Nelysia } from "nelysia"
+import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
   .get("/", () => "Hello from Nelysia!")
@@ -30,7 +30,7 @@ node app.js          # Node 22+
 bun run app.ts       # Bun 1.4+
 ```
 
-Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `nelysia/runtime-fetch`, `nelysia/runtime-vercel`, and `nelysia/runtime-cloudflare`.
+Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@narudom96/nelysia/runtime-fetch`, `@narudom96/nelysia/runtime-vercel`, and `@narudom96/nelysia/runtime-cloudflare`.
 
 📚 **Full Documentation / คู่มือการใช้งานอย่างละเอียด:**
 - 🏛️ [System Architecture Blueprint (โครงสร้างสถาปัตยกรรม)](./docs/ARCHITECTURE.md)
@@ -111,7 +111,7 @@ Hello Nelysia
 Validate JSON input:
 
 ```ts
-import { Nelysia, t } from "nelysia"
+import { Nelysia, t } from "@narudom96/nelysia"
 
 const app = new Nelysia().post("/users", ({ body }) => body, {
   body: t.Object({
