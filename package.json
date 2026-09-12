@@ -5,6 +5,10 @@
   "type": "module",
   "description": "Compiler-first TypeScript backend framework for Bun, Node.js, and Web Standards",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ASTOHACKER/nelysia.git"
+  },
   "keywords": [
     "framework",
     "backend",
