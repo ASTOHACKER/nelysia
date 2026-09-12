@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch: # manual re-run (e.g. after npm account suspension lifts)
 
 permissions:
   id-token: write # Required for OIDC trusted publishing
