@@ -749,12 +749,18 @@
 
           <div class="code">
             <div class="code-bar"><span>Terminal</span><button>copy</button></div>
-            <pre><code><span class="com"># Install dependencies</span>
-npm install
+            <pre><code><span class="com"># Install from the npm registry</span>
+npm install @narudom96/nelysia
 
-<span class="com"># Run typecheck and test suite</span>
-npm run typecheck
-npm test</code></pre>
+<span class="com"># …or from a GitHub Release tarball (no registry needed)</span>
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.0/narudom96-nelysia-0.1.0.tgz
+npm install ./nelysia.tgz</code></pre>
+          </div>
+
+          <div class="callout info">
+            <b>Releases Page</b>
+            <span data-lang="en">Every release at <code>github.com/ASTOHACKER/nelysia/releases</code> ships a prebuilt tarball (<code>dist-package</code> inside) — replace <code>v0.1.0</code> with the latest version you see there. Full steps in the README.</span>
+            <span data-lang="th">ทุก release ที่ <code>github.com/ASTOHACKER/nelysia/releases</code> มี tarball พร้อมใช้ (<code>dist-package</code> อยู่ในนั้น) — เปลี่ยน <code>v0.1.0</code> เป็นเวอร์ชันล่าสุดที่เห็น ขั้นตอนเต็มอยู่ใน README</span>
           </div>
         </section>
 
