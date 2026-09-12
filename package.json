@@ -5,7 +5,18 @@
   "type": "module",
   "description": "Compiler-first TypeScript backend framework for Bun, Node.js, and Web Standards",
   "license": "MIT",
-  "keywords": ["framework", "backend", "typescript", "bun", "node", "compiler-first", "openapi", "websocket", "edge", "serverless"],
+  "keywords": [
+    "framework",
+    "backend",
+    "typescript",
+    "bun",
+    "node",
+    "compiler-first",
+    "openapi",
+    "websocket",
+    "edge",
+    "serverless"
+  ],
   "scripts": {
     "test": "node --experimental-strip-types --test tests/**/*.test.ts",
     "example": "node --experimental-strip-types examples/hello/index.ts",
@@ -27,9 +38,13 @@
     "typecheck": "tsc --noEmit"
   },
   "bin": {
-    "nelysia": "./dist-package/packages/cli/src/index.js"
+    "nelysia": "dist-package/packages/cli/src/index.js"
   },
-  "files": ["dist-package", "README.md", "LICENSE"],
+  "files": [
+    "dist-package",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
     ".": "./dist-package/packages/core/src/index.js",
     "./plugins": "./dist-package/packages/plugins/src/index.js",
@@ -79,11 +94,21 @@
     "drizzle-orm": "^0.45.2"
   },
   "peerDependenciesMeta": {
-    "@prisma/client": { "optional": true },
-    "ai": { "optional": true },
-    "better-auth": { "optional": true },
-    "better-sqlite3": { "optional": true },
-    "drizzle-orm": { "optional": true }
+    "@prisma/client": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "better-auth": {
+      "optional": true
+    },
+    "better-sqlite3": {
+      "optional": true
+    },
+    "drizzle-orm": {
+      "optional": true
+    }
   },
   "allowScripts": {
     "better-sqlite3@12.11.1": true
