@@ -1,0 +1,90 @@
+{
+  "name": "nelysia",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Compiler-first TypeScript backend framework for Bun, Node.js, and Web Standards",
+  "license": "MIT",
+  "keywords": ["framework", "backend", "typescript", "bun", "node", "compiler-first", "openapi", "websocket", "edge", "serverless"],
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/**/*.test.ts",
+    "example": "node --experimental-strip-types examples/hello/index.ts",
+    "ai:example": "node --experimental-strip-types examples/ai-sdk/index.ts",
+    "bun:example": "bun run examples/hello/bun.ts",
+    "bun:smoke": "bun run examples/hello/bun-smoke.ts",
+    "benchmark": "node --experimental-strip-types benchmarks/run.ts",
+    "benchmark:bun": "bun run benchmarks/run-bun.ts",
+    "soak": "node --experimental-strip-types benchmarks/soak.ts",
+    "prisma:generate": "prisma generate --schema examples/prisma/schema.prisma",
+    "prisma:smoke": "npm run prisma:generate && DATABASE_URL=file:./smoke.db prisma db push --schema examples/prisma/schema.prisma --skip-generate && DATABASE_URL=file:./smoke.db node --experimental-strip-types examples/prisma/smoke.ts",
+    "deno:check": "deno check examples/deno/main.ts",
+    "release:check": "npm run typecheck && npm test && bun test && npm run soak && npm run deno:check && npm audit --omit=dev",
+    "inspect": "node --experimental-strip-types packages/cli/src/index.ts inspect",
+    "build": "node --experimental-strip-types packages/cli/src/index.ts build",
+    "package:build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run package:build",
+    "typecheck": "tsc --noEmit"
+  },
+  "bin": {
+    "nelysia": "./dist-package/packages/cli/src/index.js"
+  },
+  "files": ["dist-package", "README.md", "LICENSE"],
+  "exports": {
+    ".": "./dist-package/packages/core/src/index.js",
+    "./plugins": "./dist-package/packages/plugins/src/index.js",
+    "./observability": "./dist-package/packages/observability/src/index.js",
+    "./runtime-fetch": "./dist-package/packages/runtime-fetch/src/server.js",
+    "./graphql": "./dist-package/packages/integrations-graphql/src/index.js",
+    "./drizzle": "./dist-package/packages/integrations-drizzle/src/index.js",
+    "./prisma": "./dist-package/packages/integrations-prisma/src/index.js",
+    "./better-auth": "./dist-package/packages/integrations-better-auth/src/index.js",
+    "./runtime-vercel": "./dist-package/packages/runtime-vercel/src/index.js",
+    "./runtime-cloudflare": "./dist-package/packages/runtime-cloudflare/src/index.js",
+    "./compiler": "./dist-package/packages/compiler/src/index.js",
+    "./openapi": "./dist-package/packages/openapi/src/index.js",
+    "./client": "./dist-package/packages/client/src/index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.12.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^22.20.2",
+    "@types/ws": "^8.18.1",
+    "ai": "^7.0.99",
+    "better-auth": "^1.7.4",
+    "better-sqlite3": "^12.11.1",
+    "drizzle-orm": "^0.45.2",
+    "elysia": "^2.0.0-exp.60",
+    "exact-mirror": "^1.2.6",
+    "express": "^5.2.1",
+    "fastify": "^5.12.4",
+    "openapi-types": "^12.1.3",
+    "prisma": "^6.12.0",
+    "typebox": "^1.3.30",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "graphql": "^17.0.2",
+    "ws": "^8.21.3"
+  },
+  "peerDependencies": {
+    "@prisma/client": "^6.12.0",
+    "ai": "^7.0.99",
+    "better-auth": "^1.7.4",
+    "better-sqlite3": "^12.11.1",
+    "drizzle-orm": "^0.45.2"
+  },
+  "peerDependenciesMeta": {
+    "@prisma/client": { "optional": true },
+    "ai": { "optional": true },
+    "better-auth": { "optional": true },
+    "better-sqlite3": { "optional": true },
+    "drizzle-orm": { "optional": true }
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
+  }
+}

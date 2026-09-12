@@ -1,0 +1,2349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Nelysia comprehensive documentation: A compiler-first TypeScript backend framework for Bun, Node.js, and Web Standards.">
+  <title>Nelysia Documentation | เอกสารคู่มือการใช้งาน Nelysia</title>
+  <style>
+    :root {
+      --bg: #070c0d;
+      --bg-alt: #0d1415;
+      --panel: #111a1b;
+      --panel2: #162425;
+      --line: #243534;
+      --line-light: #324746;
+      --text: #eaf1ed;
+      --muted: #a4b7b1;
+      --quiet: #788c87;
+      --lime: #d8ff62;
+      --lime-dim: #9ec237;
+      --cyan: #6ee2dc;
+      --cyan-dim: #3fa19b;
+      --orange: #ffad66;
+      --purple: #c5b4ff;
+      --pink: #ff9bcb;
+      --red: #ff7070;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; background: var(--bg); }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.7 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--cyan); text-decoration: none; transition: color 0.15s ease; }
+    a:hover { color: var(--lime); }
+    code, pre { font-family: var(--mono); }
+    code {
+      color: var(--lime);
+      background: #142021;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+      border: 1px solid #1f302f;
+    }
+    pre code {
+      background: transparent;
+      padding: 0;
+      border: 0;
+      color: inherit;
+    }
+
+    /* Shell Layout */
+    .shell {
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .side {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 24px 18px 30px;
+      border-right: 1px solid var(--line);
+      background: #090e0ff5;
+      backdrop-filter: blur(12px);
+      z-index: 10;
+    }
+    .side::-webkit-scrollbar { width: 5px; }
+    .side::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      background: var(--lime);
+      color: #070c0d;
+      border-radius: 8px 3px;
+      font: 900 0.95rem var(--mono);
+      box-shadow: 0 0 15px rgba(216, 255, 98, 0.3);
+    }
+    .brand small {
+      display: block;
+      color: var(--quiet);
+      font: 400 0.72rem var(--mono);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .version-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 20px 0 16px;
+      padding: 3px 9px;
+      border: 1px solid #314a2b;
+      border-radius: 999px;
+      background: #131c11;
+      color: var(--lime);
+      font: 500 0.73rem var(--mono);
+    }
+    .version-pill::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--lime);
+      box-shadow: 0 0 6px var(--lime);
+    }
+
+    .nav-group { margin-bottom: 20px; }
+    .nav-title {
+      margin: 14px 0 6px 8px;
+      color: var(--quiet);
+      font: 700 0.7rem var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .nav a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      color: var(--muted);
+      border-radius: 6px;
+      font-size: 0.86rem;
+      transition: all 0.12s ease;
+    }
+    .nav a:hover {
+      background: var(--panel2);
+      color: var(--text);
+      transform: translateX(2px);
+    }
+    .nav a.active {
+      background: var(--panel2);
+      color: var(--lime);
+      font-weight: 600;
+      box-shadow: inset 3px 0 var(--lime);
+    }
+    .side-foot {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--quiet);
+      font: 0.75rem/1.5 var(--mono);
+    }
+
+    /* Main Area */
+    main { min-width: 0; }
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 5vw;
+      border-bottom: 1px solid var(--line);
+      background: #070c0de6;
+      backdrop-filter: blur(16px);
+    }
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .crumb {
+      color: var(--quiet);
+      font: 0.76rem var(--mono);
+    }
+    .crumb b { color: var(--lime); font-weight: 600; }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Language Switcher */
+    .lang-switcher {
+      display: flex;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .lang-btn {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 5px 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .lang-btn:hover { color: var(--text); }
+    .lang-btn.active {
+      background: var(--panel2);
+      color: var(--lime);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    /* Search */
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 240px;
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--muted);
+      transition: border-color 0.15s;
+    }
+    .search:focus-within { border-color: var(--cyan); }
+    .search input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      background: transparent;
+      font: 0.8rem var(--mono);
+    }
+    .search kbd {
+      padding: 1px 5px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      color: var(--quiet);
+      font: 0.65rem var(--mono);
+      background: var(--bg);
+    }
+
+    .menu-toggle {
+      display: none;
+      color: var(--lime);
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 6px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font: 700 0.75rem var(--mono);
+    }
+
+    /* Content */
+    .content {
+      width: min(calc(100% - 10vw), 980px);
+      margin: auto;
+      padding: 60px 0 120px;
+    }
+
+    /* Hero */
+    .hero {
+      padding-bottom: 60px;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-tag {
+      display: inline-block;
+      color: var(--lime);
+      font: 700 0.78rem var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    h1 {
+      margin: 0 0 18px;
+      font-size: clamp(2.8rem, 6.5vw, 5rem);
+      line-height: 1.06;
+      letter-spacing: -0.05em;
+      font-weight: 800;
+    }
+    h1 em {
+      color: var(--lime);
+      font-style: normal;
+      background: linear-gradient(135deg, var(--lime), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .lede {
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 1.18rem;
+      line-height: 1.65;
+      margin: 0 0 28px;
+    }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tag {
+      padding: 4px 10px;
+      border: 1px solid #274442;
+      border-radius: 4px;
+      background: #0f1c1d;
+      color: var(--cyan);
+      font: 600 0.74rem var(--mono);
+    }
+    .tag.good {
+      border-color: #496324;
+      background: #172310;
+      color: var(--lime);
+    }
+
+    /* Sections */
+    section {
+      scroll-margin-top: 85px;
+      padding: 65px 0 0;
+      border-bottom: 1px solid #142020;
+    }
+    section:last-of-type { border-bottom: 0; }
+    h2 {
+      margin: 0 0 14px;
+      font-size: clamp(1.8rem, 3.5vw, 2.4rem);
+      letter-spacing: -0.035em;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    h2::before {
+      content: "#";
+      color: var(--lime);
+      font-family: var(--mono);
+      font-size: 0.8em;
+      opacity: 0.7;
+    }
+    h3 {
+      margin: 32px 0 10px;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--cyan);
+      letter-spacing: -0.02em;
+    }
+    p, li {
+      max-width: 76ch;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+    ul, ol { padding-left: 22px; }
+    li { margin-bottom: 6px; }
+
+    /* Code Blocks */
+    .code {
+      position: relative;
+      max-width: 880px;
+      margin: 20px 0 26px;
+    }
+    .code-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background: #0d1617;
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      border-radius: 8px 8px 0 0;
+      font: 0.72rem var(--mono);
+      color: var(--quiet);
+    }
+    .code button {
+      padding: 4px 9px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--panel);
+      cursor: pointer;
+      font: 600 0.7rem var(--mono);
+      transition: all 0.15s;
+    }
+    .code button:hover {
+      color: var(--lime);
+      border-color: var(--lime);
+    }
+    pre {
+      overflow: auto;
+      margin: 0;
+      padding: 20px;
+      color: #d8e5e0;
+      border: 1px solid var(--line);
+      border-radius: 0 0 8px 8px;
+      background: #060a0b;
+      font-size: 0.84rem;
+      line-height: 1.7;
+    }
+    .code-standalone pre { border-radius: 8px; }
+
+    /* Syntax Highlighting */
+    .kw { color: var(--pink); font-weight: 600; }
+    .fn { color: var(--cyan); }
+    .str { color: var(--orange); }
+    .num { color: var(--purple); }
+    .com { color: var(--quiet); font-style: italic; }
+
+    /* Grid & Cards */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      max-width: 880px;
+      margin: 22px 0 28px;
+    }
+    .tile {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(150deg, var(--panel), #0a1011);
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .tile:hover {
+      border-color: var(--line-light);
+      transform: translateY(-2px);
+    }
+    .tile b {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--lime);
+      font: 700 0.8rem var(--mono);
+      letter-spacing: 0.04em;
+    }
+    .tile p {
+      margin: 0;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    /* Callout */
+    .callout {
+      max-width: 880px;
+      margin: 22px 0;
+      padding: 16px 20px;
+      border: 1px solid #4a6324;
+      border-left: 4px solid var(--lime);
+      background: #111a0e;
+      border-radius: 0 8px 8px 0;
+      color: #dbe8cb;
+    }
+    .callout.info {
+      border-color: #275250;
+      border-left-color: var(--cyan);
+      background: #0e1a1b;
+      color: #cee8e6;
+    }
+    .callout.warn {
+      border-color: #63431f;
+      border-left-color: var(--orange);
+      background: #1a150d;
+      color: #ebd7c0;
+    }
+    .callout b {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 5px;
+      font: 700 0.77rem var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .callout b { color: var(--lime); }
+    .callout.info b { color: var(--cyan); }
+    .callout.warn b { color: var(--orange); }
+
+    /* Tables */
+    .table-box {
+      max-width: 880px;
+      overflow-x: auto;
+      margin: 22px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      min-width: 580px;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      background: var(--panel);
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+    }
+    th {
+      color: var(--lime);
+      background: #142021;
+      font: 700 0.74rem var(--mono);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    td { color: var(--muted); }
+    tr:last-child td { border-bottom: 0; }
+    .status {
+      color: var(--cyan);
+      font-family: var(--mono);
+      font-weight: 600;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 100px;
+      padding-top: 30px;
+      border-top: 1px solid var(--line);
+      color: var(--quiet);
+      font: 0.8rem var(--mono);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    /* Language Toggle Display Rules */
+    body.lang-en [data-lang="th"] { display: none !important; }
+    body.lang-th [data-lang="en"] { display: none !important; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .shell { display: block; }
+      .side {
+        position: fixed;
+        width: 300px;
+        transform: translateX(-100%);
+        transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 20px 0 40px rgba(0,0,0,0.6);
+      }
+      .side.open { transform: translateX(0); }
+      .menu-toggle { display: block; }
+      .top { padding: 0 5vw; }
+      .crumb { display: none; }
+      .search { width: 170px; }
+      .content { width: min(calc(100% - 10vw), 720px); padding-top: 40px; }
+    }
+    @media (max-width: 600px) {
+      .top-right { gap: 8px; }
+      .search { display: none; }
+      .content { width: calc(100% - 36px); }
+      h1 { font-size: 2.8rem; }
+      pre { font-size: 0.76rem; padding: 16px 12px; }
+    }
+  </style>
+</head>
+<body class="lang-en">
+  <div class="shell">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="side" id="side">
+      <a class="brand" href="#top">
+        <span class="mark">N</span>
+        <span>
+          Nelysia
+          <small>compiler-first backend</small>
+        </span>
+      </a>
+
+      <div class="version-pill">
+        <span>release <b>v0.1</b> / MVP</span>
+      </div>
+
+      <nav class="nav" aria-label="Documentation navigation">
+        <div class="nav-group">
+          <div class="nav-title">
+            <span data-lang="en">Start Here</span>
+            <span data-lang="th">เริ่มต้นที่นี่</span>
+          </div>
+          <a href="#overview"><span data-lang="en">Overview</span><span data-lang="th">ภาพรวมและแนวคิด</span></a>
+          <a href="#install"><span data-lang="en">Installation</span><span data-lang="th">การติดตั้ง & ข้อกำหนด</span></a>
+          <a href="#quickstart"><span data-lang="en">Quick Start</span><span data-lang="th">เริ่มต้นใช้งาน</span></a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-title">
+            <span data-lang="en">Core HTTP</span>
+            <span data-lang="th">แกนหลัก HTTP</span>
+          </div>
+          <a href="#app"><span data-lang="en">Nelysia Instance</span><span data-lang="th">การตั้งค่า Nelysia</span></a>
+          <a href="#routing"><span data-lang="en">Routing</span><span data-lang="th">ระบบ Routing</span></a>
+          <a href="#context"><span data-lang="en">Request Context</span><span data-lang="th">Request Context</span></a>
+          <a href="#cookies"><span data-lang="en">Cookies</span><span data-lang="th">การจัดการ Cookies</span></a>
+          <a href="#responses"><span data-lang="en">Responses & Streaming</span><span data-lang="th">Response และ Streaming</span></a>
+          <a href="#validation"><span data-lang="en">Schema Validation</span><span data-lang="th">การตรวจสอบ Schema</span></a>
+          <a href="#lifecycle"><span data-lang="en">Lifecycle Hooks</span><span data-lang="th">Lifecycle & Hooks</span></a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-title">
+            <span data-lang="en">Advanced & Plugins</span>
+            <span data-lang="th">ขั้นสูงและปลั๊กอิน</span>
+          </div>
+          <a href="#mounting"><span data-lang="en">Sub-App Mounting</span><span data-lang="th">การรวม Sub-App (Mount)</span></a>
+          <a href="#websockets"><span data-lang="en">WebSockets</span><span data-lang="th">การใช้งาน WebSockets</span></a>
+          <a href="#plugins"><span data-lang="en">Plugins & Composition</span><span data-lang="th">ปลั๊กอินและองค์ประกอบ</span></a>
+          <a href="#openapi"><span data-lang="en">OpenAPI 3.1 & Redoc</span><span data-lang="th">OpenAPI 3.1 & Redoc</span></a>
+          <a href="#observability"><span data-lang="en">Observability (OTLP)</span><span data-lang="th">ระบบ Observability (OTLP)</span></a>
+          <a href="#graphql"><span data-lang="en">GraphQL Integration</span><span data-lang="th">การเชื่อมต่อ GraphQL</span></a>
+          <a href="#database"><span data-lang="en">Databases (Drizzle & Prisma)</span><span data-lang="th">ฐานข้อมูล (Drizzle & Prisma)</span></a>
+          <a href="#auth"><span data-lang="en">Better Auth</span><span data-lang="th">ยืนยันตัวตน Better Auth</span></a>
+          <a href="#aisdk"><span data-lang="en">AI SDK</span><span data-lang="th">การเชื่อมต่อ AI SDK</span></a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-title">
+            <span data-lang="en">Tooling & Ecosystem</span>
+            <span data-lang="th">เครื่องมือและระบบ</span>
+          </div>
+          <a href="#client"><span data-lang="en">Client SDK</span><span data-lang="th">Client SDK</span></a>
+          <a href="#compiler"><span data-lang="en">Compiler Platform & CLI</span><span data-lang="th">คอมไพเลอร์ & CLI</span></a>
+          <a href="#runtimes"><span data-lang="en">Runtimes & Adapters</span><span data-lang="th">รันไทม์ที่รองรับ</span></a>
+          <a href="#fullstack"><span data-lang="en">Full-Stack Integration</span><span data-lang="th">ใช้งานกับ Next/Nuxt/Svelte/Astro</span></a>
+          <a href="#benchmark"><span data-lang="en">Benchmarks & Soak</span><span data-lang="th">การทดสอบ Benchmark</span></a>
+          <a href="#migration"><span data-lang="en">Migration Guides</span><span data-lang="th">คู่มือการย้ายโค้ด</span></a>
+          <a href="#verify"><span data-lang="en">Verification</span><span data-lang="th">การตรวจสอบระบบ</span></a>
+        </div>
+      </nav>
+
+      <div class="side-foot">
+        <div>Nelysia v0.1.0</div>
+        <div style="color: var(--muted); margin-top: 4px;">Simple by default.<br>Specialized to run.</div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main id="top">
+      <header class="top">
+        <div class="top-left">
+          <button class="menu-toggle" id="menu">MENU</button>
+          <div class="crumb"><b>nelysia</b> / <span data-lang="en">documentation</span><span data-lang="th">คู่มือการใช้งาน</span></div>
+        </div>
+
+        <div class="top-right">
+          <!-- Language Selector -->
+          <div class="lang-switcher">
+            <button class="lang-btn active" id="btn-en">🇬🇧 EN</button>
+            <button class="lang-btn" id="btn-th">🇹🇭 TH</button>
+          </div>
+
+          <!-- Fast Section Search -->
+          <label class="search">
+            <span>⌕</span>
+            <input id="search" type="search" placeholder="Search docs..." autocomplete="off">
+            <kbd>/</kbd>
+          </label>
+        </div>
+      </header>
+
+      <article class="content">
+        <!-- Hero Section -->
+        <header class="hero" id="overview">
+          <div class="hero-tag">TypeScript Backend / Bun + Node.js + Web Standards</div>
+          
+          <h1 data-lang="en">Write the app.<br><em>Ship its shape.</em></h1>
+          <h1 data-lang="th">เขียนง่าย สบายกระเป๋า.<br><em>คอมไพล์เร็วตรงสเปก.</em></h1>
+
+          <p class="lede" data-lang="en">
+            Nelysia is a compiler-first TypeScript backend framework. Build with an ergonomic, chainable API, then run a server specialized around the routes, schemas, and runtime you actually use.
+          </p>
+          <p class="lede" data-lang="th">
+            Nelysia คือ TypeScript Backend Framework สายพันธุ์ใหม่ที่ออกแบบด้วยแนวคิด Compiler-First เขียนโค้ดได้อย่างคล่องตัวด้วย Chainable API แล้วคอมไพล์ออกมาเป็นเซิร์ฟเวอร์ที่ปรับแต่งตาม Route, Schema และ Runtime ที่คุณใช้งานจริงแบบ Zero-overhead
+          </p>
+
+          <div class="tags">
+            <span class="tag good">v0.1 MVP Complete</span>
+            <span class="tag">Node.js 22+</span>
+            <span class="tag">Bun 1.4+</span>
+            <span class="tag">Standard Schema v1</span>
+            <span class="tag">OpenAPI 3.1</span>
+            <span class="tag">Web Standards</span>
+          </div>
+        </header>
+
+        <!-- 1. Overview & Architecture -->
+        <section id="architecture">
+          <h2>
+            <span data-lang="en">Core Philosophy & Architecture</span>
+            <span data-lang="th">สถาปัตยกรรมและปรัชญาการออกแบบ</span>
+          </h2>
+          
+          <p data-lang="en">
+            Traditional web frameworks route all HTTP traffic through a universal, generic pipeline where every request allocates context objects, parses query parameters, resolves headers, and iterates through middleware arrays. Nelysia breaks this paradigm by introducing ahead-of-time (AOT) static route analysis.
+          </p>
+          <p data-lang="th">
+            เว็บเฟรมเวิร์กทั่วไปมักส่งทุก Request วิ่งผ่าน Pipeline รูปแบบเดียวกันหมด ซึ่งต้องจองหน่วยความจำสำหรับ Context Object, Parse ข้อมูล Query และวนลูปผ่าน Middleware เสมอ Nelysia ปฏิวัติการทำงานนี้ด้วยการใช้ระบบวิเคราะห์ Route ล่วงหน้า (AOT Static Route Analysis)
+          </p>
+
+          <div class="grid">
+            <div class="tile">
+              <b>COMPILED PATH</b>
+              <p data-lang="en">Static routes with constant values bypass context allocation and run directly at maximum possible throughput.</p>
+              <p data-lang="th">เส้นทางที่เป็นค่าคงที่ (Static Value) จะข้ามขั้นตอนการสร้าง Context ทั้งหมด ตอบสนองได้ด้วยความเร็วสูงสุดระดับเนทีฟ</p>
+            </div>
+            <div class="tile">
+              <b>SPECIALIZED PATH</b>
+              <p data-lang="en">Routes with dynamic URL parameters extract only necessary segment values without paying for unused cookie or query parsing.</p>
+              <p data-lang="th">เส้นทางที่มี Parameter ใน URL จะดึงเฉพาะค่าที่จำเป็น ตัด overhead จากการอ่าน Cookie หรือ Query ที่ไม่ได้ใช้ออกไป</p>
+            </div>
+            <div class="tile">
+              <b>GENERIC PATH</b>
+              <p data-lang="en">Dynamic routes with hooks, schemas, or opaque handlers safely retain full context, error handling, and lifecycle guarantees.</p>
+              <p data-lang="th">เส้นทางที่มี Hooks ซับซ้อน หรือ Schema หลายระดับ จะทำงานบน Full Pipeline ที่ปลอดภัยและยืดหยุ่นเต็มรูปแบบ</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Installation -->
+        <section id="install">
+          <h2>
+            <span data-lang="en">Installation & Requirements</span>
+            <span data-lang="th">การติดตั้งและข้อกำหนด</span>
+          </h2>
+
+          <p data-lang="en">
+            Nelysia leverages modern runtime primitives and zero external heavy dependencies for core execution.
+          </p>
+          <p data-lang="th">
+            Nelysia ใช้ประโยชน์จากความสามารถของ Runtime ยุคใหม่ และไม่มี Dependency ภายนอกที่ไม่จำเป็นในตัว Core Engine
+          </p>
+
+          <ul>
+            <li><b>Node.js:</b> v22.0.0+ (supports native <code>--experimental-strip-types</code>)</li>
+            <li><b>Bun:</b> v1.4.0+ (native WebSocket and blazing fast I/O)</li>
+            <li><b>TypeScript:</b> v5.0+</li>
+          </ul>
+
+          <div class="code">
+            <div class="code-bar"><span>Terminal</span><button>copy</button></div>
+            <pre><code><span class="com"># Install dependencies</span>
+npm install
+
+<span class="com"># Run typecheck and test suite</span>
+npm run typecheck
+npm test</code></pre>
+          </div>
+        </section>
+
+        <!-- 3. Quick Start -->
+        <section id="quickstart">
+          <h2>
+            <span data-lang="en">Quick Start</span>
+            <span data-lang="th">เริ่มต้นใช้งานอย่างรวดเร็ว</span>
+          </h2>
+
+          <p data-lang="en">
+            Export <code>app</code> from its own module so the compiler and CLI can inspect and build the route graph without prematurely binding to an HTTP port.
+          </p>
+          <p data-lang="th">
+            ควร <code>export const app</code> แยกไว้เสมอ เพื่อให้ตัววิเคราะห์คอมไพเลอร์และ CLI สามารถอ่าน Route Graph ได้โดยไม่ต้องเปิด Port ค้างไว้ระหว่างขั้นตอนการ Build
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>src/app.ts</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"nelysia"</span>
+
+<span class="kw">export const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>()
+  .<span class="fn">get</span>(<span class="str">"/"</span>, <span class="str">"Hello from Nelysia!"</span>)
+  .<span class="fn">get</span>(<span class="str">"/users/:id"</span>, ({ params }) =&gt; ({
+    id: params.id,
+    timestamp: Date.<span class="fn">now</span>()
+  }))
+
+<span class="kw">if</span> (import.meta.main || process.env.NODE_ENV !== <span class="str">"test"</span>) {
+  app.<span class="fn">listen</span>(<span class="num">3000</span>)
+}</code></pre>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><span>Terminal</span><button>copy</button></div>
+            <pre><code><span class="com"># Run with Node.js 22+</span>
+node --experimental-strip-types src/app.ts
+
+<span class="com"># Or run with Bun</span>
+bun run src/app.ts
+
+<span class="com"># Test endpoints</span>
+curl http://localhost:3000/
+curl http://localhost:3000/users/42</code></pre>
+          </div>
+        </section>
+
+        <!-- 4. Nelysia Instance -->
+        <section id="app">
+          <h2>
+            <span data-lang="en">Nelysia Instance & Options</span>
+            <span data-lang="th">การสร้าง Instance และการตั้งค่า</span>
+          </h2>
+
+          <p data-lang="en">Configure security, body limits, proxy trust, and global telemetry during initialization:</p>
+          <p data-lang="th">กำหนดค่าความปลอดภัย, ขนาดสูงสุดของ Request Body, การทำงานร่วมกับ Reverse Proxy และ Telemetry:</p>
+
+          <div class="code">
+            <div class="code-bar"><span>Options Configuration</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"nelysia"</span>
+
+<span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>({
+  <span class="com">// Max body payload in bytes (default: 1MB = 1048576)</span>
+  bodyLimit: <span class="num">5</span> * <span class="num">1024</span> * <span class="num">1024</span>, <span class="com">// 5 MB</span>
+
+  <span class="com">// Resolve clientIp from X-Forwarded-For if behind trusted load balancers</span>
+  trustedProxy: <span class="kw">true</span>,
+
+  <span class="com">// Enforce Secure flag on all outgoing cookies automatically</span>
+  secureCookies: <span class="kw">true</span>,
+
+  <span class="com">// Global telemetry hooks</span>
+  telemetry: {
+    <span class="fn">onRequest</span>(ctx) { console.<span class="fn">log</span>(<span class="str">`Incoming: \${ctx.request.method} \${ctx.request.url}`</span>) },
+    <span class="fn">onResponse</span>(ctx, res) { console.<span class="fn">log</span>(<span class="str">`Status: \${res.status}`</span>) },
+    <span class="fn">onError</span>(ctx, err) { console.<span class="fn">error</span>(<span class="str">`Error:`</span>, err) }
+  }
+})</code></pre>
+          </div>
+        </section>
+
+        <!-- 5. Routing -->
+        <section id="routing">
+          <h2>
+            <span data-lang="en">Routing & HTTP Methods</span>
+            <span data-lang="th">ระบบ Routing และ HTTP Methods</span>
+          </h2>
+
+          <p data-lang="en">
+            Nelysia features deterministic route matching. Static paths execute via direct $O(1)$ dictionary lookups. Parameter routes extract path variables. If an existing path receives an unsupported method, Nelysia returns <code>405 Method Not Allowed</code> with the <code>Allow</code> header populated automatically. <code>OPTIONS</code> and <code>HEAD</code> requests are resolved out of the box.
+          </p>
+          <p data-lang="th">
+            ระบบ Route ของ Nelysia ทำงานอย่างแม่นยำ เส้นทาง Static ค้นหาผ่าน Hash Table ด้วยความเร็ว $O(1)$ เส้นทางที่มีพารามิเตอร์จะถูกจับคู่อย่างถูกต้อง หากมีการเรียก Method ที่ไม่ได้เปิดไว้ จะตอบกลับด้วย <code>405 Method Not Allowed</code> พร้อม Header <code>Allow</code> อัตโนมัติ รวมถึงรองรับ <code>OPTIONS</code> และ <code>HEAD</code> ในตัว
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Route Registration</span><button>copy</button></div>
+            <pre><code><span class="com">// Method chaining</span>
+app
+  .<span class="fn">get</span>(<span class="str">"/items"</span>, () =&gt; [{ id: <span class="num">1</span>, name: <span class="str">"Widget"</span> }])
+  .<span class="fn">post</span>(<span class="str">"/items"</span>, ({ body }) =&gt; ({ created: <span class="kw">true</span>, body }))
+  .<span class="fn">put</span>(<span class="str">"/items/:id"</span>, ({ params, body }) =&gt; ({ id: params.id, updated: body }))
+  .<span class="fn">delete</span>(<span class="str">"/items/:id"</span>, ({ params }) =&gt; ({ id: params.id, deleted: <span class="kw">true</span> }))
+  .<span class="fn">patch</span>(<span class="str">"/items/:id"</span>, ({ params, body }) =&gt; ({ id: params.id, patch: body }))
+  .<span class="fn">getStatic</span>(<span class="str">"/health"</span>, { status: <span class="str">"ok"</span> }) <span class="com">// 100% Context-free compiled route</span>
+  .<span class="fn">all</span>(<span class="str">"/api/auth/*"</span>, <span class="kw">async</span> (ctx) =&gt; auth.<span class="fn">handler</span>(<span class="kw">new</span> <span class="fn">Request</span>(ctx.request.url, {
+    method: ctx.request.method, headers: ctx.request.headers
+  }))) <span class="com">// every HTTP method</span></code></pre>
+          </div>
+
+          <p data-lang="en">
+            A path ending in <code>/*</code> is a <b>wildcard route</b>: it captures every sub-path beneath its prefix, exposed as <code>params["*"]</code>. Wildcards must be the final segment and are always served through the generic runtime.
+          </p>
+          <p data-lang="th">
+            Path ที่ลงท้ายด้วย <code>/*</code> คือ <b>wildcard route</b> จับทุกเส้นทางย่อยภายใต้ prefix นั้น ค่าที่เหลืออยู่ใน <code>params["*"]</code> ต้องอยู่ตำแหน่งสุดท้ายของ path เท่านั้น และจะทำงานบน generic runtime เสมอ
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Wildcard Route</span><button>copy</button></div>
+            <pre><code>app.<span class="fn">get</span>(<span class="str">"/files/*"</span>, ({ params }) =&gt; ({ rest: params[<span class="str">"*"</span>] }))
+<span class="com">// GET /files/a/b.txt → { "rest": "a/b.txt" }</span></code></pre>
+          </div>
+
+          <p data-lang="en">
+            <b>Path rules:</b> every path must start with <code>/</code>. Parameter names must match <code>^[A-Za-z_][A-Za-z0-9_]*$</code>. A trailing slash (<code>/users/</code>) matches the same route as <code>/users</code>. Registering the same method + path twice throws <code>Duplicate route</code>. Non-function values passed to <code>.get(path, value)</code> become precompiled static routes (context-free, standalone-eligible) — the fastest tier.
+          </p>
+          <p data-lang="th">
+            <b>กฎของ path:</b> ทุก path ต้องขึ้นต้นด้วย <code>/</code> ชื่อ parameter ต้องตรง <code>^[A-Za-z_][A-Za-z0-9_]*$</code> ลงท้ายด้วย slash (<code>/users/</code>) ถือเป็น route เดียวกับ <code>/users</code> ลงทะเบียน method + path ซ้ำจะ throw <code>Duplicate route</code> การส่งค่าตรงๆ (ไม่ใช่ function) ให้ <code>.get(path, value)</code> จะกลายเป็น static route ที่ precompile ไว้ — เร็วที่สุด
+          </p>
+
+          <p data-lang="en">
+            <b>HEAD & OPTIONS:</b> <code>HEAD</code> reuses the matching <code>GET</code> route and returns headers with an empty body. <code>OPTIONS</code> on an existing path returns <code>204</code> with an <code>Allow</code> header listing <code>GET, HEAD, OPTIONS, …</code>.
+          </p>
+          <p data-lang="th">
+            <b>HEAD & OPTIONS:</b> <code>HEAD</code> ใช้ route <code>GET</code> ที่ตรงกันและตอบ header กลับโดยไม่มี body ส่วน <code>OPTIONS</code> บน path ที่มีอยู่จะตอบ <code>204</code> พร้อม header <code>Allow</code> เช่น <code>GET, HEAD, OPTIONS, …</code>
+          </p>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>400 Unsupported HTTP method</code></td>
+                  <td><span data-lang="en">Method outside GET/POST/PUT/PATCH/DELETE/OPTIONS/HEAD.</span><span data-lang="th">Method นอกเหนือจาก GET/POST/PUT/PATCH/DELETE/OPTIONS/HEAD</span></td>
+                </tr>
+                <tr>
+                  <td><code>400 Malformed JSON body</code></td>
+                  <td><span data-lang="en">Body claims <code>application/json</code> but does not parse.</span><span data-lang="th">Body ระบุ <code>application/json</code> แต่ parse ไม่ผ่าน</span></td>
+                </tr>
+                <tr>
+                  <td><code>400</code> <span data-lang="en">validation</span><span data-lang="th">validation</span></td>
+                  <td><span data-lang="en">Any <code>t.*</code> / Standard Schema check fails (handler never runs).</span><span data-lang="th">Schema ใดๆ ไม่ผ่าน (handler จะไม่ถูกเรียก)</span></td>
+                </tr>
+                <tr>
+                  <td><code>413 Request body is too large</code></td>
+                  <td><span data-lang="en">Payload exceeds <code>bodyLimit</code> (default 1 MB).</span><span data-lang="th">ขนาดเกิน <code>bodyLimit</code> (ค่าเริ่มต้น 1 MB)</span></td>
+                </tr>
+                <tr>
+                  <td><code>404 Not Found</code></td>
+                  <td><span data-lang="en">No route matches the path.</span><span data-lang="th">ไม่มี route ตรงกับ path</span></td>
+                </tr>
+                <tr>
+                  <td><code>405 + Allow</code></td>
+                  <td><span data-lang="en">Path exists but method is not registered.</span><span data-lang="th">path มีอยู่แต่ไม่ได้ลงทะเบียน method นี้</span></td>
+                </tr>
+                <tr>
+                  <td><code>429 + Retry-After</code></td>
+                  <td><span data-lang="en">Only from the <code>rateLimit</code> plugin when the window budget is exhausted.</span><span data-lang="th">จากปลั๊กอิน <code>rateLimit</code> เมื่อใช้โควตาหมดเท่านั้น</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 6. Request Context -->
+        <section id="context">
+          <h2>
+            <span data-lang="en">Request Context</span>
+            <span data-lang="th">Request Context</span>
+          </h2>
+
+          <p data-lang="en">Each handler receives an isolated, request-scoped <code>Context</code> object with all parameters and utilities:</p>
+          <p data-lang="th">แต่ละ Route Handler จะได้รับ Object <code>Context</code> ที่ถูกสร้างแยกตาม Request มีฟิลด์และเมธอดดังนี้:</p>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field / Method</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>params</code></td>
+                  <td><code>Record&lt;string, string&gt;</code></td>
+                  <td><span data-lang="en">Decoded URL route parameters (e.g. <code>:id</code>).</span><span data-lang="th">พารามิเตอร์ใน URL ที่ถูกถอดรหัสแล้ว</span></td>
+                </tr>
+                <tr>
+                  <td><code>query</code></td>
+                  <td><code>URLSearchParams</code></td>
+                  <td><span data-lang="en">Parsed URL search queries (e.g. <code>?page=2</code>).</span><span data-lang="th">พารามิเตอร์ Query String ใน URL</span></td>
+                </tr>
+                <tr>
+                  <td><code>body</code></td>
+                  <td><code>unknown</code></td>
+                  <td><span data-lang="en">Parsed JSON object or raw text body.</span><span data-lang="th">ข้อมูล Body ที่แปลงเป็น JSON หรือข้อความ</span></td>
+                </tr>
+                <tr>
+                  <td><code>headers</code></td>
+                  <td><code>Headers</code></td>
+                  <td><span data-lang="en">Standard Web API Request Headers.</span><span data-lang="th">Web Standard Request Headers</span></td>
+                </tr>
+                <tr>
+                  <td><code>cookies</code></td>
+                  <td><code>Record&lt;string, string&gt;</code></td>
+                  <td><span data-lang="en">Key-value dictionary of incoming HTTP cookies.</span><span data-lang="th">ข้อมูล Cookies ที่ Client ส่งเข้ามา</span></td>
+                </tr>
+                <tr>
+                  <td><code>requestId</code></td>
+                  <td><code>string</code></td>
+                  <td><span data-lang="en">Unique identifier (from <code>x-request-id</code> or UUID).</span><span data-lang="th">รหัสระบุเฉพาะของ Request</span></td>
+                </tr>
+                <tr>
+                  <td><code>clientIp</code></td>
+                  <td><code>string | undefined</code></td>
+                  <td><span data-lang="en">Remote socket IP or forwarded client IP.</span><span data-lang="th">IP Address ของผู้ส่งคำขอ</span></td>
+                </tr>
+                <tr>
+                  <td><code>setCookie()</code></td>
+                  <td><code>(name, val, opts) =&gt; void</code></td>
+                  <td><span data-lang="en">Sets a response cookie with attributes.</span><span data-lang="th">ฟังก์ชันสำหรับสั่งบันทึก Cookie</span></td>
+                </tr>
+                <tr>
+                  <td><code>response()</code></td>
+                  <td><code>(status, body, headers) =&gt; ResponseData</code></td>
+                  <td><span data-lang="en">Generates a response with custom status and headers.</span><span data-lang="th">ฟังก์ชันสำหรับส่ง Status และ Header พิเศษกลับไป</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p data-lang="en">
+            <b>Request ID precedence:</b> <code>request.requestId</code> (set by HTTP adapters as a UUID per request) → incoming <code>x-request-id</code> header → deterministic fallback <code>req-METHOD-URL</code>. Every response carries the resolved ID in its <code>x-request-id</code> header, and telemetry spans include it for tracing.
+          </p>
+          <p data-lang="th">
+            <b>ลำดับ Request ID:</b> <code>request.requestId</code> (adapter สร้าง UUID ต่อ request) → header <code>x-request-id</code> ที่ client ส่งมา → fallback <code>req-METHOD-URL</code> ทุก response จะมี header <code>x-request-id</code> และ span ของ telemetry จะมี ID นี้เพื่อตาม trace
+          </p>
+
+          <p data-lang="en">
+            <b>Client IP:</b> <code>clientIp</code> reads the first entry of <code>X-Forwarded-For</code> <b>only</b> when <code>trustedProxy: true</code>; otherwise it uses the socket <code>remoteAddress</code> (often <code>undefined</code> on edge runtimes). The <code>rateLimit</code> plugin keys on <code>clientIp ?? "anonymous"</code> by default — leave <code>trustedProxy: false</code> unless you control the proxy, or clients can spoof the key.
+          </p>
+          <p data-lang="th">
+            <b>Client IP:</b> <code>clientIp</code> อ่านค่าแรกของ <code>X-Forwarded-For</code> <b>เฉพาะ</b>เมื่อ <code>trustedProxy: true</code> มิฉะนั้นใช้ <code>remoteAddress</code> ของ socket (บน edge มักเป็น <code>undefined</code>) ปลั๊กอิน <code>rateLimit</code> ใช้ <code>clientIp ?? "anonymous"</code> เป็น key ค่าเริ่มต้น — อย่าเปิด <code>trustedProxy</code> หากไม่ได้คุม proxy เอง เพราะ client ปลอม key ได้
+          </p>
+        </section>
+
+        <!-- 7. Cookies -->
+        <section id="cookies">
+          <h2>
+            <span data-lang="en">Cookies Management</span>
+            <span data-lang="th">การจัดการ Cookies</span>
+          </h2>
+
+          <div class="code">
+            <div class="code-bar"><span>Cookies Example</span><button>copy</button></div>
+            <pre><code>app.<span class="fn">get</span>(<span class="str">"/session"</span>, ({ cookies, setCookie }) =&gt; {
+  <span class="kw">const</span> previousToken = cookies.sessionToken
+
+  <span class="fn">setCookie</span>(<span class="str">"sessionToken"</span>, <span class="str">"new_secure_jwt_token"</span>, {
+    httpOnly: <span class="kw">true</span>,
+    secure: <span class="kw">true</span>,
+    sameSite: <span class="str">"strict"</span>,
+    path: <span class="str">"/"</span>,
+    maxAge: <span class="num">86400</span> <span class="com">// 1 day</span>
+  })
+
+  <span class="kw">return</span> { previous: previousToken ?? <span class="kw">null</span>, active: <span class="kw">true</span> }
+})</code></pre>
+          </div>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>CookieOptions</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>httpOnly</code></td>
+                  <td><code>boolean</code></td>
+                  <td><span data-lang="en">Adds <code>HttpOnly</code> (invisible to <code>document.cookie</code>).</span><span data-lang="th">เพิ่ม <code>HttpOnly</code> (JS อ่านไม่ได้)</span></td>
+                </tr>
+                <tr>
+                  <td><code>secure</code></td>
+                  <td><code>boolean</code></td>
+                  <td><span data-lang="en">Adds <code>Secure</code> (HTTPS only).</span><span data-lang="th">เพิ่ม <code>Secure</code> (เฉพาะ HTTPS)</span></td>
+                </tr>
+                <tr>
+                  <td><code>sameSite</code></td>
+                  <td><code>"strict" | "lax" | "none"</code></td>
+                  <td><span data-lang="en">Serialized as <code>SameSite=Strict|Lax|None</code>.</span><span data-lang="th">แปลงเป็น <code>SameSite=Strict|Lax|None</code></span></td>
+                </tr>
+                <tr>
+                  <td><code>path</code></td>
+                  <td><code>string</code></td>
+                  <td><span data-lang="en">Cookie scope path.</span><span data-lang="th">ขอบเขต path ของ cookie</span></td>
+                </tr>
+                <tr>
+                  <td><code>maxAge</code></td>
+                  <td><code>number</code></td>
+                  <td><span data-lang="en">Lifetime in seconds (<code>Max-Age</code>).</span><span data-lang="th">อายุเป็นวินาที (<code>Max-Age</code>)</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout info">
+            <b>secureCookies</b>
+            <span data-lang="en">With <code>secureCookies: true</code>, every <code>setCookie</code> forces <code>Secure</code> unless you explicitly pass <code>secure: false</code>. Incoming <code>Cookie</code> headers are split on <code>;</code> and URI-decoded.</span>
+            <span data-lang="th">เมื่อ <code>secureCookies: true</code> ทุก <code>setCookie</code> จะบังคับ <code>Secure</code> ยกเว้นส่ง <code>secure: false</code> มาชัดๆ ส่วน header <code>Cookie</code> ขาเข้าจะถูกแยกด้วย <code>;</code> และ URI-decode</span>
+          </div>
+        </section>
+
+        <!-- 8. Responses & Streaming -->
+        <section id="responses">
+          <h2>
+            <span data-lang="en">Responses & Streaming</span>
+            <span data-lang="th">การตอบกลับ (Responses) และ Streaming</span>
+          </h2>
+
+          <p data-lang="en">
+            Handlers can return plain JavaScript objects, strings, numbers, custom responses using <code>context.response()</code>, native Web Standard <code>Response</code>, or <code>ReadableStream</code> for real-time streaming:
+          </p>
+          <p data-lang="th">
+            Handler สามารถส่งผลลัพธ์กลับได้หลายรูปแบบ: Object/Primitive ทั่วไป, ฟังก์ชัน <code>context.response()</code>, อ็อบเจกต์ <code>Response</code> ดั้งเดิม หรือ <code>ReadableStream</code> สำหรับการส่งข้อมูลแบบต่อเนื่อง (Streaming):
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Streaming and Response Types</span><button>copy</button></div>
+            <pre><code><span class="com">// 1. Custom status and headers</span>
+app.<span class="fn">post</span>(<span class="str">"/create"</span>, ({ response }) =&gt; {
+  <span class="kw">return</span> <span class="fn">response</span>(<span class="num">201</span>, { created: <span class="kw">true</span> }, { <span class="str">"x-custom"</span>: <span class="str">"nelysia"</span> })
+})
+
+<span class="com">// 2. Chunked streaming via ReadableStream</span>
+app.<span class="fn">get</span>(<span class="str">"/stream"</span>, () =&gt; {
+  <span class="kw">const</span> stream = <span class="kw">new</span> <span class="fn">ReadableStream</span>({
+    <span class="fn">start</span>(controller) {
+      controller.<span class="fn">enqueue</span>(<span class="kw">new</span> <span class="fn">TextEncoder</span>().<span class="fn">encode</span>(<span class="str">"Data chunk 1\n"</span>))
+      controller.<span class="fn">enqueue</span>(<span class="kw">new</span> <span class="fn">TextEncoder</span>().<span class="fn">encode</span>(<span class="str">"Data chunk 2\n"</span>))
+      controller.<span class="fn">close</span>()
+    }
+  })
+  <span class="kw">return new</span> <span class="fn">Response</span>(stream, {
+    headers: { <span class="str">"content-type"</span>: <span class="str">"text/plain; charset=utf-8"</span> }
+  })
+})</code></pre>
+          </div>
+        </section>
+
+        <!-- 9. Schema Validation -->
+        <section id="validation">
+          <h2>
+            <span data-lang="en">Schema Validation & Type Safety</span>
+            <span data-lang="th">การตรวจสอบ Schema และ Type Safety</span>
+          </h2>
+
+          <p data-lang="en">
+            Nelysia provides a lightweight, zero-dependency schema builder <code>t</code>, and natively adheres to the <b>Standard Schema (v1)</b> specification—allowing direct interoperability with <b>Zod</b>, <b>Valibot</b>, and <b>ArkType</b>.
+          </p>
+          <p data-lang="th">
+            Nelysia มีตัวสร้าง Schema น้ำหนักเบาในตัวคือ <code>t</code> และรองรับมาตรฐาน <b>Standard Schema (v1)</b> โดยสมบูรณ์ จึงใช้งานร่วมกับ <b>Zod</b>, <b>Valibot</b> หรือ <b>ArkType</b> ได้ทันที
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Built-in schema (t) & Zod</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { Nelysia, t } <span class="kw">from</span> <span class="str">"nelysia"</span>
+<span class="kw">import</span> { z } <span class="kw">from</span> <span class="str">"zod"</span>
+
+<span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>()
+  <span class="com">// Built-in 't' schema</span>
+  .<span class="fn">post</span>(<span class="str">"/users"</span>, ({ body }) =&gt; body, {
+    body: t.<span class="fn">Object</span>({
+      name: t.<span class="fn">String</span>(),
+      age: t.<span class="fn">Number</span>()
+    })
+  })
+  <span class="com">// Standard Schema with Zod</span>
+  .<span class="fn">post</span>(<span class="str">"/articles"</span>, ({ body }) =&gt; body, {
+    body: z.<span class="fn">object</span>({
+      title: z.<span class="fn">string</span>().<span class="fn">min</span>(<span class="num">3</span>),
+      published: z.<span class="fn">boolean</span>()
+    })
+  })</code></pre>
+          </div>
+
+          <p data-lang="en">
+            Validate <b>five points</b> of a request at once — <code>params</code>, <code>query</code>, <code>headers</code>, <code>body</code>, plus the outgoing <code>response</code>:
+          </p>
+          <p data-lang="th">
+            ตรวจสอบได้พร้อมกัน <b>5 จุด</b> — <code>params</code>, <code>query</code>, <code>headers</code>, <code>body</code> และขาออก <code>response</code>:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Five Validation Points</span><button>copy</button></div>
+            <pre><code>app.<span class="fn">post</span>(<span class="str">"/articles/:id"</span>, ({ params, query, body }) =&gt; ({ params, query, body }), {
+  params: t.<span class="fn">Object</span>({ id: t.<span class="fn">String</span>() }),
+  query: t.<span class="fn">Object</span>({ draft: t.<span class="fn">String</span>() }),
+  headers: t.<span class="fn">Object</span>({ authorization: t.<span class="fn">String</span>() }),
+  body: t.<span class="fn">Object</span>({ content: t.<span class="fn">String</span>() }),
+  response: t.<span class="fn">Object</span>({ content: t.<span class="fn">String</span>() })
+})</code></pre>
+          </div>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Builder</th>
+                  <th>Accepts</th>
+                  <th>Rejects (→ 400)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>t.String()</code></td>
+                  <td><code>typeof v === "string"</code></td>
+                  <td><span data-lang="en">anything else</span><span data-lang="th">อย่างอื่นทั้งหมด</span></td>
+                </tr>
+                <tr>
+                  <td><code>t.Number()</code></td>
+                  <td><span data-lang="en">finite numbers (<code>NaN</code>/<code>Infinity</code> rejected)</span><span data-lang="th">ตัวเลข finite (<code>NaN</code>/<code>Infinity</code> ไม่ผ่าน)</span></td>
+                  <td><span data-lang="en">strings, <code>NaN</code>, <code>Infinity</code></span><span data-lang="th">string, <code>NaN</code>, <code>Infinity</code></span></td>
+                </tr>
+                <tr>
+                  <td><code>t.Boolean()</code></td>
+                  <td><code>true | false</code></td>
+                  <td><span data-lang="en">truthy strings like <code>"true"</code></span><span data-lang="th">string อย่าง <code>"true"</code></span></td>
+                </tr>
+                <tr>
+                  <td><code>t.Object({…})</code></td>
+                  <td><span data-lang="en">plain objects; <b>every</b> key in the shape is required, validated recursively as <code>path.key</code></span><span data-lang="th">object ธรรมดา <b>ทุก</b> key จำเป็น ตรวจ recursive เป็น <code>path.key</code></span></td>
+                  <td><span data-lang="en"><code>null</code>, arrays, missing keys</span><span data-lang="th"><code>null</code>, array, key ขาด</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p data-lang="en">
+            That is the <b>entire</b> built-in builder — there is no <code>t.Array</code>, <code>t.Optional</code>, or <code>t.Literal</code>. For anything richer, use a Standard Schema library (Zod/Valibot/ArkType) or compose <code>t.Object</code>. Derive static types with <code>Infer&lt;typeof UserSchema&gt;</code>, and adapt any Standard Schema manually with <code>fromStandardSchema(schema)</code>.
+          </p>
+          <p data-lang="th">
+            นี่คือ builder ในตัว <b>ทั้งหมด</b> — ไม่มี <code>t.Array</code>, <code>t.Optional</code> หรือ <code>t.Literal</code> ถ้าต้องการมากกว่านี้ให้ใช้ Standard Schema (Zod/Valibot/ArkType) หรือประกอบ <code>t.Object</code> เอา ดึง static type ด้วย <code>Infer&lt;typeof UserSchema&gt;</code> และ adapt schema เองด้วย <code>fromStandardSchema(schema)</code>
+          </p>
+
+          <div class="callout">
+            <b>Failure Contract</b>
+            <span data-lang="en">Validation runs before handler execution. Invalid schemas immediately return <code>400 Bad Request</code> with exact issue diagnostics. Request bodies exceeding <code>bodyLimit</code> return <code>413 Payload Too Large</code>.</span>
+            <span data-lang="th">การตรวจสอบจะทำงานก่อนที่ Handler จะถูกเรียกเสมอ หากข้อมูลไม่ถูกต้องจะตอบกลับด้วย <code>400 Bad Request</code> ทันที และหากขนาด Body เกินกว่า <code>bodyLimit</code> จะตอบกลับด้วย <code>413 Payload Too Large</code></span>
+          </div>
+        </section>
+
+        <!-- 10. Lifecycle Hooks -->
+        <section id="lifecycle">
+          <h2>
+            <span data-lang="en">Lifecycle Hooks & Error Handling</span>
+            <span data-lang="th">Lifecycle Hooks และการจัดการข้อผิดพลาด</span>
+          </h2>
+
+          <p data-lang="en">
+            Hooks are strictly ordered. Returning a response from <code>onBeforeHandle</code> stops the pipeline immediately (ideal for authentication guards).
+          </p>
+          <p data-lang="th">
+            Hooks ทำงานเรียงตามลำดับอย่างแม่นยำ หากใน <code>onBeforeHandle</code> มีการส่ง Response กลับ ระบบจะหยุดประมวลผลทันที (เหมาะสำหรับระบบ Auth Guard)
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Lifecycle Pipeline</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { Nelysia, HttpError } <span class="kw">from</span> <span class="str">"nelysia"</span>
+
+<span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>()
+  <span class="com">// 1. Before hook: Authorization Guard</span>
+  .<span class="fn">onBeforeHandle</span>(({ headers, response }) =&gt; {
+    <span class="kw">if</span> (!headers.<span class="fn">has</span>(<span class="str">"authorization"</span>)) {
+      <span class="kw">return</span> <span class="fn">response</span>(<span class="num">401</span>, { error: <span class="str">"Missing authorization header"</span> })
+    }
+  })
+
+  <span class="com">// 2. After hook: Response inspection or decoration</span>
+  .<span class="fn">onAfterHandle</span>((context, result) =&gt; {
+    result.headers.<span class="fn">set</span>(<span class="str">"x-served-by"</span>, <span class="str">"Nelysia"</span>)
+  })
+
+  <span class="com">// 3. Centralized error handling</span>
+  .<span class="fn">onError</span>((error, context) =&gt; {
+    <span class="kw">if</span> (error <span class="kw">instanceof</span> HttpError) {
+      <span class="kw">return</span> context.<span class="fn">response</span>(error.status, { error: error.message })
+    }
+    <span class="kw">return</span> context.<span class="fn">response</span>(<span class="num">500</span>, { error: <span class="str">"Internal server error"</span> })
+  })</code></pre>
+          </div>
+
+          <h3>
+            <span data-lang="en">Graceful Server Shutdown</span>
+            <span data-lang="th">การปิดเซิร์ฟเวอร์อย่างปลอดภัย (Graceful Shutdown)</span>
+          </h3>
+          <p data-lang="en">Drain active requests and close idle connections safely on SIGINT or SIGTERM:</p>
+          <p data-lang="th">ระบายคำขอที่กำลังทำงานและปิด Connection ที่ค้างอยู่เมื่อได้รับสัญญาณ SIGINT หรือ SIGTERM:</p>
+
+          <div class="code">
+            <div class="code-bar"><span>Graceful Shutdown</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { gracefulShutdown } <span class="kw">from</span> <span class="str">"nelysia"</span>
+
+<span class="kw">const</span> server = app.<span class="fn">listen</span>(<span class="num">3000</span>)
+
+process.<span class="fn">on</span>(<span class="str">"SIGTERM"</span>, <span class="kw">async</span> () =&gt; {
+  <span class="kw">await</span> <span class="fn">gracefulShutdown</span>(server, <span class="num">5000</span>) <span class="com">// 5s timeout</span>
+  process.<span class="fn">exit</span>(<span class="num">0</span>)
+})</code></pre>
+          </div>
+        </section>
+
+        <!-- 11. Sub-App Mounting -->
+        <section id="mounting">
+          <h2>
+            <span data-lang="en">Sub-App Mounting (`mount`)</span>
+            <span data-lang="th">การรวม Sub-App ด้วย `mount`</span>
+          </h2>
+
+          <p data-lang="en">Compose complex domain APIs by mounting dedicated Nelysia sub-apps under isolated path prefixes:</p>
+          <p data-lang="th">แยกโมดูลการทำงานออกเป็นแอปย่อย แล้วนำมารวมกันผ่าน Path Prefix ได้อย่างเป็นระเบียบ:</p>
+
+          <div class="code">
+            <div class="code-bar"><span>Mounting Sub-Applications</span><button>copy</button></div>
+            <pre><code><span class="kw">const</span> authApp = <span class="kw">new</span> <span class="fn">Nelysia</span>()
+  .<span class="fn">post</span>(<span class="str">"/login"</span>, () =&gt; ({ token: <span class="str">"xyz"</span> }))
+  .<span class="fn">post</span>(<span class="str">"/logout"</span>, () =&gt; ({ ok: <span class="kw">true</span> }))
+
+<span class="kw">const</span> mainApp = <span class="kw">new</span> <span class="fn">Nelysia</span>()
+  .<span class="fn">mount</span>(<span class="str">"/auth"</span>, authApp)
+
+<span class="com">// Endpoints available:</span>
+<span class="com">// POST /auth/login</span>
+<span class="com">// POST /auth/logout</span></code></pre>
+          </div>
+        </section>
+
+        <!-- 12. WebSockets -->
+        <section id="websockets">
+          <h2>
+            <span data-lang="en">WebSocket Support</span>
+            <span data-lang="th">การใช้งาน WebSockets</span>
+          </h2>
+
+          <p data-lang="en">
+            Register WebSocket routes with a single cross-runtime contract that runs natively on Bun and via <code>ws</code> on Node.js:
+          </p>
+          <p data-lang="th">
+            สร้าง WebSocket Route ด้วย API เดียวกัน ทำงานแบบเนทีฟบน Bun และทำงานร่วมกับไลบรารี <code>ws</code> บน Node.js:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>WebSocket Route</span><button>copy</button></div>
+            <pre><code>app.<span class="fn">websocket</span>(<span class="str">"/ws/chat"</span>, {
+  <span class="fn">open</span>(socket) {
+    socket.<span class="fn">send</span>(<span class="str">"Connected to Nelysia WebSocket!"</span>)
+  },
+  <span class="fn">message</span>(socket, message) {
+    socket.<span class="fn">send</span>(<span class="str">`Echo: \${message}`</span>)
+  },
+  <span class="fn">close</span>(socket, code, reason) {
+    console.<span class="fn">log</span>(<span class="str">`Closed: \${code} - \${reason}`</span>)
+  },
+  <span class="fn">error</span>(socket, error) {
+    console.<span class="fn">error</span>(<span class="str">"WS Error:"</span>, error)
+  }
+})</code></pre>
+          </div>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Socket / Handler</th>
+                  <th>Signature</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>socket.send</code></td>
+                  <td><code>(message: string | Uint8Array) =&gt; void</code></td>
+                </tr>
+                <tr>
+                  <td><code>socket.close</code></td>
+                  <td><code>(code?: number, reason?: string) =&gt; void</code></td>
+                </tr>
+                <tr>
+                  <td><code>message</code></td>
+                  <td><code>(socket, message: string | Uint8Array) =&gt; void | Promise&lt;void&gt;</code> <span data-lang="en">— text and binary frames</span><span data-lang="th">— รองรับทั้ง text และ binary</span></td>
+                </tr>
+                <tr>
+                  <td><code>close</code></td>
+                  <td><code>(socket, code: number, reason: string) =&gt; void | Promise&lt;void&gt;</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout warn">
+            <b>Upgrade Contract</b>
+            <span data-lang="en">Only requests with <code>Upgrade: websocket</code> to a registered path are upgraded; anything else falls through to normal HTTP routing (or a <code>400</code> on Bun when the upgrade fails). Node.js requires the <code>ws</code> dependency; Bun uses its native implementation.</span>
+            <span data-lang="th">เฉพาะ request ที่มี <code>Upgrade: websocket</code> และตรง path ที่ลงทะเบียนจึงจะ upgrade นอกนั้นวิ่ง HTTP routing ปกติ (บน Bun ถ้า upgrade ล้มจะได้ <code>400</code>) Node.js ต้องมี dependency <code>ws</code> ส่วน Bun ใช้ native</span>
+          </div>
+        </section>
+
+        <!-- 13. Plugin System -->
+        <section id="plugins">
+          <h2>
+            <span data-lang="en">Plugin System & Built-in Plugins</span>
+            <span data-lang="th">ระบบปลั๊กอินและปลั๊กอินในตัว</span>
+          </h2>
+
+          <p data-lang="en">
+            Nelysia has two composition primitives: <code>use(fn)</code> runs a setup function against the app (the only plugin shape — there is no instance-as-plugin, no <code>decorate</code>/<code>state</code>, no <code>guard</code>/<code>group</code>), and <code>mount(prefix, subApp)</code> grafts another app's routes under a path prefix. Hooks registered on the parent <b>before or after</b> mounting always apply to its own routes; a mounted child's routes keep the child's own <code>before/after/error</code> lifecycle and never leak into sibling routes.
+          </p>
+          <p data-lang="th">
+            Nelysia มีกลไกประกอบร่าง 2 แบบ: <code>use(fn)</code> รันฟังก์ชัน setup กับแอป (เป็น plugin รูปแบบเดียว — ไม่มี instance-as-plugin, ไม่มี <code>decorate</code>/<code>state</code>, ไม่มี <code>guard</code>/<code>group</code>) และ <code>mount(prefix, subApp)</code> ย้าย route ของแอปลูกมาอยู่ใต้ prefix Hook ของ parent ไม่ว่าจะลงทะเบียนก่อนหรือหลัง mount มีผลกับ route ของตัวเองเสมอ ส่วน route ที่ mount มาจะเก็บ lifecycle <code>before/after/error</code> ของลูกไว้ ไม่รั่วไป route ข้างเคียง
+          </p>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Behavior</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>app.use(fn)</code></td>
+                  <td><span data-lang="en"><code>fn(app)</code> runs immediately; typically registers routes/hooks. Returns the app for chaining.</span><span data-lang="th"><code>fn(app)</code> ทำงานทันที มักใช้ลงทะเบียน route/hook คืน app เพื่อ chain ต่อ</span></td>
+                </tr>
+                <tr>
+                  <td><code>app.mount("/api", sub)</code></td>
+                  <td><span data-lang="en">Each route of <code>sub</code> is re-pathed to <code>/api/…</code>; duplicates throw <code>Duplicate route</code>.</span><span data-lang="th">ย้ายทุก route ของ <code>sub</code> มาอยู่ใต้ <code>/api/…</code> ถ้าซ้ำจะ throw <code>Duplicate route</code></span></td>
+                </tr>
+                <tr>
+                  <td><span data-lang="en">Child lifecycle after mount</span><span data-lang="th">Lifecycle ของลูกหลัง mount</span></td>
+                  <td><span data-lang="en">Child's own <code>after/error</code> handlers travel with its routes; parent hooks never attach to them retroactively.</span><span data-lang="th"><code>after/error</code> ของลูกติดไปกับ route ของลูกเสมอ hook ของ parent ไม่ย้อนมาติดทีหลัง</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid">
+            <div class="tile">
+              <b>RATE LIMITING</b>
+              <p data-lang="en">Fixed-window in-memory limiter. <code>429 Too Many Requests</code> + <code>Retry-After</code> when over <code>limit</code> per <code>windowMs</code>. Custom <code>key(ctx)</code> supported.</p>
+              <p data-lang="th">จำกัดคำขอแบบ fixed-window ตอบ <code>429</code> + <code>Retry-After</code> เมื่อเกิน <code>limit</code> ต่อ <code>windowMs</code> กำหนด <code>key(ctx)</code> เองได้</p>
+            </div>
+            <div class="tile">
+              <b>STATIC FILE SERVING</b>
+              <p data-lang="en">Serves one explicit file path with MIME detection; missing files fall back to <code>404</code>.</p>
+              <p data-lang="th">เสิร์ฟไฟล์ตาม path ที่ระบุพร้อมตรวจ MIME ไฟล์หายตอบ <code>404</code></p>
+            </div>
+            <div class="tile">
+              <b>GZIP COMPRESSION</b>
+              <p data-lang="en">Compresses via <code>CompressionStream("gzip")</code> when the client sends <code>Accept-Encoding: gzip</code>; sets <code>Vary</code>, drops <code>Content-Length</code>.</p>
+              <p data-lang="th">บีบอัดด้วย <code>CompressionStream("gzip")</code> เมื่อ client ส่ง <code>Accept-Encoding: gzip</code> ตั้ง <code>Vary</code> และลบ <code>Content-Length</code></p>
+            </div>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><span>Using & Authoring Plugins</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { rateLimit, staticFile, compression } <span class="kw">from</span> <span class="str">"nelysia/plugins"</span>
+
+app
+  .<span class="fn">use</span>(<span class="fn">rateLimit</span>({ limit: <span class="num">100</span>, windowMs: <span class="num">60000</span>, key: (ctx) =&gt; ctx.clientIp ?? <span class="str">"anonymous"</span> }))
+  .<span class="fn">use</span>(<span class="fn">staticFile</span>(<span class="str">"/favicon.ico"</span>, <span class="str">"./public/favicon.ico"</span>))
+  .<span class="fn">use</span>(<span class="fn">compression</span>({ threshold: <span class="num">1024</span> }))
+
+<span class="com">// Authoring: a plugin is a config factory returning (app) =&gt; app</span>
+<span class="kw">const</span> <span class="fn">myPlugin</span> = (opts: { tag: string }) =&gt; (app: Nelysia) =&gt;
+  app.<span class="fn">onBeforeHandle</span>(({ headers, response }) =&gt; {
+    <span class="kw">if</span> (!headers.<span class="fn">has</span>(<span class="str">"x-tag"</span>)) <span class="kw">return</span> <span class="fn">response</span>(<span class="num">401</span>, { error: opts.tag })
+  })</code></pre>
+          </div>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Plugin Detail</th>
+                  <th>Exact Behavior</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>staticFile(path, file: string | URL)</code></td>
+                  <td><span data-lang="en">Reads the file with <code>node:fs</code> <b>on every request</b> (no in-memory cache); MIME map covers <code>html/css/js/json/svg/txt</code>, everything else is <code>application/octet-stream</code>. Edge runtimes without <code>node:fs</code> cannot use it.</span><span data-lang="th">อ่านไฟล์ด้วย <code>node:fs</code> <b>ทุก request</b> (ไม่มี cache) MIME รองรับ <code>html/css/js/json/svg/txt</code> นอกนั้นเป็น <code>application/octet-stream</code> edge runtime ที่ไม่มี <code>node:fs</code> ใช้ไม่ได้</span></td>
+                </tr>
+                <tr>
+                  <td><code>rateLimit({ limit, windowMs, key? })</code></td>
+                  <td><span data-lang="en">Throws at setup unless <code>limit</code> is a positive integer and <code>windowMs</code> is positive. Fixed window per key; over-budget replies <code>429 { error: "Too Many Requests" }</code> with <code>Retry-After</code> in seconds (min 1). Buckets live in process memory and reset on restart.</span><span data-lang="th">throw ตั้งแต่ setup หาก <code>limit</code> ไม่ใช่จำนวนเต็มบวกหรือ <code>windowMs</code> ไม่เป็นบวก นับแบบ fixed window ต่อ key เกินโควต้าตอบ <code>429</code> พร้อม <code>Retry-After</code> เป็นวินาที (ขั้นต่ำ 1) bucket อยู่ใน memory รีเซ็ตเมื่อ restart</span></td>
+                </tr>
+                <tr>
+                  <td><code>compression({ threshold? })</code></td>
+                  <td><span data-lang="en"><code>threshold</code> defaults to <code>0</code> (compress everything negotiated). Skips when the body is empty, already encoded, or <code>CompressionStream</code> is unavailable.</span><span data-lang="th"><code>threshold</code> ค่าเริ่มต้น <code>0</code> (บีบอัดทุกอย่างที่ negotiate) ข้ามเมื่อ body ว่าง, encode แล้ว, หรือไม่มี <code>CompressionStream</code></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout info">
+            <b>Scope Note</b>
+            <span data-lang="en">Unlike Elysia's <code>local/scoped/global</code> scopes, Nelysia hooks are app-wide by registration order: a hook added to the parent also backfills onto the parent's existing routes, while mounted child routes are unaffected. There is no per-route <code>guard</code>, no <code>decorate/state</code> context extension, and no plugin deduplication — identical <code>use()</code> calls register twice.</span>
+            <span data-lang="th">ต่างจาก scope <code>local/scoped/global</code> ของ Elysia: hook ของ Nelysia มีผลทั้งแอปตามลำดับการลงทะเบียน — hook ที่เพิ่มทีหลังจะย้อนไปติด route เดิมของ parent แต่ไม่กระทบ route ที่ mount มาจากลูก ไม่มี <code>guard</code> ราย route, ไม่มี <code>decorate/state</code> ต่อ Context และไม่มี dedup — เรียก <code>use()</code> ซ้ำจะลงทะเบียนซ้ำ</span>
+          </div>
+        </section>
+
+        <!-- 14. OpenAPI 3.1 & Redoc -->
+        <section id="openapi">
+          <h2>
+            <span data-lang="en">OpenAPI 3.1 & Redoc UI</span>
+            <span data-lang="th">OpenAPI 3.1 และเอกสาร Redoc UI</span>
+          </h2>
+
+          <p data-lang="en">
+            Generate living OpenAPI 3.1 specifications from your route graphs and schemas, and serve an interactive Redoc UI at <code>/docs</code>:
+          </p>
+          <p data-lang="th">
+            สร้างเอกสาร API ตามมาตรฐาน OpenAPI 3.1 อัตโนมัติจาก Schema และเปิดหน้าเว็บ Redoc UI ที่ <code>/docs</code>:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>OpenAPI Integration</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { openapi, openapiUi, generateClientTypes } <span class="kw">from</span> <span class="str">"nelysia/openapi"</span>
+
+app
+  .<span class="fn">use</span>(<span class="fn">openapi</span>({ title: <span class="str">"User Management API"</span>, version: <span class="str">"1.0.0"</span> }))
+  .<span class="fn">use</span>(<span class="fn">openapiUi</span>({ path: <span class="str">"/docs"</span>, specPath: <span class="str">"/openapi.json"</span> }))
+
+<span class="com">// Generate client TypeScript interface definitions</span>
+<span class="kw">const</span> clientTypes = <span class="fn">generateClientTypes</span>(app)</code></pre>
+          </div>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Option</th>
+                  <th>Default</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>openapi({ title, version, path })</code></td>
+                  <td><code>"Nelysia API" / "0.1.0" / "/openapi.json"</code></td>
+                  <td><span data-lang="en">Serves OpenAPI 3.1; only routes with schemas contribute parameters/bodies.</span><span data-lang="th">เสิร์ฟ OpenAPI 3.1 เฉพาะ route ที่มี schema จึงจะมี parameters/bodies</span></td>
+                </tr>
+                <tr>
+                  <td><code>openapiUi({ path, specPath, title })</code></td>
+                  <td><code>"/docs" / "/openapi.json" / "Nelysia API"</code></td>
+                  <td><span data-lang="en">Redoc UI; loads Redoc from a CDN, so the docs page needs internet access.</span><span data-lang="th">หน้า Redoc UI โหลด Redoc จาก CDN หน้า docs จึงต้องต่อเน็ต</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 15. Observability -->
+        <section id="observability">
+          <h2>
+            <span data-lang="en">Observability & OpenTelemetry (OTLP)</span>
+            <span data-lang="th">ระบบ Observability และ OpenTelemetry Tracing</span>
+          </h2>
+
+          <p data-lang="en">Directly export distributed HTTP spans into OpenTelemetry collectors (Jaeger, Tempo, Honeycomb):</p>
+          <p data-lang="th">ส่งข้อมูล Trace Spans ไปยัง OpenTelemetry Collector (เช่น Jaeger, Grafana Tempo) ผ่าน OTLP HTTP:</p>
+
+          <div class="code">
+            <div class="code-bar"><span>OTLP Telemetry</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { otlpHttpExporter } <span class="kw">from</span> <span class="str">"nelysia/observability"</span>
+
+<span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>({
+  telemetry: {
+    ...<span class="fn">otlpHttpExporter</span>({
+      url: <span class="str">"http://localhost:4318/v1/traces"</span>,
+      serviceName: <span class="str">"nelysia-backend"</span>,       <span class="com">// default: "nelysia"</span>
+      headers: { authorization: <span class="str">"Bearer …"</span> }, <span class="com">// optional extra headers</span>
+      fetch: customFetch                        <span class="com">// optional transport override</span>
+    })
+  }
+})</code></pre>
+          </div>
+
+          <p data-lang="en">
+            Every request emits one <code>TelemetrySpan</code> via <code>exportSpan</code> — on success <b>and</b> on errors — before any <code>onError</code> handler runs:
+          </p>
+          <p data-lang="th">
+            ทุก request จะปล่อย <code>TelemetrySpan</code> หนึ่งตัวผ่าน <code>exportSpan</code> — ทั้งสำเร็จ <b>และ</b> error — ก่อน <code>onError</code> handler ทำงาน:
+          </p>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Span Field</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>name</code></td>
+                  <td><code>string</code></td>
+                  <td><code>METHOD /route/path</code> <span data-lang="en">e.g. <code>GET /users/:id</code></span><span data-lang="th">เช่น <code>GET /users/:id</code></span></td>
+                </tr>
+                <tr>
+                  <td><code>requestId</code></td>
+                  <td><code>string</code></td>
+                  <td><span data-lang="en">Correlates the span with logs and the <code>x-request-id</code> header.</span><span data-lang="th">โยง span กับ log และ header <code>x-request-id</code></span></td>
+                </tr>
+                <tr>
+                  <td><code>method</code> / <code>route</code> / <code>status</code></td>
+                  <td><code>string / string / number</code></td>
+                  <td><span data-lang="en">HTTP method, matched route pattern, final status.</span><span data-lang="th">HTTP method, route pattern ที่ match, status สุดท้าย</span></td>
+                </tr>
+                <tr>
+                  <td><code>durationMs</code></td>
+                  <td><code>number</code></td>
+                  <td><span data-lang="en">Wall-clock time inside the pipeline.</span><span data-lang="th">เวลาประมวลผลใน pipeline</span></td>
+                </tr>
+                <tr>
+                  <td><code>error?</code></td>
+                  <td><code>unknown</code></td>
+                  <td><span data-lang="en">Present only on the error path (OTLP status code 2).</span><span data-lang="th">มีเฉพาะ error path (OTLP status code 2)</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout info">
+            <b>Exporter Behavior</b>
+            <span data-lang="en">The exporter POSTs OTLP/JSON (<code>resourceSpans</code> with <code>service.name</code>) and <b>throws</b> when the collector answers non-2xx, so configure retries/alerts around it. The remaining callbacks — <code>onRequest</code>, <code>onResponse</code>, <code>onError</code> — receive the live <code>Context</code> and stay independent of exporting.</span>
+            <span data-lang="th">exporter จะ POST OTLP/JSON (<code>resourceSpans</code> พร้อม <code>service.name</code>) และ <b>throw</b> เมื่อ collector ตอบ non-2xx จึงควรมี retry/alert ครอบ ส่วน callback <code>onRequest</code>/<code>onResponse</code>/<code>onError</code> ได้รับ <code>Context</code> จริงและทำงานแยกจากการ export</span>
+          </div>
+        </section>
+
+        <!-- 16. GraphQL -->
+        <section id="graphql">
+          <h2>
+            <span data-lang="en">GraphQL Integration</span>
+            <span data-lang="th">การเชื่อมต่อ GraphQL</span>
+          </h2>
+
+          <p data-lang="en">Execute schemas created with <code>graphql-js</code> natively within Nelysia:</p>
+          <p data-lang="th">รัน GraphQL Schema ที่สร้างด้วย <code>graphql-js</code> บน Nelysia ได้อย่างง่ายดาย:</p>
+
+          <div class="code">
+            <div class="code-bar"><span>GraphQL Setup</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { GraphQLSchema, GraphQLObjectType, GraphQLString } <span class="kw">from</span> <span class="str">"graphql"</span>
+<span class="kw">import</span> { graphqlPlugin } <span class="kw">from</span> <span class="str">"nelysia/graphql"</span>
+
+<span class="kw">const</span> schema = <span class="kw">new</span> <span class="fn">GraphQLSchema</span>({
+  query: <span class="kw">new</span> <span class="fn">GraphQLObjectType</span>({
+    name: <span class="str">"Query"</span>,
+    fields: {
+      hello: { type: GraphQLString, resolve: () =&gt; <span class="str">"Hello from Nelysia GraphQL!"</span> }
+    }
+  })
+})
+
+app.<span class="fn">use</span>(<span class="fn">graphqlPlugin</span>({
+  schema,
+  path: <span class="str">"/graphql"</span>,                    <span class="com">// default: "/graphql"</span>
+  context: (ctx) =&gt; ({ user: ctx.headers.<span class="fn">get</span>(<span class="str">"authorization"</span>) }) <span class="com">// optional GraphQL contextValue</span>
+}))</code></pre>
+          </div>
+
+          <div class="callout info">
+            <b>Request Contract</b>
+            <span data-lang="en">POST <code>/graphql</code> with <code>{ query, variables?, operationName? }</code>. A missing <code>query</code> returns <code>400 { errors: [...] }</code>; results are normalized to plain JSON.</span>
+            <span data-lang="th">POST ไปที่ <code>/graphql</code> ด้วย <code>{ query, variables?, operationName? }</code> ถ้าไม่มี <code>query</code> จะได้ <code>400</code> ผลลัพธ์ถูก normalize เป็น plain JSON ก่อนส่งกลับ</span>
+          </div>
+        </section>
+
+        <!-- 16b. Databases -->
+        <section id="database">
+          <h2>
+            <span data-lang="en">Databases: Drizzle & Prisma</span>
+            <span data-lang="th">ฐานข้อมูล: Drizzle & Prisma</span>
+          </h2>
+
+          <p data-lang="en">
+            Expose database queries as routes with <code>drizzleRoute</code> (<code>nelysia/drizzle</code>) or <code>prismaRoute</code> (<code>nelysia/prisma</code>). Both take <code>{ db, path?, query }</code> where <code>query(db, context)</code> returns the response body:
+          </p>
+          <p data-lang="th">
+            เปิด query ฐานข้อมูลเป็น route ด้วย <code>drizzleRoute</code> (<code>nelysia/drizzle</code>) หรือ <code>prismaRoute</code> (<code>nelysia/prisma</code>) รับ <code>{ db, path?, query }</code> โดย <code>query(db, context)</code> คืน response body:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Drizzle + SQLite</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> Database <span class="kw">from</span> <span class="str">"better-sqlite3"</span>
+<span class="kw">import</span> { drizzle } <span class="kw">from</span> <span class="str">"drizzle-orm/better-sqlite3"</span>
+<span class="kw">import</span> { integer, sqliteTable, text } <span class="kw">from</span> <span class="str">"drizzle-orm/sqlite-core"</span>
+<span class="kw">import</span> { drizzleRoute } <span class="kw">from</span> <span class="str">"nelysia/drizzle"</span>
+
+<span class="kw">const</span> db = <span class="fn">drizzle</span>(<span class="kw">new</span> <span class="fn">Database</span>(<span class="str">"app.db"</span>))
+<span class="kw">const</span> users = <span class="fn">sqliteTable</span>(<span class="str">"users"</span>, {
+  id: <span class="fn">integer</span>(<span class="str">"id"</span>).<span class="fn">primaryKey</span>(),
+  name: <span class="fn">text</span>(<span class="str">"name"</span>).<span class="fn">notNull</span>()
+})
+
+app.<span class="fn">use</span>(<span class="fn">drizzleRoute</span>({
+  db, path: <span class="str">"/users"</span>,
+  query: (client) =&gt; client.<span class="fn">select</span>().<span class="fn">from</span>(users)
+}))
+<span class="com">// GET /users → [{ "id": 1, "name": "Ada" }]</span></code></pre>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><span>Prisma + SQLite</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { PrismaClient } <span class="kw">from</span> <span class="str">"@prisma/client"</span>
+<span class="kw">import</span> { prismaRoute } <span class="kw">from</span> <span class="str">"nelysia/prisma"</span>
+
+<span class="kw">const</span> prisma = <span class="kw">new</span> <span class="fn">PrismaClient</span>()
+
+app.<span class="fn">use</span>(<span class="fn">prismaRoute</span>({
+  db: prisma, path: <span class="str">"/users"</span>,
+  query: (client) =&gt; client.user.<span class="fn">findMany</span>({ orderBy: { id: <span class="str">"asc"</span> } })
+}))</code></pre>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><span>Terminal</span><button>copy</button></div>
+            <pre><code><span class="com"># Generate the Prisma client from examples/prisma/schema.prisma</span>
+npm run prisma:generate
+
+<span class="com"># Push schema to SQLite and run a real smoke test</span>
+npm run prisma:smoke</code></pre>
+          </div>
+
+          <div class="callout warn">
+            <b>Bun Limitation</b>
+            <span data-lang="en">Avoid <code>better-sqlite3</code> on Bun — its native binding is unstable there. Use a Bun-native driver or run on Node.js.</span>
+            <span data-lang="th">หลีกเลี่ยง <code>better-sqlite3</code> บน Bun (native binding ไม่เสถียร) — ใช้ driver ของ Bun หรือรันบน Node.js</span>
+          </div>
+        </section>
+
+        <!-- 16c. Better Auth -->
+        <section id="auth">
+          <h2>
+            <span data-lang="en">Authentication with Better Auth</span>
+            <span data-lang="th">ยืนยันตัวตนด้วย Better Auth</span>
+          </h2>
+
+          <p data-lang="en">
+            <code>betterAuthPlugin(auth, prefix?)</code> (<code>nelysia/better-auth</code>) bridges Better Auth into Nelysia through a catch-all <code>app.all()</code> route, so every endpoint (<code>sign-in</code>, <code>sign-up</code>, <code>session</code>, …) works under one prefix. The method, headers, and body are forwarded to <code>auth.handler</code> untouched, and its <code>Response</code> — including <code>Set-Cookie</code> — is returned unmodified:
+          </p>
+          <p data-lang="th">
+            <code>betterAuthPlugin(auth, prefix?)</code> (<code>nelysia/better-auth</code>) เชื่อม Better Auth ผ่าน catch-all route (<code>app.all()</code>) ทำให้ทุก endpoint (<code>sign-in</code>, <code>sign-up</code>, <code>session</code>, …) ทำงานภายใต้ prefix เดียว โดย forward method/headers/body ไปยัง <code>auth.handler</code> ตรงๆ และส่ง <code>Response</code> (รวม <code>Set-Cookie</code>) กลับโดยไม่ดัดแปลง:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Better Auth Setup</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { betterAuth } <span class="kw">from</span> <span class="str">"better-auth"</span>
+<span class="kw">import</span> { betterAuthPlugin } <span class="kw">from</span> <span class="str">"nelysia/better-auth"</span>
+
+<span class="kw">const</span> auth = <span class="fn">betterAuth</span>({
+  database: <span class="com">/* your adapter (drizzle / prisma / kysely) */</span>,
+  emailAndPassword: { enabled: <span class="kw">true</span> }
+})
+
+app.<span class="fn">use</span>(<span class="fn">betterAuthPlugin</span>(auth)) <span class="com">// default prefix: /api/auth</span>
+app.<span class="fn">use</span>(<span class="fn">betterAuthPlugin</span>(auth, <span class="str">"/auth"</span>)) <span class="com">// custom prefix</span></code></pre>
+          </div>
+
+          <div class="callout info">
+            <b>Your Responsibility</b>
+            <span data-lang="en">Install and configure <code>better-auth</code> yourself (database, secret, trusted origins) — this plugin is only the bridge.</span>
+            <span data-lang="th">ต้องติดตั้งและตั้งค่า <code>better-auth</code> เอง (ฐานข้อมูล, secret, trusted origins) — ปลั๊กอินนี้เป็นเพียงสะพานเชื่อม</span>
+          </div>
+        </section>
+
+        <!-- 16d. AI SDK -->
+        <section id="aisdk">
+          <h2>
+            <span data-lang="en">AI SDK Integration</span>
+            <span data-lang="th">การเชื่อมต่อ AI SDK</span>
+          </h2>
+
+          <p data-lang="en">
+            Call Vercel AI SDK <code>generateText</code> inside a route via an injectable helper (see <code>examples/ai-sdk/app.ts</code>). The checked-in example uses <code>MockLanguageModelV3</code> from <code>ai/test</code> — deterministic, no network, no credentials. For production, pass a real provider model in:
+          </p>
+          <p data-lang="th">
+            เรียก <code>generateText</code> ของ Vercel AI SDK ใน route ผ่าน helper แบบ injectable (ดู <code>examples/ai-sdk/app.ts</code>) ตัวอย่างที่ check-in ใช้ <code>MockLanguageModelV3</code> จาก <code>ai/test</code> — ไม่ใช้ network/credentials ส่วน production ให้ส่ง provider model จริงเข้าไปเอง:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>AI Route (examples/ai-sdk/app.ts)</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { generateText, type LanguageModel } <span class="kw">from</span> <span class="str">"ai"</span>
+<span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"nelysia"</span>
+
+<span class="kw">export function</span> <span class="fn">createAiSdkApp</span>(model: LanguageModel): Nelysia {
+  <span class="kw">return new</span> <span class="fn">Nelysia</span>().<span class="fn">post</span>(<span class="str">"/ai"</span>, <span class="kw">async</span> ({ body, response }) =&gt; {
+    <span class="kw">if</span> (!body || <span class="kw">typeof</span> body !== <span class="str">"object"</span> || <span class="kw">typeof</span> (body <span class="kw">as</span> any).prompt !== <span class="str">"string"</span>) {
+      <span class="kw">return</span> <span class="fn">response</span>(<span class="num">400</span>, { error: <span class="str">"Expected a JSON body with a string prompt"</span> })
+    }
+    <span class="kw">const</span> { text } = <span class="kw">await</span> <span class="fn">generateText</span>({ model, prompt: (body <span class="kw">as</span> any).prompt })
+    <span class="kw">return</span> { text }
+  })
+}</code></pre>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><span>Terminal</span><button>copy</button></div>
+            <pre><code>npm run ai:example
+curl -X POST http://localhost:3001/ai \
+  -H <span class="str">'content-type: application/json'</span> \
+  -d <span class="str">'{"prompt":"Say hello"}'</span>
+<span class="com"># {"text":"Deterministic AI SDK response"}</span></code></pre>
+          </div>
+        </section>
+
+        <!-- 17. Client SDK -->
+        <section id="client">
+          <h2>
+            <span data-lang="en">Client SDK (`@nelysia/client`)</span>
+            <span data-lang="th">Client SDK (`@nelysia/client`)</span>
+          </h2>
+
+          <p data-lang="en">A lightweight, type-friendly client for making requests to Nelysia servers:</p>
+          <p data-lang="th">ไลบรารี Client น้ำหนักเบาที่ช่วยให้เรียกใช้ API ของ Nelysia ได้ง่ายและมี Type ปลอดภัย:</p>
+
+          <div class="code">
+            <div class="code-bar"><span>Client SDK Usage</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { createClient } <span class="kw">from</span> <span class="str">"nelysia/client"</span>
+
+<span class="kw">const</span> api = <span class="fn">createClient</span>(<span class="str">"http://localhost:3000"</span>)
+
+<span class="com">// GET with typed response</span>
+<span class="kw">const</span> { data, error } = <span class="kw">await</span> api.<span class="fn">get</span>&lt;{ id: string }&gt;(<span class="str">"/users/42"</span>)
+
+<span class="com">// POST with body</span>
+<span class="kw">await</span> api.<span class="fn">post</span>(<span class="str">"/users"</span>, { name: <span class="str">"Alex"</span>, age: <span class="num">28</span> })
+
+<span class="com">// PUT, DELETE, and the generic entrypoint</span>
+<span class="kw">await</span> api.<span class="fn">put</span>(<span class="str">"/users/42"</span>, { age: <span class="num">29</span> })
+<span class="kw">await</span> api.<span class="fn">delete</span>(<span class="str">"/users/42"</span>)
+<span class="kw">await</span> api.<span class="fn">request</span>&lt;{ ok: boolean }&gt;(<span class="str">"PATCH"</span>, <span class="str">"/users/42"</span>, { age: <span class="num">30</span> })</code></pre>
+          </div>
+
+          <p data-lang="en">
+            Every call resolves to <code>{ data?, error?, response }</code>: <code>data</code> is the parsed JSON on <code>response.ok</code>, otherwise <code>error</code> is <code>{ status, body }</code> and the raw <code>Response</code> is always available as <code>response</code>. Non-JSON bodies resolve <code>data</code> to <code>undefined</code> instead of throwing.
+          </p>
+          <p data-lang="th">
+            ทุกครั้งที่เรียกจะได้ <code>{ data?, error?, response }</code>: <code>data</code> คือ JSON ที่ parse แล้วเมื่อ <code>response.ok</code> มิฉะนั้น <code>error</code> จะเป็น <code>{ status, body }</code> และมี <code>Response</code> ดิบใน <code>response</code> เสมอ body ที่ไม่ใช่ JSON จะได้ <code>data</code> เป็น <code>undefined</code> แทนการ throw
+          </p>
+        </section>
+
+        <!-- 18. Compiler & CLI -->
+        <section id="compiler">
+          <h2>
+            <span data-lang="en">Compiler Platform & CLI</span>
+            <span data-lang="th">ระบบคอมไพเลอร์และเครื่องมือ CLI</span>
+          </h2>
+
+          <p data-lang="en">
+            Inspect route classifications and generate optimized target entrypoints with manifest diagnostics and content-addressed cache:
+          </p>
+          <p data-lang="th">
+            วิเคราะห์การจัดหมวดหมู่ Route และคอมไพล์ Entrypoint แยกตามเป้าหมาย (Bun หรือ Node.js) พร้อมระบบแคช:
+          </p>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th>Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="status">COMPILED</td>
+                  <td><span data-lang="en">Context-free static response; maximum possible throughput.</span><span data-lang="th">เส้นทางค่าคงที่ ตอบสนองได้ทันทีโดยไม่ต้องสร้าง Context</span></td>
+                </tr>
+                <tr>
+                  <td class="status">SPECIALIZED</td>
+                  <td><span data-lang="en">Decoded parameter route with trimmed context.</span><span data-lang="th">เส้นทาง URL Parameter ที่ตัด overhead ส่วนเกินออก</span></td>
+                </tr>
+                <tr>
+                  <td class="status">GENERIC</td>
+                  <td><span data-lang="en">Dynamic hooks, schemas, or complex lifecycle pipeline.</span><span data-lang="th">เส้นทางที่มี Hooks หรือ Schema ซับซ้อน ทำงานบน Full Pipeline</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p data-lang="en">
+            When every route is a static value or a params-only GET handler with no hooks, schemas, or telemetry, the compiler emits a <b>standalone server</b>: the route table and handlers are embedded directly in the artifact with no generic router import. Static bodies are pre-serialized and served via <code>Response.clone()</code>; <code>/users/:id</code>-style routes match by prefix. Anything else falls back to the adapter entrypoint with an explicit <code>NELY002</code> diagnostic.
+          </p>
+          <p data-lang="th">
+            หากทุก route เป็น static value หรือ params-only GET handler ที่ไม่มี hooks/schemas/telemetry คอมไพเลอร์จะสร้าง <b>standalone server</b> ฝัง route table และ handler ลงใน artifact โดยตรง ไม่ import generic router — static body ถูก serialize ล่วงหน้าและ serve ผ่าน <code>Response.clone()</code> ส่วน route แบบ <code>/users/:id</code> จะ match ด้วย prefix หากไม่เข้าเงื่อนไขจะ fallback พร้อม diagnostic <code>NELY002</code>
+          </p>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th><span data-lang="en">Standalone Requirement</span><span data-lang="th">เงื่อนไข Standalone</span></th>
+                  <th><span data-lang="en">Fails When</span><span data-lang="th">ตกเมื่อ</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>GET</code> <span data-lang="en">only</span><span data-lang="th">เท่านั้น</span></td>
+                  <td><span data-lang="en">Any POST/PUT/PATCH/DELETE route exists (→ <code>NELY002</code>).</span><span data-lang="th">มี route POST/PUT/PATCH/DELETE (→ <code>NELY002</code>)</span></td>
+                </tr>
+                <tr>
+                  <td><span data-lang="en">Static value or <code>({ params }) =&gt; …</code> handler</span><span data-lang="th">Static value หรือ handler แบบ <code>({ params }) =&gt; …</code></span></td>
+                  <td><span data-lang="en">Handler reads query/headers/cookies/body or is async-opaque.</span><span data-lang="th">Handler อ่าน query/headers/cookies/body หรือซับซ้อนเกินวิเคราะห์</span></td>
+                </tr>
+                <tr>
+                  <td><span data-lang="en">No hooks, no schemas, no telemetry</span><span data-lang="th">ไม่มี hooks/schemas/telemetry</span></td>
+                  <td><span data-lang="en">Any <code>onBeforeHandle</code>/<code>onAfterHandle</code>/<code>onError</code>, route schema, or app telemetry is set.</span><span data-lang="th">มี hook/schema/telemetry ใดๆ ก็ตาม</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><span>CLI Commands</span><button>copy</button></div>
+            <pre><code><span class="com"># Inspect route graph</span>
+npm run inspect -- ./src/app.ts
+
+<span class="com"># Build optimized Bun server</span>
+npm run build -- ./src/app.ts --target bun
+bun dist/server.bun.ts
+
+<span class="com"># Build optimized Node.js server</span>
+npm run build -- ./src/app.ts --target node
+node --experimental-strip-types dist/server.node.ts</code></pre>
+          </div>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Artifact</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>dist/server.bun.ts</code> / <code>dist/server.node.ts</code></td>
+                  <td><span data-lang="en">Optimized entrypoint (standalone or adapter).</span><span data-lang="th">Entrypoint ที่ปรับแต่งแล้ว (standalone หรือ adapter)</span></td>
+                </tr>
+                <tr>
+                  <td><code>dist/*.map</code></td>
+                  <td><span data-lang="en">Source map of the generated artifact.</span><span data-lang="th">Source map ของ artifact</span></td>
+                </tr>
+                <tr>
+                  <td><code>dist/manifest.json</code></td>
+                  <td><span data-lang="en">Target, route analyses, <code>NELY001</code>/<code>NELY002</code> diagnostics, <code>generation</code> flag, reproducible <code>cacheKey</code>.</span><span data-lang="th">Target, route analyses, diagnostics, flag <code>generation</code>, <code>cacheKey</code></span></td>
+                </tr>
+                <tr>
+                  <td><code>.nelysia-cache/&lt;hash&gt;.json</code></td>
+                  <td><span data-lang="en">Content-addressed build cache.</span><span data-lang="th">แคชตาม hash ของเนื้อหา</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 19. Runtimes & Adapters -->
+        <section id="runtimes">
+          <h2>
+            <span data-lang="en">Supported Runtimes & Adapters</span>
+            <span data-lang="th">รันไทม์ที่รองรับและ Adapter</span>
+          </h2>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Capability</th>
+                  <th>Node.js 22+</th>
+                  <th>Bun 1.4+</th>
+                  <th>Fetch Standard</th>
+                  <th>Vercel</th>
+                  <th>Cloudflare</th>
+                  <th>Deno</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>HTTP Routing</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                </tr>
+                <tr>
+                  <td>Body Limits & JSON</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                </tr>
+                <tr>
+                  <td>WebSockets</td>
+                  <td class="status">VERIFIED (ws)</td>
+                  <td class="status">VERIFIED (native)</td>
+                  <td>Adapter</td>
+                  <td>N/A</td>
+                  <td>Adapter</td>
+                  <td>Adapter</td>
+                </tr>
+                <tr>
+                  <td>Streaming Responses</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                </tr>
+                <tr>
+                  <td>Compiler Optimization</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                  <td class="status">VERIFIED</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><span>Edge & Serverless Adapters</span><button>copy</button></div>
+            <pre><code><span class="com">// Vercel (nelysia/runtime-vercel)</span>
+<span class="kw">import</span> { createVercelHandler } <span class="kw">from</span> <span class="str">"nelysia/runtime-vercel"</span>
+<span class="kw">export default</span> <span class="fn">createVercelHandler</span>(app)
+
+<span class="com">// Cloudflare Workers (nelysia/runtime-cloudflare, Web APIs only)</span>
+<span class="kw">import</span> { createCloudflareWorker } <span class="kw">from</span> <span class="str">"nelysia/runtime-cloudflare"</span>
+<span class="kw">export default</span> <span class="fn">createCloudflareWorker</span>(app) <span class="com">// { fetch(request, env, ctx) }</span>
+
+<span class="com">// Deno — verify with: npm run deno:check</span>
+<span class="kw">import</span> { createFetchHandler } <span class="kw">from</span> <span class="str">"nelysia/runtime-fetch"</span>
+<span class="fn">Deno.serve</span>(<span class="fn">createFetchHandler</span>(app))</code></pre>
+          </div>
+        </section>
+
+        <!-- 20. Fullstack Frameworks -->
+        <section id="fullstack">
+          <h2>
+            <span data-lang="en">Full-Stack Framework Integrations</span>
+            <span data-lang="th">การใช้งานร่วมกับ Full-Stack Frameworks</span>
+          </h2>
+
+          <p data-lang="en">Use Nelysia as your unified backend engine across modern web frameworks via <code>createFetchHandler</code>:</p>
+          <p data-lang="th">ใช้งาน Nelysia เป็น Backend API ใน Frameworks ยอดนิยมผ่านฟังก์ชัน <code>createFetchHandler</code>:</p>
+
+          <div class="grid">
+            <div class="tile">
+              <b>NEXT.JS (APP ROUTER)</b>
+              <p><code>app/api/[[...slug]]/route.ts</code><br>Export GET, POST, PUT, DELETE wrapping the fetch handler.</p>
+            </div>
+            <div class="tile">
+              <b>NUXT</b>
+              <p><code>server/api/[...].ts</code><br><code>defineEventHandler(e =&gt; handler(toWebRequest(e)))</code></p>
+            </div>
+            <div class="tile">
+              <b>SVELTEKIT</b>
+              <p><code>src/routes/api/nelysia/+server.ts</code><br>Destructure <code>request</code> from the RequestEvent.</p>
+            </div>
+            <div class="tile">
+              <b>ASTRO</b>
+              <p><code>src/pages/api/nelysia.ts</code><br>Export the fetch handler as endpoint methods directly.</p>
+            </div>
+            <div class="tile">
+              <b>TANSTACK START</b>
+              <p><code>src/routes/api/nelysia.ts</code><br>Export the Fetch boundary for server routes.</p>
+            </div>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><span>Framework Wiring</span><button>copy</button></div>
+            <pre><code><span class="com">// Next.js App Router — app/api/[[...slug]]/route.ts</span>
+<span class="kw">import</span> { createFetchHandler } <span class="kw">from</span> <span class="str">"nelysia/runtime-fetch"</span>
+<span class="kw">const</span> handler = <span class="fn">createFetchHandler</span>(app)
+<span class="kw">export const</span> <span class="fn">GET</span> = (req: Request) =&gt; <span class="fn">handler</span>(req)
+<span class="kw">export const</span> <span class="fn">POST</span> = (req: Request) =&gt; <span class="fn">handler</span>(req)
+
+<span class="com">// SvelteKit — src/routes/api/nelysia/+server.ts</span>
+<span class="kw">export const</span> <span class="fn">GET</span> = ({ request }: { request: Request }) =&gt; <span class="fn">fetchHandler</span>(request)
+
+<span class="com">// Astro — src/pages/api/nelysia.ts (direct export)</span>
+<span class="kw">export const</span> <span class="fn">GET</span> = <span class="fn">createFetchHandler</span>(app)</code></pre>
+          </div>
+        </section>
+
+        <!-- 21. Benchmarks & Soak -->
+        <section id="benchmark">
+          <h2>
+            <span data-lang="en">Benchmarks & Soak Testing</span>
+            <span data-lang="th">การทดสอบประสิทธิภาพและ Soak Testing</span>
+          </h2>
+
+          <p data-lang="en">
+            Nelysia features automated micro-benchmarks and memory soak runners measuring iterations, error rates, throughput (RPS), and heap memory delta:
+          </p>
+          <p data-lang="th">
+            Nelysia มีชุดรัน Benchmark และ Soak Testing สำหรับทดสอบการกินหน่วยความจำและความเสถียรภายใต้ภาระงานต่อเนื่อง:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Benchmark Commands</span><button>copy</button></div>
+            <pre><code><span class="com"># Node.js benchmark (raw / nelysia / fastify / express)</span>
+npm run benchmark
+
+<span class="com"># Bun static workload (GET /json)</span>
+npm run benchmark:bun
+
+<span class="com"># Bun dynamic workload (GET /users/:id)</span>
+BENCH_CASE=dynamic npm run benchmark:bun
+
+<span class="com"># Custom duration / concurrency / repeats (default repeats: 3)</span>
+BENCH_DURATION_MS=<span class="num">3000</span> BENCH_CONCURRENCY=<span class="num">10</span> BENCH_REPEATS=<span class="num">10</span> npm run benchmark:bun
+
+<span class="com"># Run Soak test for heap delta check</span>
+npm run soak</code></pre>
+          </div>
+
+          <p data-lang="en">
+            Latest 10-round medians (concurrency 10, 0 failures) — full data in <code>docs/benchmark-10-rounds.md</code>:
+          </p>
+          <p data-lang="th">
+            ผล median 10 รอบล่าสุด (concurrency 10, failures 0) — ข้อมูลเต็มที่ <code>docs/benchmark-10-rounds.md</code>:
+          </p>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Bun Workload</th>
+                  <th>Nelysia</th>
+                  <th>Elysia</th>
+                  <th>Raw Bun</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Static <code>GET /json</code></td>
+                  <td class="status">30,618 req/s (0.33 ms)</td>
+                  <td>28,615 req/s (0.35 ms)</td>
+                  <td>29,625 req/s</td>
+                </tr>
+                <tr>
+                  <td>Dynamic <code>GET /users/:id</code></td>
+                  <td class="status">28,991 req/s (0.34 ms)</td>
+                  <td>28,125 req/s (0.35 ms)</td>
+                  <td>29,587 req/s</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout warn">
+            <b>Local Numbers Only</b>
+            <span data-lang="en">These are directional measurements from one machine — not a universal performance claim. Re-run on your target hardware before deployment decisions.</span>
+            <span data-lang="th">ตัวเลขเหล่านี้วัดบนเครื่องเดียวเท่านั้น ไม่ใช่ข้ออ้างประสิทธิภาพสากล — ควรวัดซ้ำบน hardware เป้าหมายก่อนตัดสินใจ deploy</span>
+          </div>
+        </section>
+
+        <!-- 22. Migration Guides -->
+        <section id="migration">
+          <h2>
+            <span data-lang="en">Migration Guides</span>
+            <span data-lang="th">คู่มือการย้ายโค้ด (Migration Guide)</span>
+          </h2>
+
+          <div class="grid">
+            <div class="tile">
+              <b>FROM EXPRESS</b>
+              <p data-lang="en">Return values directly instead of invoking <code>res.json()</code> or <code>res.send()</code>.</p>
+              <p data-lang="th">ส่งคืนค่าจากฟังก์ชันได้ทันที ไม่ต้องเรียก <code>res.json()</code> หรือ <code>res.send()</code></p>
+            </div>
+            <div class="tile">
+              <b>FROM FASTIFY</b>
+              <p data-lang="en">Fastify schemas map 1:1 to Nelysia route options <code>{ body, params, query }</code>.</p>
+              <p data-lang="th">แปลง Schema ไปไว้ใน Options ของ Route ได้ทันที ตรวจสอบก่อนเข้า Handler เสมอ</p>
+            </div>
+            <div class="tile">
+              <b>FROM ELYSIA</b>
+              <p data-lang="en">Identical chainable patterns with native Node.js 22+ support alongside Bun.</p>
+              <p data-lang="th">รูปแบบ Method Chaining ที่คุ้นเคย พร้อมรองรับทั้ง Node.js 22+ และ Bun ในตัว</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 23. Verification -->
+        <section id="verify">
+          <h2>
+            <span data-lang="en">Verification & Quality Gates</span>
+            <span data-lang="th">การตรวจสอบระบบและเกณฑ์คุณภาพ</span>
+          </h2>
+
+          <div class="code">
+            <div class="code-bar"><span>Verification Commands</span><button>copy</button></div>
+            <pre><code>npm run typecheck
+npm test
+bun test
+npm run soak
+npm run deno:check
+npm audit
+npm run build -- ./examples/hello/app.ts --target bun
+npm run build -- ./examples/hello/app.ts --target node
+
+<span class="com"># Everything above in one gate:</span>
+npm run release:check</code></pre>
+          </div>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>Script</th>
+                  <th>What It Does</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>npm run package:build</code></td>
+                  <td><span data-lang="en">Compiles <code>packages/*/src/*.ts</code> to <code>dist-package/</code> (JS + <code>.d.ts</code> + source maps) — the published surface.</span><span data-lang="th">คอมไพล์ source เป็น <code>dist-package/</code> (JS + <code>.d.ts</code> + source maps) — ผิวที่ publish จริง</span></td>
+                </tr>
+                <tr>
+                  <td><code>npm run inspect / build</code></td>
+                  <td><span data-lang="en">Route-graph inspector and per-target server generator (<code>--target bun|node</code>).</span><span data-lang="th">ตรวจ route graph และปั่น server แยก target (<code>--target bun|node</code>)</span></td>
+                </tr>
+                <tr>
+                  <td><code>npm run soak</code></td>
+                  <td><span data-lang="en">10,000-iteration in-process runner reporting failures, RPS, and heap delta.</span><span data-lang="th">รัน in-process 10,000 รอบ รายงาน failures, RPS, heap delta</span></td>
+                </tr>
+                <tr>
+                  <td><code>npm run benchmark[:bun]</code></td>
+                  <td><span data-lang="en">HTTP load benchmarks; see the Benchmark section for env vars.</span><span data-lang="th">benchmark ผ่าน HTTP ดู env vars ที่ section Benchmark</span></td>
+                </tr>
+                <tr>
+                  <td><code>npm run deno:check</code></td>
+                  <td><span data-lang="en">Type-checks the Deno example (<code>examples/deno/main.ts</code>).</span><span data-lang="th">type-check ตัวอย่าง Deno</span></td>
+                </tr>
+                <tr>
+                  <td><code>npm run prisma:generate / prisma:smoke</code></td>
+                  <td><span data-lang="en">Generate the Prisma client; push schema to SQLite and run the smoke test.</span><span data-lang="th">generate Prisma client; push schema ลง SQLite และรัน smoke test</span></td>
+                </tr>
+                <tr>
+                  <td><code>npm run ai:example</code></td>
+                  <td><span data-lang="en">Serves the AI SDK example on port <code>3001</code>.</span><span data-lang="th">รันตัวอย่าง AI SDK ที่พอร์ต <code>3001</code></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p data-lang="en">
+            Published imports resolve to compiled output — <code>nelysia</code> → <code>dist-package/packages/core/src/index.js</code>, <code>nelysia/plugins</code>, <code>nelysia/observability</code>, <code>nelysia/runtime-fetch</code>, <code>nelysia/graphql</code>, <code>nelysia/drizzle</code>, <code>nelysia/prisma</code>, <code>nelysia/better-auth</code>, <code>nelysia/runtime-vercel</code>, <code>nelysia/runtime-cloudflare</code>, <code>nelysia/compiler</code>, <code>nelysia/openapi</code>, <code>nelysia/client</code>. Inside this monorepo, import from <code>packages/*/src/*.ts</code> source paths directly.
+          </p>
+          <p data-lang="th">
+            import ที่ publish แล้วชี้ไปไฟล์ build — <code>nelysia</code> → <code>dist-package/packages/core/src/index.js</code> รวมถึง <code>nelysia/plugins</code>, <code>nelysia/observability</code>, <code>nelysia/runtime-fetch</code>, <code>nelysia/graphql</code>, <code>nelysia/drizzle</code>, <code>nelysia/prisma</code>, <code>nelysia/better-auth</code>, <code>nelysia/runtime-vercel</code>, <code>nelysia/runtime-cloudflare</code>, <code>nelysia/compiler</code>, <code>nelysia/openapi</code>, <code>nelysia/client</code>             ส่วนใน monorepo นี้ให้ import จาก source <code>packages/*/src/*.ts</code> ตรงๆ
+          </p>
+
+          <div class="footer">
+            <div>© 2026 Nelysia Framework · Licensed under MIT</div>
+            <div>Documentation: English & ภาษาไทย</div>
+          </div>
+        </section>
+
+      </article>
+    </main>
+  </div>
+
+  <script>
+    // Language Switcher Logic
+    const btnEn = document.getElementById('btn-en');
+    const btnTh = document.getElementById('btn-th');
+
+    function setLanguage(lang) {
+      if (lang === 'th') {
+        document.body.className = 'lang-th';
+        btnTh.classList.add('active');
+        btnEn.classList.remove('active');
+        document.documentElement.lang = 'th';
+        localStorage.setItem('nelysia_lang', 'th');
+      } else {
+        document.body.className = 'lang-en';
+        btnEn.classList.add('active');
+        btnTh.classList.remove('active');
+        document.documentElement.lang = 'en';
+        localStorage.setItem('nelysia_lang', 'en');
+      }
+    }
+
+    btnEn.addEventListener('click', () => setLanguage('en'));
+    btnTh.addEventListener('click', () => setLanguage('th'));
+
+    // Check saved language or default to Thai if browser prefers TH
+    const savedLang = localStorage.getItem('nelysia_lang') || (navigator.language.startsWith('th') ? 'th' : 'en');
+    setLanguage(savedLang);
+
+    // Sidebar Mobile Toggle
+    const side = document.querySelector('#side');
+    const menuBtn = document.querySelector('#menu');
+    menuBtn?.addEventListener('click', () => side.classList.toggle('open'));
+
+    document.querySelectorAll('.nav a').forEach(a => {
+      a.addEventListener('click', () => side.classList.remove('open'));
+    });
+
+    // Copy Code Buttons
+    document.querySelectorAll('.code button').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const codeEl = btn.closest('.code').querySelector('pre code');
+        if (codeEl) {
+          await navigator.clipboard.writeText(codeEl.innerText);
+          const original = btn.textContent;
+          btn.textContent = 'copied!';
+          btn.style.color = 'var(--lime)';
+          btn.style.borderColor = 'var(--lime)';
+          setTimeout(() => {
+            btn.textContent = original;
+            btn.style.color = '';
+            btn.style.borderColor = '';
+          }, 1200);
+        }
+      });
+    });
+
+    // Instant Search
+    const searchInput = document.querySelector('#search');
+    const sections = [...document.querySelectorAll('section, .hero')];
+    searchInput?.addEventListener('input', () => {
+      const q = searchInput.value.trim().toLowerCase();
+      sections.forEach(s => {
+        s.hidden = Boolean(q) && !s.innerText.toLowerCase().includes(q);
+      });
+    });
+
+    // Keyboard shortcut '/' to focus search
+    document.addEventListener('keydown', e => {
+      if (e.key === '/' && document.activeElement !== searchInput) {
+        e.preventDefault();
+        searchInput?.focus();
+      }
+    });
+
+    // Active Navigation Highlight via IntersectionObserver
+    const navLinks = [...document.querySelectorAll('.nav a')];
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          navLinks.forEach(link => {
+            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+          });
+        }
+      });
+    }, { rootMargin: '-15% 0px -75% 0px' });
+
+    sections.forEach(s => s.id && observer.observe(s));
+  </script>
+</body>
+</html>

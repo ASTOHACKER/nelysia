@@ -1,0 +1,6 @@
+.nelysia-cache/
+dist/
+node_modules/
+*.log
+examples/prisma/*.db
+examples/prisma/generated/

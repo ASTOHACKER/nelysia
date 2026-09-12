@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-package/
+.nelysia-cache/
+*.tgz
+*.log
+.DS_Store
+examples/prisma/*.db
+examples/prisma/generated/
+.env
+.env.local
+coverage/
