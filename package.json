@@ -23,6 +23,7 @@
     "build": "node --experimental-strip-types packages/cli/src/index.ts build",
     "package:build": "tsc -p tsconfig.build.json",
     "prepack": "npm run package:build",
+    "prepare": "npm run package:build",
     "typecheck": "tsc --noEmit"
   },
   "bin": {
