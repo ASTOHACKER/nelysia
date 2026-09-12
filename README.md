@@ -4,7 +4,20 @@ Compiler-first TypeScript backend framework for Bun and Node.js.
 
 ## Install
 
+> ⚠️ **Right now `npm install @narudom96/nelysia` does NOT work yet** (npm account
+> suspension until Sep 16 — then the registry install below takes over).
+> **Until then, do THIS instead** (2 commands, same result):
+
 ```bash
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.0/narudom96-nelysia-0.1.0.tgz
+npm install ./nelysia.tgz
+```
+
+After that, everything is identical — `import { Nelysia } from "@narudom96/nelysia"`
+works exactly as if installed from the registry:
+
+```bash
+# registry install (works once v0.1.0 is published — replaces the 2 lines above)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
