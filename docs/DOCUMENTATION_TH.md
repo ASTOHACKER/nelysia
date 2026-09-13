@@ -58,6 +58,9 @@
     - [TanStack Start](#tanstack-start)
 20. [การทดสอบประสิทธิภาพและ Soak Testing (Benchmark)](#20-การทดสอบประสิทธิภาพและ-soak-testing)
 21. [คู่มือการย้ายโค้ด (Migration Guide)](#21-คู่มือการย้ายโค้ด-migration-guide)
+22. [คู่มือปรับประสิทธิภาพ (Performance Tuning)](#22-คู่มือปรับประสิทธิภาพ-performance-tuning)
+23. [เช็กลิสต์ Deploy ขึ้น Production](#23-เช็กลิสต์-deploy-ขึ้น-production)
+24. [แก้ปัญหาและ FAQ (Troubleshooting)](#24-แก้ปัญหาและ-faq-troubleshooting)
 
 ---
 
@@ -994,3 +997,54 @@ npm run release:check
 
 ### จาก Elysia
 - Nelysia ใช้สไตล์การเขียน Method Chaining ที่คุ้นเคยของ Elysia เช่น `.get()`, `.post()`, `.use()`, `.onBeforeHandle()` ทำให้เรียนรู้และใช้งานต่อได้ทันที
+
+---
+
+## 22. คู่มือปรับประสิทธิภาพ (Performance Tuning)
+
+อยากให้ route ร้อนวิ่งบน fast path ทำตามนี้:
+
+1. **ใช้ `getStatic()` สำหรับ response คงที่** — body ถูก serialize ครั้งเดียวตอน startup แล้ว serve เป็น bytes สำเร็จรูป
+2. **handler ของ route ร้อนขอแค่ params** — `({ params }) => …` จะข้ามการ parse query/cookie/header ทันทีที่ destructure `query`/`headers`/`cookies` จะตกไป generic path (ถูก แต่ช้ากว่า)
+3. **อย่าใส่ hooks/schema บน route ร้อน** — hook หรือ schema ใดๆ จะคัด route นั้นออกจาก dispatcher
+4. **อ่านข้อมูลที่ใช้ GET** — มีแค่ route `GET` เท่านั้นที่ถูก compile (`HEAD` ใช้ route `GET` ผ่าน generic path)
+5. **ปิดสิ่งที่ไม่ใช้** — `new Nelysia({ requestId: false })` ข้ามการสร้าง UUID และ header `x-request-id`; ไม่ใส่ `telemetry` ก็ไม่เสียค่า `performance.now()`
+
+ตรวจสอบด้วย inspector และ router-scale:
+
+```bash
+npm run inspect -- ./src/app.ts
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
+```
+
+ต้นทุนต่อ request จากมากไปน้อย: parse JSON body → schema validation → UUID request ID → parse cookie → parse query → dynamic lookup → static lookup วัดบนเครื่องตัวเองด้วย `benchmarks/router-scale.ts` — ตัวเลขบนเครื่อง dev ใช้ดูทิศทางเท่านั้น
+
+---
+
+## 23. เช็กลิสต์ Deploy ขึ้น Production
+
+- [ ] `npm run release:check` ผ่าน (typecheck + tests Node/Bun + soak + Deno check + audit)
+- [ ] ดู coverage ของ dispatcher: build แล้วอ่าน `NELY003` ใน `dist/manifest.json` — route ร้อนควรอยู่บน fast path
+- [ ] ตั้ง `bodyLimit` ให้พอดี payload ใหญ่สุด; `trustedProxy: false` ไว้ trừคุม proxy เอง
+- [ ] มี endpoint `/health` และต่อ `gracefulShutdown(server, timeout)` กับ `SIGTERM`
+- [ ] ขยายด้วย `serveClustered()` (Node) หรือ autoscaling ของ platform; ยืนยันการ wiring `PORT` env
+- [ ] Deploy ผ่าน `Dockerfile` ที่มีให้ (`docker build -t nelysia:local .`) หรือ release tarball
+- [ ] รัน soak ยาว (`SOAK_ITERATIONS=1000000`) และ benchmark 10 รอบบน hardware ใกล้เคียง production ก่อนประกาศตัวเลข
+
+---
+
+## 24. แก้ปัญหาและ FAQ (Troubleshooting)
+
+| อาการ | สาเหตุ | วิธีแก้ |
+| :--- | :--- | :--- |
+| `400 Malformed JSON body` | body ไม่ใช่ JSON ที่ถูกต้อง | แก้ payload ฝั่ง client หรือรับเป็น text |
+| `400 <path> must be …` | ไม่ผ่าน schema validation | ดู field ที่ระบุใน message |
+| `413 Request body is too large` | body เกิน `bodyLimit` (ค่าเริ่มต้น 1 MB) | เพิ่ม `bodyLimit` หรือ reject ตั้งแต่ต้นทาง |
+| `404 Not Found` | ไม่มี route ตรง path | ดูผล `npm run inspect` |
+| `405 Method Not Allowed` | มี path แต่ไม่มี method นี้ | อ่าน header `Allow` ว่าวิธีไหนใช้ได้ |
+| handler `OPTIONS` ไม่ทำงาน | ตั้งใจ: `OPTIONS` ตอบ `204` + `Allow` เสมอ | อย่าพึ่ง `.options()` handler |
+| `EADDRINUSE` ตอน `listen` | port ถูกใช้แล้ว (เช่น dev server ตัวอื่น) | ตั้ง `PORT` env หรือปิดตัวที่ใช้อยู่ |
+| WebSocket upgrade ล้มเหลว | ไม่มี route `websocket()` สำหรับ path หรือขาด header `upgrade` | ลงทะเบียน `app.websocket(path, …)` ก่อน |
+| ตัวเลข benchmark แกว่ง | noise บนเครื่อง dev | ใช้เครื่อง Linux นิ่งๆ + load generator แยก + median 10 รอบ |
+| ช้าเมื่อ route เยอะ | เวอร์ชันเก่า scan ทุก route ต่อ request | อัปเกรด: เวอร์ชันปัจจุบัน lookup รอบเดียวแยกตาม method |

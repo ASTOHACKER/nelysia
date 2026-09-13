@@ -635,6 +635,9 @@
           <a href="#fullstack"><span data-lang="en">Full-Stack Integration</span><span data-lang="th">ใช้งานกับ Next/Nuxt/Svelte/Astro</span></a>
           <a href="#benchmark"><span data-lang="en">Benchmarks & Soak</span><span data-lang="th">การทดสอบ Benchmark</span></a>
           <a href="#migration"><span data-lang="en">Migration Guides</span><span data-lang="th">คู่มือการย้ายโค้ด</span></a>
+          <a href="#performance"><span data-lang="en">Performance Tuning</span><span data-lang="th">ปรับประสิทธิภาพ</span></a>
+          <a href="#production"><span data-lang="en">Production Checklist</span><span data-lang="th">เช็กลิสต์ Production</span></a>
+          <a href="#faq"><span data-lang="en">Troubleshooting & FAQ</span><span data-lang="th">แก้ปัญหา FAQ</span></a>
           <a href="#verify"><span data-lang="en">Verification</span><span data-lang="th">การตรวจสอบระบบ</span></a>
         </div>
       </nav>
@@ -2216,7 +2219,107 @@ npm run soak</code></pre>
           </div>
         </section>
 
-        <!-- 23. Verification -->
+        <!-- 23. Performance Tuning -->
+        <section id="performance">
+          <h2>
+            <span data-lang="en">Performance Tuning Guide</span>
+            <span data-lang="th">คู่มือปรับประสิทธิภาพ</span>
+          </h2>
+
+          <p data-lang="en">Keep hot routes on the compiled fast path:</p>
+          <p data-lang="th">อยากให้ route ร้อนวิ่งบน fast path ทำตามนี้:</p>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th><span data-lang="en">Rule</span><span data-lang="th">กฎ</span></th>
+                  <th><span data-lang="en">Why</span><span data-lang="th">ทำไม</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>getStatic()</code> <span data-lang="en">for constants</span><span data-lang="th">สำหรับค่าคงที่</span></td>
+                  <td><span data-lang="en">Body serialized once, served as prebuilt bytes.</span><span data-lang="th">serialize ครั้งเดียว serve เป็น bytes สำเร็จรูป</span></td>
+                </tr>
+                <tr>
+                  <td><code>({ params }) =&gt; …</code> <span data-lang="en">handlers</span><span data-lang="th">handler แบบ params-only</span></td>
+                  <td><span data-lang="en">Skips query/cookie/header parsing.</span><span data-lang="th">ข้ามการ parse query/cookie/header</span></td>
+                </tr>
+                <tr>
+                  <td><span data-lang="en">No hooks/schemas on hot routes</span><span data-lang="th">ไม่มี hooks/schema บน route ร้อน</span></td>
+                  <td><span data-lang="en">Any hook or schema excludes the route from the dispatcher.</span><span data-lang="th">hook/schema ใดๆ คัด route ออกจาก dispatcher</span></td>
+                </tr>
+                <tr>
+                  <td><code>requestId: false</code></td>
+                  <td><span data-lang="en">Skips per-request UUID + <code>x-request-id</code>.</span><span data-lang="th">ข้าม UUID และ header <code>x-request-id</code></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><span>Verify Fast Path</span><button>copy</button></div>
+            <pre><code>npm run inspect -- ./src/app.ts
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --experimental-strip-types benchmarks/router-scale.ts</code></pre>
+          </div>
+        </section>
+
+        <!-- 24. Production Checklist -->
+        <section id="production">
+          <h2>
+            <span data-lang="en">Production Deployment Checklist</span>
+            <span data-lang="th">เช็กลิสต์ Deploy ขึ้น Production</span>
+          </h2>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>✓</th>
+                  <th><span data-lang="en">Item</span><span data-lang="th">รายการ</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>☐</td><td><code>npm run release:check</code> <span data-lang="en">passes.</span><span data-lang="th">ผ่าน</span></td></tr>
+                <tr><td>☐</td><td><span data-lang="en">Hot routes on fast path — check <code>NELY003</code> in <code>dist/manifest.json</code>.</span><span data-lang="th">route ร้อนอยู่บน fast path — ดู <code>NELY003</code> ใน <code>dist/manifest.json</code></span></td></tr>
+                <tr><td>☐</td><td><code>bodyLimit</code> <span data-lang="en">fits largest payload;</span> <code>trustedProxy</code> <span data-lang="en">only behind your proxy.</span><span data-lang="th">พอดี payload ใหญ่สุด; เปิด <code>trustedProxy</code> เฉพาะหลัง proxy ตัวเอง</span></td></tr>
+                <tr><td>☐</td><td><code>/health</code> <span data-lang="en">endpoint +</span> <code>gracefulShutdown</code> <span data-lang="en">on SIGTERM.</span><span data-lang="th">มี endpoint และต่อ shutdown กับ SIGTERM</span></td></tr>
+                <tr><td>☐</td><td><code>serveClustered()</code> <span data-lang="en">or autoscaling;</span> <code>PORT</code> <span data-lang="en">wired.</span><span data-lang="th">ขยายด้วย cluster/autoscaling; wiring <code>PORT</code> ครบ</span></td></tr>
+                <tr><td>☐</td><td><span data-lang="en">Long soak + 10-round benchmark on production-like hardware.</span><span data-lang="th">soak ยาว + benchmark 10 รอบบน hardware ใกล้ production</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 25. Troubleshooting FAQ -->
+        <section id="faq">
+          <h2>
+            <span data-lang="en">Troubleshooting & FAQ</span>
+            <span data-lang="th">แก้ปัญหาและ FAQ</span>
+          </h2>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th><span data-lang="en">Symptom</span><span data-lang="th">อาการ</span></th>
+                  <th><span data-lang="en">Fix</span><span data-lang="th">วิธีแก้</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>400 / 413</code></td><td><span data-lang="en">Schema/body-limit rejection — read the message, adjust schema or <code>bodyLimit</code>.</span><span data-lang="th">schema/body-limit ปฏิเสธ — อ่าน message แล้วแก้ schema หรือ <code>bodyLimit</code></span></td></tr>
+                <tr><td><code>404 / 405</code></td><td><span data-lang="en">No match / wrong method — check <code>npm run inspect</code> and the <code>Allow</code> header.</span><span data-lang="th">ไม่ตรง route / ผิด method — ดู inspect และ header <code>Allow</code></span></td></tr>
+                <tr><td><span data-lang="en"><code>OPTIONS</code> handler ignored</span><span data-lang="th"><code>OPTIONS</code> ไม่เข้า handler</span></td><td><span data-lang="en">By design (<code>204</code> + <code>Allow</code>).</span><span data-lang="th">ตั้งใจให้เป็นแบบนี้ (<code>204</code> + <code>Allow</code>)</span></td></tr>
+                <tr><td><code>EADDRINUSE</code></td><td><span data-lang="en">Port taken — set <code>PORT</code> env or free it.</span><span data-lang="th">port ถูกใช้แล้ว — ตั้ง <code>PORT</code> หรือปิดตัวที่ใช้</span></td></tr>
+                <tr><td><span data-lang="en">Noisy benchmarks</span><span data-lang="th">benchmark แกว่ง</span></td><td><span data-lang="en">Dev-machine noise — quiet Linux box, separate load generator, 10-round medians.</span><span data-lang="th">noise เครื่อง dev — ใช้ Linux นิ่งๆ + loadgen แยก + median 10 รอบ</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 26. Verification -->
         <section id="verify">
           <h2>
             <span data-lang="en">Verification & Quality Gates</span>
@@ -2257,7 +2360,7 @@ npm run release:check</code></pre>
                 </tr>
                 <tr>
                   <td><code>npm run soak</code></td>
-                  <td><span data-lang="en">10,000-iteration in-process runner reporting failures, RPS, and heap delta.</span><span data-lang="th">รัน in-process 10,000 รอบ รายงาน failures, RPS, heap delta</span></td>
+                  <td><span data-lang="en">In-process runner (static + 200-route dynamic) reporting failures, RPS, heap and RSS delta. Tune with <code>SOAK_ITERATIONS</code>/<code>SOAK_ROUTES</code>.</span><span data-lang="th">รัน in-process (static + dynamic 200 routes) รายงาน failures, RPS, heap/RSS delta ปรับด้วย <code>SOAK_ITERATIONS</code>/<code>SOAK_ROUTES</code></span></td>
                 </tr>
                 <tr>
                   <td><code>npm run benchmark[:bun]</code></td>

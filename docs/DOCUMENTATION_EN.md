@@ -52,15 +52,6 @@
 14. [Authentication with Better Auth](#14-authentication-with-better-auth)
 15. [AI SDK Integration](#15-ai-sdk-integration)
 16. [Client SDK (`@nelysia/client`)](#16-client-sdk-nelysiaclient)
-14. [Compiler Platform & CLI](#14-compiler-platform--cli)
-    - [Route Classification: Compiled vs Specialized vs Generic](#route-classification-compiled-vs-specialized-vs-generic)
-    - [CLI Commands (`inspect`, `build`)](#cli-commands-inspect-build)
-    - [Build Manifest & Content-Addressed Cache](#build-manifest--content-addressed-cache)
-15. [Supported Runtimes & Adapters](#15-supported-runtimes--adapters)
-    - [Bun Runtime](#bun-runtime)
-    - [Node.js Runtime](#nodejs-runtime)
-    - [Fetch Standard Adapter](#fetch-standard-adapter)
-    - [Vercel Serverless Functions](#vercel-serverless-functions)
 17. [Compiler Platform & CLI](#17-compiler-platform--cli)
 18. [Supported Runtimes & Adapters](#18-supported-runtimes--adapters)
 19. [Full-Stack Framework Integrations](#19-full-stack-framework-integrations)
@@ -71,6 +62,9 @@
     - [TanStack Start](#tanstack-start)
 20. [Benchmarking & Soak Testing](#20-benchmarking--soak-testing)
 21. [Migration Guides](#21-migration-guides)
+22. [Performance Tuning Guide](#22-performance-tuning-guide)
+23. [Production Deployment Checklist](#23-production-deployment-checklist)
+24. [Troubleshooting & FAQ](#24-troubleshooting--faq)
 
 ---
 
@@ -919,7 +913,7 @@ When every route is a static value or a params-only GET handler (`({ params }) =
 
 Even without a standalone build, the Node, Bun, and Fetch adapters serve hook-free `GET` routes through the shared compiled dispatcher (`packages/compiler/src/dispatcher.ts`): O(1) static hits with pre-serialized payloads, per-method dynamic lookup with a single pathname split, and prefix matching for `/users/:id`-style routes. Hooks, schemas, other methods, and telemetry fall through to the generic router. The manifest records this with `dispatcher: true` and an `NELY003` info diagnostic reporting fast-path coverage (e.g. "fast path covers 1 of 2 routes").
 
-### Compiling Deployable Artifacts
+### Build Outputs
 
 Build outputs:
 - `dist/server.bun.ts` (or `dist/server.node.ts`): Optimized entrypoint.
@@ -1177,3 +1171,54 @@ const app = new Nelysia()
 ### From Elysia
 
 Nelysia adopts the familiar chainable design of Elysia, making migration nearly 1:1, while providing native Node.js support alongside Bun and compiler inspection.
+
+---
+
+## 22. Performance Tuning Guide
+
+Hot routes should land on the compiled fast path. The rules are simple:
+
+1. **Prefer `getStatic()` for constant responses** — the body is serialized once at startup and served as prebuilt bytes (`Response.clone()` on Bun/Fetch, `Buffer` + `content-length` on Node).
+2. **Keep hot dynamic handlers params-only** — `({ params }) => …` skips query/cookie/header parsing. As soon as a handler destructures `query`, `headers`, or `cookies`, it runs on the generic path (correct, just slower).
+3. **Keep hooks and schemas off hot routes** — any `onBeforeHandle`/`onAfterHandle`/`onError` or `body`/`params`/`query`/`headers`/`response` schema excludes the route from the dispatcher.
+4. **Use `GET` for cacheable reads** — only `GET` routes are compiled; `HEAD` reuses the `GET` route through the generic path.
+5. **Disable what you don't use** — `new Nelysia({ requestId: false })` skips per-request UUID generation and the `x-request-id` header; no `telemetry` means no `performance.now()` timing.
+
+Verify with the inspector and the router-scale runner:
+
+```bash
+npm run inspect -- ./src/app.ts
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
+```
+
+Per-request cost ranking (most to least expensive): JSON body parsing → schema validation → UUID request IDs → cookie parsing → query parsing → dynamic lookup → static lookup. Measure with `benchmarks/router-scale.ts` on your own hardware — dev-machine numbers are directional only.
+
+---
+
+## 23. Production Deployment Checklist
+
+- [ ] `npm run release:check` passes (typecheck + Node/Bun tests + soak + Deno check + audit).
+- [ ] Check dispatcher coverage: build and read `NELY003` in `dist/manifest.json` — hot routes should be on the fast path.
+- [ ] Set `bodyLimit` for your largest payload; keep `trustedProxy: false` unless you control the proxy.
+- [ ] Expose a `/health` endpoint and wire `gracefulShutdown(server, timeout)` on `SIGTERM`.
+- [ ] Scale with `serveClustered()` (Node) or platform autoscaling; confirm `PORT` env wiring.
+- [ ] Deploy via the provided `Dockerfile` (`docker build -t nelysia:local .`) or the release tarball.
+- [ ] Run a long soak (`SOAK_ITERATIONS=1000000`) and a 10-round benchmark on production-like hardware before publishing numbers.
+
+---
+
+## 24. Troubleshooting & FAQ
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| `400 Malformed JSON body` | Request body is not valid JSON | Fix the client payload or accept text |
+| `400 <path> must be …` | Schema validation failed | Check the failing field in the message |
+| `413 Request body is too large` | Body exceeds `bodyLimit` (default 1 MB) | Raise `bodyLimit` or reject earlier |
+| `404 Not Found` | No route matches the path | Check `npm run inspect` output |
+| `405 Method Not Allowed` | Path exists, method doesn't | Read the `Allow` header for valid methods |
+| `OPTIONS` handler never runs | By design: `OPTIONS` short-circuits to `204` + `Allow` | Don't rely on `.options()` handlers |
+| `EADDRINUSE` on `listen` | Port already taken (e.g. another dev server) | Set `PORT` env or free the port |
+| WebSocket upgrade fails / socket destroyed | No `websocket()` route for the path, or missing `upgrade` header | Register `app.websocket(path, …)` first |
+| Benchmark numbers swing wildly | Dev-machine noise (background load, power saving) | Use a quiet Linux box, dedicated load generator, 10-round medians |
+| Slow with many routes | Old versions scanned all routes per request | Upgrade: current versions use per-method single-pass lookup |
