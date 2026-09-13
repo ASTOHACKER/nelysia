@@ -148,7 +148,16 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
       headers,
       cookies: {},
       setCookie: () => {},
-      response: (status, body, responseHeaders) => ({ status, body, headers: new Headers(responseHeaders), [responseMarker]: true })
+      deleteCookie: () => {},
+      response: (status, body, responseHeaders) => ({ status, body, headers: new Headers(responseHeaders), [responseMarker]: true }),
+      html: (body, status = 200) => ({ status, body, headers: new Headers({ "content-type": "text/html; charset=utf-8" }), [responseMarker]: true }),
+      text: (body, status = 200) => ({ status, body, headers: new Headers({ "content-type": "text/plain; charset=utf-8" }), [responseMarker]: true }),
+      json: (body, status = 200) => ({ status, body, headers: new Headers({ "content-type": "application/json; charset=utf-8" }), [responseMarker]: true }),
+      redirect: (url, status = 302) => ({ status, body: undefined, headers: new Headers({ location: url }), [responseMarker]: true }),
+      header: (name, value) => {
+        context.set.headers[name.toLowerCase()] = value
+        return context
+      }
     }
     try {
       const out = route.handler(context) as unknown

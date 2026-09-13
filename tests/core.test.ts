@@ -563,3 +563,71 @@ test("swaggerUi serves Swagger documentation interface and routes have metadata"
   assert.equal(userOp.description, "Returns all active registered users")
   assert.deepEqual(userOp.tags, ["Users"])
 })
+
+test("context provides html, text, json, and redirect shorthands", async () => {
+  const app = new Nelysia()
+    .get("/page", ({ html }) => html("<h1>Hello Nelysia</h1>"))
+    .get("/plain", ({ text }) => text("Just text"))
+    .get("/data", ({ json }) => json({ success: true }))
+    .get("/old", ({ redirect }) => redirect("/new"))
+
+  const resHtml = await app.handle({ method: "GET", url: "/page" })
+  assert.equal(resHtml.status, 200)
+  assert.equal(resHtml.headers.get("content-type"), "text/html; charset=utf-8")
+  assert.equal(resHtml.body, "<h1>Hello Nelysia</h1>")
+
+  const resText = await app.handle({ method: "GET", url: "/plain" })
+  assert.equal(resText.status, 200)
+  assert.equal(resText.headers.get("content-type"), "text/plain; charset=utf-8")
+  assert.equal(resText.body, "Just text")
+
+  const resJson = await app.handle({ method: "GET", url: "/data" })
+  assert.equal(resJson.status, 200)
+  assert.equal(resJson.headers.get("content-type"), "application/json; charset=utf-8")
+  assert.deepEqual(resJson.body, { success: true })
+
+  const resRedir = await app.handle({ method: "GET", url: "/old" })
+  assert.equal(resRedir.status, 302)
+  assert.equal(resRedir.headers.get("location"), "/new")
+})
+
+test("context provides header() and deleteCookie() helpers", async () => {
+  const app = new Nelysia()
+    .get("/set-hdr", ({ header }) => {
+      header("x-trace-id", "trace-abc-123")
+      return { ok: true }
+    })
+    .get("/logout", ({ deleteCookie }) => {
+      deleteCookie("token", { path: "/" })
+      return { loggedOut: true }
+    })
+
+  const resHdr = await app.handle({ method: "GET", url: "/set-hdr" })
+  assert.equal(resHdr.status, 200)
+  assert.equal(resHdr.headers.get("x-trace-id"), "trace-abc-123")
+
+  const resLogout = await app.handle({ method: "GET", url: "/logout" })
+  assert.equal(resLogout.status, 200)
+  const setCookie = resLogout.headers.get("set-cookie") ?? ""
+  assert.match(setCookie, /token=/)
+  assert.match(setCookie, /Max-Age=0/)
+})
+
+test("app.listen supports callback with server metadata", async () => {
+  const app = new Nelysia().get("/ping", () => "pong")
+  let serverInstance: any
+
+  const serverInfo = await new Promise<any>((resolve) => {
+    serverInstance = app.listen(0, (info) => {
+      resolve(info)
+    })
+  })
+
+  assert.ok(serverInfo.port >= 0)
+  assert.ok(serverInfo.url.startsWith("http://"))
+  if (typeof serverInstance?.close === "function") {
+    await new Promise<void>((r) => serverInstance.close(() => r()))
+  } else if (typeof serverInstance?.stop === "function") {
+    serverInstance.stop()
+  }
+})

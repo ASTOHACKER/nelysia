@@ -95,6 +95,18 @@ export interface ResponseSetContext {
   headers: Record<string, string>
 }
 
+export interface ServerInfo {
+  port: number
+  hostname: string
+  url: string
+  server: unknown
+}
+
+export interface ListenOptions {
+  port: number
+  hostname?: string
+}
+
 export interface Context {
   request: RequestData
   requestId: string
@@ -107,7 +119,13 @@ export interface Context {
   headers: Headers
   cookies: Record<string, string>
   setCookie(name: string, value: string, options?: CookieOptions): void
+  deleteCookie(name: string, options?: CookieOptions): void
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
+  html(body: string, status?: number): ResponseData
+  text(body: string, status?: number): ResponseData
+  json(body: unknown, status?: number): ResponseData
+  redirect(url: string, status?: number): ResponseData
+  header(name: string, value: string): this
 }
 
 export type Handler = (context: Context) => unknown | Promise<unknown>

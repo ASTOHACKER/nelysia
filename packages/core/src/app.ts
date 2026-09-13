@@ -1,6 +1,6 @@
 import { allowedMethodsFor, compilePath, lookupDynamicRoute, normalizeMethod, normalizePathname, splitSegments } from "./router.ts"
 import { fromStandardSchema, type Schema, type StandardSchema } from "./schema.ts"
-import { HttpError, responseMarker, type AfterHook, type Context, type CookieOptions, type ErrorHandler, type Handler, type Hook, type NelysiaOptions, type ParsedQuery, type RequestData, type ResponseData, type RouteGraph, type RouteOptions, type RouteRecord, type Telemetry, type WebSocketHandlers } from "./types.ts"
+import { HttpError, responseMarker, type AfterHook, type Context, type CookieOptions, type ErrorHandler, type Handler, type Hook, type ListenOptions, type NelysiaOptions, type ParsedQuery, type RequestData, type ResponseData, type RouteGraph, type RouteOptions, type RouteRecord, type ServerInfo, type Telemetry, type WebSocketHandlers } from "./types.ts"
 import { createBunServer } from "../../runtime-bun/src/server.ts"
 import { createNodeServer } from "../../runtime-node/src/server.ts"
 
@@ -126,11 +126,42 @@ export class Nelysia {
     return this.mount(prefix, child)
   }
 
-  listen(port: number | { port: number }): unknown {
+  listen(
+    port: number | { port: number; hostname?: string },
+    callback?: (info: ServerInfo) => void
+  ): unknown {
     const actualPort = typeof port === "number" ? port : port.port
-    const runtime = globalThis as typeof globalThis & { Bun?: { serve(options: { port: number; fetch: (request: Request) => Promise<Response> }): unknown } }
-    if (runtime.Bun) return createBunServer(this, actualPort)
-    return createNodeServer(this).listen(actualPort)
+    const hostname = typeof port === "object" ? port.hostname : undefined
+    const runtime = globalThis as typeof globalThis & { Bun?: { serve(options: Record<string, unknown>): { port: number; hostname?: string } } }
+    if (runtime.Bun) {
+      const server = createBunServer(this, actualPort) as { port: number; hostname?: string }
+      const resolvedHost = server.hostname ?? hostname ?? "localhost"
+      const info: ServerInfo = {
+        port: server.port,
+        hostname: resolvedHost,
+        url: `http://${resolvedHost}:${server.port}`,
+        server
+      }
+      if (callback) callback(info)
+      return server
+    }
+    const nodeServer = createNodeServer(this)
+    if (callback) {
+      nodeServer.listen(actualPort, hostname, () => {
+        const addr = nodeServer.address()
+        const p = typeof addr === "object" && addr ? addr.port : actualPort
+        const h = hostname ?? "localhost"
+        const info: ServerInfo = {
+          port: p,
+          hostname: h,
+          url: `http://${h}:${p}`,
+          server: nodeServer
+        }
+        callback(info)
+      })
+      return nodeServer
+    }
+    return nodeServer.listen(actualPort, hostname)
   }
 
   route(method: string, path: string, handler: Handler, options: RouteOptions = {}): this {
@@ -191,7 +222,16 @@ export class Nelysia {
       headers,
       cookies: lazyCookies(headers),
       setCookie: (name, value, options) => responseHeaders.append("set-cookie", serializeCookie(name, value, this.secureCookies ? { ...options, secure: options?.secure ?? true } : options)),
-      response: (status, body, extraHeaders) => ({ status, body, headers: mergeHeaders(responseHeaders, extraHeaders), [responseMarker]: true })
+      deleteCookie: (name, options) => responseHeaders.append("set-cookie", serializeCookie(name, "", { ...options, maxAge: 0, path: options?.path ?? "/" })),
+      response: (status, body, extraHeaders) => ({ status, body, headers: mergeHeaders(responseHeaders, extraHeaders), [responseMarker]: true }),
+      html: (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "text/html; charset=utf-8" }), [responseMarker]: true }),
+      text: (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "text/plain; charset=utf-8" }), [responseMarker]: true }),
+      json: (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "application/json; charset=utf-8" }), [responseMarker]: true }),
+      redirect: (url, status = 302) => ({ status, body: undefined, headers: mergeHeaders(responseHeaders, { location: url }), [responseMarker]: true }),
+      header: (name, value) => {
+        context.set.headers[name.toLowerCase()] = value
+        return context
+      }
     }
     return { context, responseHeaders }
   }
