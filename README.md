@@ -15,7 +15,7 @@
 > **Until then, do THIS instead** (2 commands, same result):
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.0/narudom96-nelysia-0.1.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.1/narudom96-nelysia-0.1.1.tgz
 npm install ./nelysia.tgz
 ```
 
@@ -23,7 +23,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (works once v0.1.0 is published — replaces the 2 lines above)
+# registry install (works once v0.1.1 is published — replaces the 2 lines above)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -36,12 +36,12 @@ npm install ai               # for AI SDK routes
 ### Install from GitHub Releases (no registry needed)
 
 Every release at <https://github.com/ASTOHACKER/nelysia/releases> ships a ready-to-install
-tarball (`narudom96-nelysia-<version>.tgz`, prebuilt `dist-package` inside, 91 files).
+tarball (`narudom96-nelysia-<version>.tgz`, prebuilt `dist-package` inside, 99 files).
 Use this while the package is not yet (or whenever it is not) on the npm registry:
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.0/narudom96-nelysia-0.1.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.1/narudom96-nelysia-0.1.1.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -50,10 +50,10 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.0/narudom96-nelysia-0.1.0.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.1/narudom96-nelysia-0.1.1.tgz
 ```
 
-Replace `v0.1.0` / the filename with the latest release you see on the releases page.
+Replace `v0.1.1` / the filename with the latest release you see on the releases page.
 
 ```ts
 // app.ts
