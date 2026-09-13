@@ -207,10 +207,31 @@ export class Nelysia {
       return response
     } catch (error) {
       await this.telemetry?.onError?.(context, error)
-      await this.telemetry?.exportSpan?.({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: error instanceof HttpError ? error.status : 500, durationMs: hasTelemetry ? performance.now() - startedAt : 0, error })
+      const errorStatus = error instanceof HttpError ? error.status : 500
+      await this.telemetry?.exportSpan?.({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: errorStatus, durationMs: hasTelemetry ? performance.now() - startedAt : 0, error })
+      context.set.status = errorStatus
       for (const handler of route.errorHandlers) {
         const result = await handler(error, context)
         if (isResponse(result)) return result
+        if (result instanceof Response) {
+          return {
+            status: context.set.status ?? result.status,
+            headers: mergeHeaders(mergeHeaders(responseHeaders, Object.fromEntries(result.headers.entries())), context.set.headers),
+            body: result.body,
+            [responseMarker]: true as const
+          }
+        }
+        if (result !== undefined) {
+          return {
+            status: context.set.status ?? errorStatus,
+            body: result,
+            headers: mergeHeaders(responseHeaders, context.set.headers),
+            [responseMarker]: true as const
+          }
+        }
+      }
+      if (error instanceof HttpError) {
+        return this.response(errorStatus, { error: error.message })
       }
       throw error
     }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { gracefulShutdown, Nelysia, t } from "../packages/core/src/index.ts"
+import { gracefulShutdown, HttpError, Nelysia, t } from "../packages/core/src/index.ts"
 import { compile, createCompiledBunHandler, inspect } from "../packages/compiler/src/index.ts"
 import { generateClientTypes, generateOpenAPI, openapi, openapiUi } from "../packages/openapi/src/index.ts"
 import { compression, rateLimit, staticFile } from "../packages/plugins/src/index.ts"
@@ -106,6 +106,29 @@ test("routes errors through onError", async () => {
   const result = await app.handle({ method: "GET", url: "/" })
   assert.equal(result.status, 400)
   assert.deepEqual(result.body, { message: "broken" })
+})
+
+test("onError automatically adopts HttpError status when returning plain object", async () => {
+  const app = new Nelysia()
+    .onError((error) => ({ error: (error as Error).message }))
+    .get("/fail-422", () => { throw new HttpError(422, "Invalid entity") })
+    .get("/fail-500", () => { throw new Error("Unexpected crash") })
+
+  const res422 = await app.handle({ method: "GET", url: "/fail-422" })
+  assert.equal(res422.status, 422)
+  assert.deepEqual(res422.body, { error: "Invalid entity" })
+
+  const res500 = await app.handle({ method: "GET", url: "/fail-500" })
+  assert.equal(res500.status, 500)
+  assert.deepEqual(res500.body, { error: "Unexpected crash" })
+})
+
+test("unhandled HttpError returns structured response with error.status", async () => {
+  const app = new Nelysia()
+    .get("/unhandled", () => { throw new HttpError(403, "Forbidden resource") })
+  const res = await app.handle({ method: "GET", url: "/unhandled" })
+  assert.equal(res.status, 403)
+  assert.deepEqual(res.body, { error: "Forbidden resource" })
 })
 
 test("provides ergonomic proxy access to context.query while preserving URLSearchParams methods", async () => {
