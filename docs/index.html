@@ -832,6 +832,9 @@ curl http://localhost:3000/users/42</code></pre>
   <span class="com">// Enforce Secure flag on all outgoing cookies automatically</span>
   secureCookies: <span class="kw">true</span>,
 
+  <span class="com">// Skip request-ID generation + x-request-id header (default: true)</span>
+  requestId: <span class="kw">false</span>,
+
   <span class="com">// Global telemetry hooks</span>
   telemetry: {
     <span class="fn">onRequest</span>(ctx) { console.<span class="fn">log</span>(<span class="str">`Incoming: \${ctx.request.method} \${ctx.request.url}`</span>) },
@@ -1010,10 +1013,10 @@ app
           </div>
 
           <p data-lang="en">
-            <b>Request ID precedence:</b> <code>request.requestId</code> (set by HTTP adapters as a UUID per request) → incoming <code>x-request-id</code> header → deterministic fallback <code>req-METHOD-URL</code>. Every response carries the resolved ID in its <code>x-request-id</code> header, and telemetry spans include it for tracing.
+            <b>Request ID precedence:</b> <code>request.requestId</code> (set by HTTP adapters as a UUID per request) → incoming <code>x-request-id</code> header → deterministic fallback <code>req-METHOD-URL</code>. Every response carries the resolved ID in its <code>x-request-id</code> header, and telemetry spans include it for tracing. Set <code>requestId: false</code> to skip generation entirely (Elysia-like fast path, recommended for benchmarks).
           </p>
           <p data-lang="th">
-            <b>ลำดับ Request ID:</b> <code>request.requestId</code> (adapter สร้าง UUID ต่อ request) → header <code>x-request-id</code> ที่ client ส่งมา → fallback <code>req-METHOD-URL</code> ทุก response จะมี header <code>x-request-id</code> และ span ของ telemetry จะมี ID นี้เพื่อตาม trace
+            <b>ลำดับ Request ID:</b> <code>request.requestId</code> (adapter สร้าง UUID ต่อ request) → header <code>x-request-id</code> ที่ client ส่งมา → fallback <code>req-METHOD-URL</code> ทุก response จะมี header <code>x-request-id</code> และ span ของ telemetry จะมี ID นี้เพื่อตาม trace ตั้ง <code>requestId: false</code> เพื่อข้ามการสร้าง ID ทั้งหมด (เร็วแบบ Elysia แนะนำสำหรับ benchmark)
           </p>
 
           <p data-lang="en">
@@ -1879,6 +1882,13 @@ curl -X POST http://localhost:3001/ai \
             หากทุก route เป็น static value หรือ params-only GET handler ที่ไม่มี hooks/schemas/telemetry คอมไพเลอร์จะสร้าง <b>standalone server</b> ฝัง route table และ handler ลงใน artifact โดยตรง ไม่ import generic router — static body ถูก serialize ล่วงหน้าและ serve ผ่าน <code>Response.clone()</code> ส่วน route แบบ <code>/users/:id</code> จะ match ด้วย prefix หากไม่เข้าเงื่อนไขจะ fallback พร้อม diagnostic <code>NELY002</code>
           </p>
 
+          <p data-lang="en">
+            <b>Adapter generation</b> (the default when standalone does not apply) also benefits from the compiler: the Node, Bun, and Fetch adapters serve hook-free <code>GET</code> routes through the shared <b>compiled dispatcher</b> — pre-serialized static payloads, prefix matching, and per-method lookup — while hooks, schemas, and other methods fall through to the generic router. The manifest records this with <code>dispatcher: true</code> and an <code>NELY003</code> info diagnostic reporting fast-path coverage.
+          </p>
+          <p data-lang="th">
+            <b>Adapter generation</b> (ค่าเริ่มต้นเมื่อไม่เข้า standalone) ก็ได้ประโยชน์จากคอมไพเลอร์เช่นกัน: adapter ของ Node, Bun และ Fetch จะ serve <code>GET</code> ที่ไม่มี hook ผ่าน <b>compiled dispatcher</b> ตัวเดียวกัน — payload ที่ serialize ล่วงหน้า, prefix matching และ lookup แยกตาม method — ส่วน hooks/schemas/method อื่นตกไป generic router manifest บันทึกด้วย <code>dispatcher: true</code> และ diagnostic <code>NELY003</code> ที่รายงาน coverage ของ fast path
+          </p>
+
           <div class="table-box">
             <table>
               <thead>
@@ -1937,7 +1947,7 @@ node --experimental-strip-types dist/server.node.ts</code></pre>
                 </tr>
                 <tr>
                   <td><code>dist/manifest.json</code></td>
-                  <td><span data-lang="en">Target, route analyses, <code>NELY001</code>/<code>NELY002</code> diagnostics, <code>generation</code> flag, reproducible <code>cacheKey</code>.</span><span data-lang="th">Target, route analyses, diagnostics, flag <code>generation</code>, <code>cacheKey</code></span></td>
+                  <td><span data-lang="en">Target, route analyses, <code>NELY001</code>/<code>NELY002</code>/<code>NELY003</code> diagnostics, <code>generation</code> and <code>dispatcher</code> flags, reproducible <code>cacheKey</code>.</span><span data-lang="th">Target, route analyses, diagnostics, flag <code>generation</code>/<code>dispatcher</code>, <code>cacheKey</code></span></td>
                 </tr>
                 <tr>
                   <td><code>.nelysia-cache/&lt;hash&gt;.json</code></td>
