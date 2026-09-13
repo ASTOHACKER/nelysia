@@ -198,7 +198,32 @@ test("generates OpenAPI paths from route schemas", () => {
   })
   const document = generateOpenAPI(app, { title: "Test API" })
   assert.equal(document.info.title, "Test API")
-  assert.ok(document.paths["/users"].post)
+  assert.deepEqual(document.paths["/users"]?.post?.requestBody?.content["application/json"]?.schema, {
+    type: "object",
+    properties: { name: { type: "string" } },
+    required: ["name"]
+  })
+})
+
+test("generates OpenAPI paths and parameters from StandardSchema", () => {
+  const fakeStandardObject = {
+    shape: {
+      search: { type: "string" },
+      limit: { type: "number" },
+    },
+    "~standard": {
+      version: 1 as const,
+      validate(value: unknown) { return { value } }
+    }
+  }
+  const app = new Nelysia().get("/items", ({ query }) => query, {
+    query: fakeStandardObject
+  })
+  const document = generateOpenAPI(app)
+  assert.deepEqual(document.paths["/items"]?.get?.parameters, [
+    { name: "search", in: "query", required: true, schema: { type: "string" } },
+    { name: "limit", in: "query", required: true, schema: { type: "number" } },
+  ])
 })
 
 test("OpenAPI plugin serves a live document", async () => {
