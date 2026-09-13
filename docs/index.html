@@ -1294,6 +1294,23 @@ process.<span class="fn">on</span>(<span class="str">"SIGTERM"</span>, <span cla
   process.<span class="fn">exit</span>(<span class="num">0</span>)
 })</code></pre>
           </div>
+
+          <p data-lang="en">
+            <b>Multi-process serving:</b> scale past one core with <code>serveClustered(factory, { port, workers, respawn })</code> from <code>@narudom96/nelysia/runtime-node-cluster</code> — the primary forks workers (default: CPU count, shared port via the OS), each building its own app and compiled dispatcher. Returns the worker's <code>Server</code>, or <code>undefined</code> in the primary. See <code>examples/cluster/server.ts</code>.
+          </p>
+          <p data-lang="th">
+            <b>รันหลาย process:</b> ขยายข้าม core ด้วย <code>serveClustered(factory, { port, workers, respawn })</code> จาก <code>@narudom96/nelysia/runtime-node-cluster</code> — primary จะ fork worker (ค่าเริ่มต้นเท่าจำนวน CPU, share port ผ่าน OS) แต่ละตัวสร้าง app และ compiled dispatcher ของตัวเอง คืน <code>Server</code> ของ worker หรือ <code>undefined</code> ใน primary ดูตัวอย่างที่ <code>examples/cluster/server.ts</code>
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><span>Cluster + Docker Deploy</span><button>copy</button></div>
+            <pre><code><span class="kw">import</span> { serveClustered } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/runtime-node-cluster"</span>
+<span class="fn">serveClustered</span>(() =&gt; <span class="kw">new</span> <span class="fn">Nelysia</span>({ requestId: <span class="kw">false</span> }), { port: <span class="num">3000</span> })
+
+<span class="com"># Production container (HEALTHCHECK on /, non-root user)</span>
+docker build -t nelysia:local .
+docker run --rm -p <span class="num">3000</span>:<span class="num">3000</span> nelysia:local</code></pre>
+          </div>
         </section>
 
         <!-- 11. Sub-App Mounting -->
@@ -2101,10 +2118,10 @@ node --experimental-strip-types dist/server.node.ts</code></pre>
           </h2>
 
           <p data-lang="en">
-            Nelysia features automated micro-benchmarks and memory soak runners measuring iterations, error rates, throughput (RPS), and heap memory delta:
+            Nelysia features automated micro-benchmarks and memory soak runners measuring iterations, error rates, throughput (RPS), and heap/RSS memory delta:
           </p>
           <p data-lang="th">
-            Nelysia มีชุดรัน Benchmark และ Soak Testing สำหรับทดสอบการกินหน่วยความจำและความเสถียรภายใต้ภาระงานต่อเนื่อง:
+            Nelysia มีชุดรัน Benchmark และ Soak Testing สำหรับทดสอบการกินหน่วยความจำ (heap/RSS) และความเสถียรภายใต้ภาระงานต่อเนื่อง:
           </p>
 
           <div class="code">
@@ -2121,7 +2138,14 @@ BENCH_CASE=dynamic npm run benchmark:bun
 <span class="com"># Custom duration / concurrency / repeats (default repeats: 3)</span>
 BENCH_DURATION_MS=<span class="num">3000</span> BENCH_CONCURRENCY=<span class="num">10</span> BENCH_REPEATS=<span class="num">10</span> npm run benchmark:bun
 
-<span class="com"># Run Soak test for heap delta check</span>
+<span class="com"># Custom duration / concurrency / repeats (default repeats: 3)</span>
+BENCH_DURATION_MS=<span class="num">3000</span> BENCH_CONCURRENCY=<span class="num">10</span> BENCH_REPEATS=<span class="num">10</span> npm run benchmark:bun
+
+<span class="com"># Router scale: generic-path lookup cost vs table size</span>
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --experimental-strip-types benchmarks/router-scale.ts
+
+<span class="com"># Run Soak test (static + dynamic, heap/RSS delta check)</span>
 npm run soak</code></pre>
           </div>
 

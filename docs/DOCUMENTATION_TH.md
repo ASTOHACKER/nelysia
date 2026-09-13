@@ -794,6 +794,10 @@ await api.post("/users", { name: "กรรณิการ์", age: 25 })
 
 > ข้อจำกัดที่ตั้งใจไว้: arbitrary source-to-source (แปลง TypeScript ทุกรูปแบบ) ยังไม่รองรับ — ดู `docs/release-status.md`
 
+### Adapter Dispatcher (Fast Path ค่าเริ่มต้น)
+
+แม้ไม่ build แบบ standalone adapter ของ Node, Bun และ Fetch ก็ serve `GET` ที่ไม่มี hook ผ่าน compiled dispatcher ตัวกลาง (`packages/compiler/src/dispatcher.ts`): static hit แบบ O(1) ด้วย payload ที่ serialize ล่วงหน้า, dynamic lookup แยกตาม method ที่ split pathname ครั้งเดียว และ prefix matching สำหรับ route แบบ `/users/:id` ส่วน hooks/schemas/method อื่น/telemetry ตกไป generic router manifest บันทึกด้วย `dispatcher: true` และ diagnostic `NELY003` ระดับ info ที่รายงาน coverage ของ fast path
+
 ### คำสั่ง CLI
 ```bash
 # ตรวจสอบการวิเคราะห์ Route ทั้งหมด
@@ -809,8 +813,17 @@ npm run build -- ./src/app.ts --target node
 ผลลัพธ์จากการสั่ง Build จะถูกบันทึกไว้ในโฟลเดอร์ `dist/`:
 - `dist/server.bun.ts` (หรือ `dist/server.node.ts`): โค้ดเซิร์ฟเวอร์ที่ปรับแต่งประสิทธิภาพแล้ว
 - `dist/server.bun.ts.map` (หรือ `dist/server.node.ts.map`): source map ของ artifact
-- `dist/manifest.json`: สรุป target, artifact, route analyses, diagnostics (`NELY001`/`NELY002`), `generation` (`standalone`|`adapter`), `reproducible: true` และ content-addressed `cacheKey`
+- `dist/manifest.json`: สรุป target, artifact, route analyses, diagnostics (`NELY001`/`NELY002`/`NELY003`), `generation` (`standalone`|`adapter`), `dispatcher` (flag บอก fast-path coverage), `reproducible: true` และ content-addressed `cacheKey`
 - `.nelysia-cache/<cacheKey>.json`: แคช manifest ตาม hash ของเนื้อหา
+
+### Deploy ด้วย Docker
+
+`Dockerfile` สำหรับ production อยู่ที่ root ของ repo (Node 22-slim, dependencies เฉพาะ production, prebuild `dist/server.node.ts`, มี `HEALTHCHECK` ที่ `/`, รันเป็น non-root user):
+
+```bash
+docker build -t nelysia:local .
+docker run --rm -p 3000:3000 -e PORT=3000 nelysia:local
+```
 
 ### สร้าง Type สำหรับ Client (`generateClientTypes`)
 
@@ -941,8 +954,16 @@ BENCH_CASE=dynamic npm run benchmark:bun
 # ปรับจำนวนรอบ/ระยะเวลา/concurrency (ค่าเริ่มต้น: repeats=3)
 BENCH_DURATION_MS=3000 BENCH_CONCURRENCY=10 BENCH_REPEATS=10 npm run benchmark:bun
 
-# รันทดสอบความเสถียรของหน่วยความจำ (Soak Test)
+# Router scale (ต้นทุน lookup ของ generic path เทียบกับขนาดตาราง route)
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=100 node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
+
+# รันทดสอบความเสถียรของหน่วยความจำ (Soak Test: static + dynamic, รายงาน heap/RSS)
 npm run soak
+
+# Soak ยาว (เช่น 1M requests บนตาราง 200 routes)
+SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak
 
 # รัน gate รวมทั้งหมด (typecheck + tests + soak + deno + audit)
 npm run release:check

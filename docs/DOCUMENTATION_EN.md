@@ -915,13 +915,26 @@ When every route is a static value or a params-only GET handler (`({ params }) =
 
 > Deliberate limit: arbitrary source-to-source transformation of all TypeScript patterns is not supported — see `docs/release-status.md`.
 
+### Adapter Dispatcher (Default Fast Path)
+
+Even without a standalone build, the Node, Bun, and Fetch adapters serve hook-free `GET` routes through the shared compiled dispatcher (`packages/compiler/src/dispatcher.ts`): O(1) static hits with pre-serialized payloads, per-method dynamic lookup with a single pathname split, and prefix matching for `/users/:id`-style routes. Hooks, schemas, other methods, and telemetry fall through to the generic router. The manifest records this with `dispatcher: true` and an `NELY003` info diagnostic reporting fast-path coverage (e.g. "fast path covers 1 of 2 routes").
+
 ### Compiling Deployable Artifacts
 
 Build outputs:
 - `dist/server.bun.ts` (or `dist/server.node.ts`): Optimized entrypoint.
 - `dist/server.bun.ts.map` (or `dist/server.node.ts.map`): Source map of the artifact.
-- `dist/manifest.json`: Target, artifact, route analyses, diagnostics (`NELY001`/`NELY002`), `generation` (`standalone`|`adapter`), `reproducible: true`, and content-addressed `cacheKey`.
+- `dist/manifest.json`: Target, artifact, route analyses, diagnostics (`NELY001`/`NELY002`/`NELY003`), `generation` (`standalone`|`adapter`), `dispatcher` (fast-path coverage flag), `reproducible: true`, and content-addressed `cacheKey`.
 - `.nelysia-cache/<hash>.json`: Content-addressed build cache.
+
+### Deploying with Docker
+
+A production-ready `Dockerfile` ships at the repository root (Node 22-slim, prod dependencies only, prebuilt `dist/server.node.ts`, `HEALTHCHECK` on `/`, non-root user):
+
+```bash
+docker build -t nelysia:local .
+docker run --rm -p 3000:3000 -e PORT=3000 nelysia:local
+```
 
 ### Client Type Generation (`generateClientTypes`)
 
@@ -1078,7 +1091,17 @@ npm run benchmark:bun
 
 # Benchmark on Bun (dynamic GET /users/:id)
 BENCH_CASE=dynamic npm run benchmark:bun
+
+# Router scale (generic-path lookup cost vs table size)
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=100 node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 ```
+
+> Fairness note: the Node baseline app uses `new Nelysia({ requestId: false })` so the
+> comparison measures routing/serialization like raw/fastify/express, which do not
+> generate a request ID per request. The default (`requestId: true`) preserves the
+> `x-request-id` echo contract at the cost of one UUID per request in the adapters.
 
 Configure runs with environment variables (default repeats: 3):
 
@@ -1099,17 +1122,20 @@ Full data: `docs/benchmark-10-rounds.md`.
 
 ### Running Soak Tests
 
-The soak test runs thousands of simulated requests to verify memory stability and detect potential heap leaks:
+The soak test hammers static (`/health`) and dynamic (`/users/:id` on a 200-route
+table) paths to verify memory stability and detect heap/RSS drift:
 
 ```bash
 npm run soak
+# Longer run (e.g. multi-minute soak with 1M requests over 200 routes)
+SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak
 ```
 
 Output highlights:
 - Total iterations completed
 - Error counts
 - Average throughput (RPS)
-- Heap memory delta ($\Delta$ Heap)
+- Heap memory delta ($\Delta$ Heap) and RSS delta ($\Delta$ RSS)
 
 ---
 
