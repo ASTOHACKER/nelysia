@@ -33,4 +33,17 @@ BENCH_CASE=dynamic BENCH_DURATION_MS=10000 BENCH_CONCURRENCY=20 npm run benchmar
 
 This compares a raw `Bun.serve()` handler, Nelysia's explicit `getStatic()` compiled path, and `elysia@2.0.0-exp.60` under the same workload. The Nelysia static path is intentionally reported by name and must not be confused with the generic `.get()` path.
 
+Router scale benchmark (generic path, single `app.handle()` lookup cost as the table grows):
+
+```bash
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=100 node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
+```
+
+Fairness note: the Node baseline app uses `new Nelysia({ requestId: false })` so the
+comparison measures routing/serialization like raw/fastify/express, which do not
+generate a request ID per request. The default (`requestId: true`) preserves the
+`x-request-id` echo contract and costs one UUID per request in the Node/Bun adapters.
+
 This is a smoke benchmark, not a framework claim. Record Node version, CPU, OS, dependency versions, and whether other workloads are running before comparing results. Use a dedicated load generator and multiple repetitions before publishing numbers.

@@ -188,6 +188,13 @@ const app = new Nelysia({
   // Force Secure attribute on all setCookie calls (default: false)
   secureCookies: true,
 
+  // Request-ID handling (default: true). When true, the request ID is resolved
+  // from `requestId`, the `x-request-id` header, or a deterministic fallback,
+  // and echoed back as the `x-request-id` response header. Set to false for an
+  // Elysia-like fast path that skips request-ID generation entirely (recommended
+  // for benchmarks and ID-less services).
+  requestId: false,
+
   // Global telemetry callbacks
   telemetry: {
     onRequest(context) { console.log(`Incoming: ${context.request.method} ${context.request.url}`) },
@@ -211,6 +218,11 @@ Nelysia provides chainable registration methods:
 - `app.options(path, handler, options?)`
 - `app.all(path, handler, options?)` — Registers one handler for every HTTP method (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
 - `app.route(method, path, handler, options?)`
+
+> **OPTIONS behavior:** an `OPTIONS` request never reaches a route handler. When any
+> route matches the path, Nelysia answers `204` with an `Allow` header listing the
+> registered methods (plus `HEAD` for `GET` routes); otherwise it answers `404`.
+> Registering `app.options(path, handler)` is accepted but the handler is not invoked.
 
 ```ts
 app

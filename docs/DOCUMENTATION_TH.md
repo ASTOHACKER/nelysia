@@ -169,6 +169,12 @@ const app = new Nelysia({
   // บังคับให้ Cookie ทุกตัวติด Flag 'Secure' โดยอัตโนมัติ
   secureCookies: true,
 
+  // การจัดการ Request ID (ค่าเริ่มต้น: true) ถ้าเป็น true จะหา request ID จาก
+  // `requestId`, header `x-request-id` หรือค่าพื้นฐาน แล้วส่งกลับใน response header
+  // `x-request-id` ตั้งเป็น false เพื่อข้ามการสร้าง request ID ทั้งหมด (เร็วแบบ Elysia
+  // แนะนำสำหรับ benchmark และ service ที่ไม่ต้องการ ID)
+  requestId: false,
+
   // การตรวจจับ Telemetry ระดับ Global
   telemetry: {
     onRequest(ctx) { console.log(`Request เข้ามา: ${ctx.request.method} ${ctx.request.url}`) },
@@ -192,6 +198,11 @@ Nelysia รองรับ Method ต่างๆ ในรูปแบบ Chain
 - `app.options(path, handler, options?)`
 - `app.all(path, handler, options?)` — ลงทะเบียน Route เดียวกันสำหรับทุก HTTP Method (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
 - `app.route(method, path, handler, options?)`
+
+> **พฤติกรรมของ OPTIONS:** request แบบ `OPTIONS` จะไม่วิ่งเข้า handler ใดๆ ถ้ามี route
+> ตรงกับ path จะตอบ `204` พร้อม header `Allow` ที่ลิสต์ method ที่ลงทะเบียนไว้ (บวก `HEAD`
+> สำหรับ route `GET`) ถ้าไม่ตรงเลยจะตอบ `404` การลงทะเบียน `app.options(path, handler)`
+> ทำได้แต่ handler จะไม่ถูกเรียก
 
 ```ts
 app
