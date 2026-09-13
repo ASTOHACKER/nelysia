@@ -2,7 +2,7 @@ import type { Nelysia } from "../../core/src/app.ts"
 import { requestIdFor, responseMarker, type Context, type RouteGraph, type RouteRecord } from "../../core/src/types.ts"
 import type { Schema } from "../../core/src/schema.ts"
 import { createBunHandler } from "../../runtime-bun/src/server.ts"
-import { compileDispatcher, fastPathname, isParamsOnlyHandler, jsonContentType, lookupCompiled, matchSingleDynamicUrl, textContentType, type CompiledRoute } from "./dispatcher.ts"
+import { compileDispatcher, fastPathname, isCompilableRoute, isParamsOnlyHandler, jsonContentType, lookupCompiled, matchSingleDynamicUrl, textContentType, type CompiledRoute } from "./dispatcher.ts"
 import { createHash } from "node:crypto"
 
 export { createGeneratedMatcher, isParamsOnlyHandler } from "./dispatcher.ts"
@@ -18,7 +18,7 @@ export interface RouteAnalysis {
 export type BuildTarget = "bun" | "node"
 
 export interface BuildDiagnostic {
-  code: "NELY001" | "NELY002"
+  code: "NELY001" | "NELY002" | "NELY003"
   severity: "info" | "warning"
   message: string
   route?: { method: string; path: string }
@@ -32,6 +32,9 @@ export interface BuildManifest {
   artifact: string
   sourceToSource: false
   generation: "standalone" | "adapter"
+  /** True when the runtime adapter serves hook-free GET routes through the
+   * compiled dispatcher instead of the generic router. Additive v1 field. */
+  dispatcher: boolean
   routes: RouteAnalysis[]
   diagnostics: BuildDiagnostic[]
   reproducible: true
@@ -238,8 +241,14 @@ function isStandaloneRoute(route: RouteRecord): boolean {
   return isParamsOnlyHandler(route.handler)
 }
 
+function compileDispatcherForManifest(compiled: CompiledApplication): { fast: number; total: number } {
+  const routes = compiled.graph.routes
+  return { fast: routes.filter(isCompilableRoute).length, total: routes.length }
+}
+
 export function generateBuildArtifact(options: { entry: string; target: BuildTarget; compiled: CompiledApplication }): BuildArtifact {
   const standalone = options.compiled.graph.routes.every(isStandaloneRoute)
+  const dispatcher = compileDispatcherForManifest(options.compiled)
   const manifest: BuildManifest = {
     version: 1,
     compiler: "nelysia",
@@ -248,6 +257,7 @@ export function generateBuildArtifact(options: { entry: string; target: BuildTar
     artifact: `server.${options.target}.ts`,
     sourceToSource: false,
     generation: standalone ? "standalone" : "adapter",
+    dispatcher: !standalone,
     reproducible: true,
     cacheKey: "",
     sourceMap: `${`server.${options.target}.ts`}.map`,
@@ -256,7 +266,7 @@ export function generateBuildArtifact(options: { entry: string; target: BuildTar
       {
         code: "NELY001",
         severity: "info",
-         message: standalone ? "This artifact is a standalone server for the supported static and params-only GET subset; arbitrary source-to-source generation is not enabled." : "This artifact retains the application entry and runtime adapter; standalone generation is limited to static and params-only GET routes."
+         message: standalone ? "This artifact is a standalone server for the supported static and params-only GET subset; arbitrary source-to-source generation is not enabled." : "This artifact retains the application entry and runtime adapter, which serves hook-free GET routes through the compiled dispatcher without the generic router; standalone generation is limited to static and params-only GET routes."
       },
       ...options.compiled.graph.routes
         .filter((route) => !isStandaloneRoute(route))
@@ -265,7 +275,12 @@ export function generateBuildArtifact(options: { entry: string; target: BuildTar
           severity: "warning",
           message: `Standalone generation unsupported: ${options.compiled.analyses.find((analysis) => analysis.method === route.method && analysis.path === route.path)?.reason ?? "Route requires generic runtime behavior"}`,
           route: { method: route.method, path: route.path }
-        }))
+        })),
+      ...(!standalone ? [{
+        code: "NELY003" as const,
+        severity: "info" as const,
+        message: `Compiled dispatcher fast path covers ${dispatcher.fast} of ${dispatcher.total} routes; ${dispatcher.total - dispatcher.fast} use the generic fallback.`,
+      }] : [])
     ]
   }
   const source = generateStandaloneServerSource(options) ?? generateServerSource(options)

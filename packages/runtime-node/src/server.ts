@@ -3,13 +3,34 @@ import { randomUUID } from "node:crypto"
 import { WebSocketServer, type WebSocket } from "ws"
 import { HttpError, type Nelysia } from "../../core/src/app.ts"
 import type { RequestData, ResponseData } from "../../core/src/types.ts"
+import { responseMarker } from "../../core/src/types.ts"
+import { compileDispatcher, lookupCompiled, type CompiledDispatcher, type CompiledRoute } from "../../compiler/src/dispatcher.ts"
+
+interface PrebuiltStatic {
+  contentType: string
+  bytes: Buffer
+}
 
 export function createNodeServer(app: Nelysia) {
   const hasWebSocket = app.websocketRoutes.length > 0
   const websocketRoutes = new Map(app.websocketRoutes.map((route) => [route.path, route.handlers]))
+  // Auto-use the compiled dispatcher for hook-free GET routes. Anything else
+  // (misses, non-GET, schemas, hooks, telemetry) flows through app.handle().
+  const dispatcher = app.telemetry !== undefined ? undefined : compileDispatcher(app)
+  const prebuilt = new Map<CompiledRoute, PrebuiltStatic>()
+  if (dispatcher !== undefined) {
+    for (const entry of dispatcher.routes) {
+      const serialized = entry.serialized
+      if (entry.route.static && serialized !== undefined) {
+        const bytes = serialized.text !== undefined ? Buffer.from(serialized.text) : Buffer.from(serialized.bytes!)
+        prebuilt.set(entry, { contentType: serialized.contentType, bytes })
+      }
+    }
+  }
   const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
       const method = request.method ?? "GET"
+      if (dispatcher !== undefined && method === "GET" && await tryCompiledGet(dispatcher, prebuilt, request, response)) return
       // Fast path: GET/HEAD without body headers never touch the request stream.
       const needsBody = method !== "GET" && method !== "HEAD" && (request.headers["content-length"] !== undefined || request.headers["transfer-encoding"] !== undefined)
       const headers = new Headers(request.headers as Record<string, string>)
@@ -41,6 +62,66 @@ export function createNodeServer(app: Nelysia) {
     })
   })
   return server
+}
+
+/** Compiled GET fast path. Returns true when the response was sent; false means
+ * the caller must run the generic app.handle() flow (miss, generic route, or a
+ * handler result the fast path cannot represent, e.g. a native Response). */
+async function tryCompiledGet(dispatcher: CompiledDispatcher, prebuilt: Map<CompiledRoute, PrebuiltStatic>, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
+  const url = request.url ?? "/"
+  const query = url.indexOf("?")
+  const pathname = (query === -1 ? url : url.slice(0, query)) || "/"
+  const found = lookupCompiled(dispatcher, pathname)
+  if (found === undefined || found.kind === "generic") return false
+  const requestId = dispatcher.needsRequestId ? randomUUID() : undefined
+  if (found.kind === "static-prebuilt") {
+    const staticResponse = prebuilt.get(found.entry)!
+    const headers: Record<string, string | number> = {
+      "content-type": staticResponse.contentType,
+      "content-length": staticResponse.bytes.length,
+    }
+    if (requestId !== undefined) headers["x-request-id"] = requestId
+    response.writeHead(200, headers)
+    response.end(staticResponse.bytes)
+    return true
+  }
+  // static-sync / params: invoke the handler with a minimal context. Anything
+  // unexpected (throw, Response, unserializable value) falls back to generic.
+  let result: unknown
+  try {
+    result = found.kind === "static-sync"
+      ? (found.entry.route.handler as () => unknown)()
+      : found.entry.route.handler({ params: found.params } as never)
+    if (result instanceof Promise) result = await result.catch(() => FALLBACK)
+  } catch {
+    return false
+  }
+  if (result === FALLBACK || result instanceof Response || isResponseData(result)) return false
+  const serialized = serializeHandlerResult(result)
+  if (serialized === undefined) return false
+  const headers: Record<string, string | number> = { "content-length": serialized.bytes.length }
+  if (serialized.contentType !== undefined) headers["content-type"] = serialized.contentType
+  if (requestId !== undefined) headers["x-request-id"] = requestId
+  response.writeHead(200, headers)
+  response.end(serialized.bytes)
+  return true
+}
+
+const FALLBACK = Symbol("nelysia.compiled-fallback")
+
+function isResponseData(value: unknown): value is { status: number; headers: Headers; body: unknown } {
+  return typeof value === "object" && value !== null && (value as { [key: symbol]: unknown })[responseMarker] === true
+}
+
+function serializeHandlerResult(result: unknown): { bytes: Buffer; contentType?: string } | undefined {
+  if (result === undefined || result === null) return { bytes: Buffer.alloc(0) }
+  if (typeof result === "string") return { bytes: Buffer.from(result), contentType: "text/plain; charset=utf-8" }
+  if (result instanceof Uint8Array) return { bytes: Buffer.from(result), contentType: "text/plain; charset=utf-8" }
+  try {
+    return { bytes: Buffer.from(JSON.stringify(result)), contentType: "application/json; charset=utf-8" }
+  } catch {
+    return undefined
+  }
 }
 
 function attachWebSocketHandlers(websocket: WebSocket, handlers: { open?(socket: WebSocket): unknown; message?(socket: WebSocket, message: string | Uint8Array): unknown; close?(socket: WebSocket, code: number, reason: string): unknown; error?(socket: WebSocket, error: unknown): unknown }): void {

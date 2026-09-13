@@ -106,3 +106,23 @@ test("unsupported routes select adapter generation with an explicit diagnostic",
   })
   assert.match(artifact.source, /createNodeServer/)
 })
+
+test("adapter artifacts record dispatcher coverage", () => {
+  const app = new Nelysia()
+    .getStatic("/json", { ok: true })
+    .post("/users", ({ body }) => body)
+  const artifact = generateBuildArtifact({ entry: "./app.ts", target: "node", compiled: compile(app) })
+  assert.equal(artifact.manifest.dispatcher, true)
+  assert.deepEqual(artifact.manifest.diagnostics.at(-1), {
+    code: "NELY003",
+    severity: "info",
+    message: "Compiled dispatcher fast path covers 1 of 2 routes; 1 use the generic fallback.",
+  })
+  const standalone = generateBuildArtifact({
+    entry: "./app.ts",
+    target: "node",
+    compiled: compile(new Nelysia().getStatic("/json", { ok: true })),
+  })
+  assert.equal(standalone.manifest.dispatcher, false)
+  assert.ok(!standalone.manifest.diagnostics.some((diagnostic) => diagnostic.code === "NELY003"))
+})
