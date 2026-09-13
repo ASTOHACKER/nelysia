@@ -1105,7 +1105,7 @@ BENCH_DURATION_MS=3000 BENCH_CONCURRENCY=10 BENCH_REPEATS=10 npm run benchmark:b
 
 ### Latest Results (10 Rounds, Concurrency 10, 0 Failures)
 
-Full data: `docs/benchmark-10-rounds.md`.
+Full data: `docs/benchmark-10-rounds.md` and `docs/benchmark-100-rounds.md`.
 
 | Bun workload | Nelysia | Elysia | Raw Bun |
 | :--- | ---: | ---: | ---: |

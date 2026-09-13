@@ -974,7 +974,7 @@ npm run release:check
 
 ### ผลล่าสุด (10 รอบ, concurrency 10, failures 0)
 
-ดูรายละเอียดเต็มที่ `docs/benchmark-10-rounds.md`:
+ดูรายละเอียดเต็มที่ `docs/benchmark-10-rounds.md` และ `docs/benchmark-100-rounds.md`:
 
 | Workload (Bun) | Nelysia | Elysia | Raw Bun |
 | :--- | ---: | ---: | ---: |

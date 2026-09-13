@@ -8,46 +8,53 @@ const durationMs = Number(process.env.BENCH_DURATION_MS ?? 5000)
 const concurrency = Number(process.env.BENCH_CONCURRENCY ?? 20)
 const repeats = Number(process.env.BENCH_REPEATS ?? 3)
 
-for (const framework of frameworks) {
-  const samples: number[] = []
-  let totalFailures = 0
-  for (let repeat = 0; repeat < repeats; repeat++) {
+// Interleaved: rotate frameworks every repeat so time-varying machine noise
+// hits all frameworks equally instead of confounding one framework's block.
+const collected = new Map<string, { samples: number[]; failures: number }>(
+  frameworks.map((framework) => [framework, { samples: [], failures: 0 }]),
+)
+const blockSize = Math.max(1, Math.min(repeats, Number(process.env.BENCH_BLOCK ?? 10)))
+for (let base = 0; base < repeats; base += blockSize) {
+  for (const framework of frameworks) {
+    const entry = collected.get(framework)!
     const child = spawn(process.execPath, ["--experimental-strip-types", "benchmarks/server.ts"], {
       env: { ...process.env, FRAMEWORK: framework, PORT: String(port) },
       stdio: ["ignore", "pipe", "inherit"]
     })
     await waitUntilReady(child)
     await fetch(`http://127.0.0.1:${port}/json`)
-    const end = performance.now() + durationMs
-    let requests = 0
-    let failures = 0
-    let latencyTotal = 0
-    const workers = Array.from({ length: concurrency }, async () => {
-      while (performance.now() < end) {
-        const started = performance.now()
-        try {
-          const response = await fetch(`http://127.0.0.1:${port}/json`)
-          await response.arrayBuffer()
-          if (!response.ok) failures++
-          else {
-            requests++
-            latencyTotal += performance.now() - started
+    for (let i = 0; i < blockSize && base + i < repeats; i++) {
+      const end = performance.now() + durationMs
+      let requests = 0
+      let failures = 0
+      const workers = Array.from({ length: concurrency }, async () => {
+        while (performance.now() < end) {
+          try {
+            const response = await fetch(`http://127.0.0.1:${port}/json`)
+            await response.arrayBuffer()
+            if (!response.ok) failures++
+            else requests++
+          } catch {
+            failures++
           }
-        } catch {
-          failures++
         }
-      }
-    })
-    await Promise.all(workers)
+      })
+      await Promise.all(workers)
+      const seconds = durationMs / 1000
+      entry.samples.push(requests / seconds)
+      entry.failures += failures
+    }
     child.kill("SIGTERM")
     await once(child, "exit")
-    const seconds = durationMs / 1000
-    samples.push(requests / seconds)
-    totalFailures += failures
   }
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  console.error(`[progress] block ${Math.floor(base / blockSize) + 1}/${Math.ceil(repeats / blockSize)} completed (${Math.min(base + blockSize, repeats)}/${repeats} repeats)`)
+}
+for (const framework of frameworks) {
+  const { samples, failures } = collected.get(framework)!
   samples.sort((a, b) => a - b)
   const median = samples[Math.floor(samples.length / 2)] ?? 0
-  console.log(`${framework}\tmedian ${median.toFixed(0)} req/s\tsamples ${samples.map((sample) => sample.toFixed(0)).join(",")}\tfailures ${totalFailures}`)
+  console.log(`${framework}\tmedian ${median.toFixed(0)} req/s\tsamples ${samples.map((sample) => sample.toFixed(0)).join(",")}\tfailures ${failures}`)
 }
 
 async function waitUntilReady(child: ReturnType<typeof spawn>): Promise<void> {

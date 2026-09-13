@@ -1,6 +1,12 @@
-# Nelysia
+<p align="center">
+  <img src="docs/logo.svg" width="80" height="80" alt="Nelysia Logo" />
+</p>
 
-Compiler-first TypeScript backend framework for Bun and Node.js.
+<h1 align="center">Nelysia</h1>
+
+<p align="center">
+  <b>Compiler-first TypeScript backend framework for Bun, Node.js, and Web Standards.</b>
+</p>
 
 ## Install
 
@@ -102,6 +108,7 @@ Open the complete static documentation at [`docs/index.html`](./docs/index.html)
 Latest verified test and benchmark results: [`docs/benchmark-results.html`](./docs/benchmark-results.html).
 
 Ten-round benchmark report: [`docs/benchmark-10-rounds.md`](./docs/benchmark-10-rounds.md).
+One-hundred-round benchmark report: [`docs/benchmark-100-rounds.md`](./docs/benchmark-100-rounds.md).
 
 ## Run
 
