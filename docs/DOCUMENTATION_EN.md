@@ -531,6 +531,25 @@ process.on("SIGTERM", async () => {
 })
 ```
 
+### Multi-process serving (`serveClustered`, Node.js)
+
+Scale past one core by forking one worker per CPU. Every worker builds its own
+app instance (and its own compiled dispatcher) via the factory:
+
+```ts
+import { serveClustered } from "@narudom96/nelysia/runtime-node-cluster"
+import { Nelysia } from "@narudom96/nelysia"
+
+serveClustered(() => new Nelysia({ requestId: false }).get("/json", () => ({ ok: true })), {
+  port: 3000,          // shared across workers by the OS
+  workers: 4,          // defaults to available parallelism
+  respawn: true,       // fork a replacement when a worker dies (default)
+})
+```
+
+Returns the worker's `Server`, or `undefined` in the primary process.
+See `examples/cluster/server.ts`.
+
 ---
 
 ## 8. WebSocket Support

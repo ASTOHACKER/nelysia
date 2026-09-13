@@ -1,5 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
+import { spawn } from "node:child_process"
+import { once } from "node:events"
 import { gracefulShutdown, Nelysia, t as schema } from "../packages/core/src/index.ts"
 import { createNodeServer } from "../packages/runtime-node/src/server.ts"
 import WebSocket from "ws"
@@ -145,4 +147,28 @@ test("graceful shutdown drains an active Node request", async () => {
   server.closeIdleConnections()
   await shutdown
   assert.equal(shutdownFinished, true)
+})
+
+test("clustered Node server forks a worker that serves compiled routes", async (t) => {
+  const child = spawn(process.execPath, ["--experimental-strip-types", "examples/cluster/server.ts"], {
+    env: { ...process.env, PORT: "0", WORKERS: "1" },
+    stdio: ["ignore", "pipe", "inherit"],
+  })
+  t.after(() => {
+    child.kill("SIGTERM")
+  })
+  let port = 0
+  for await (const chunk of child.stdout as NodeJS.ReadableStream) {
+    const match = /ready:(\d+)/.exec(chunk.toString())
+    if (match) {
+      port = Number(match[1])
+      break
+    }
+  }
+  assert.ok(port > 0)
+  const response = await fetch(`http://127.0.0.1:${port}/json`)
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), { ok: true })
+  child.kill("SIGTERM")
+  await once(child, "exit")
 })

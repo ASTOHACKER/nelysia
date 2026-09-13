@@ -41,7 +41,7 @@ interface BenchResult {
 }
 
 async function benchmark(port: number, stop: () => void): Promise<BenchResult> {
-  await fetch(`http://127.0.0.1:${port}${requestPath}`)
+  await waitUntilReady(port)
   const warmupEnd = performance.now() + 1000
   while (performance.now() < warmupEnd) {
     const response = await fetch(`http://127.0.0.1:${port}${requestPath}`)
@@ -82,6 +82,20 @@ async function benchmark(port: number, stop: () => void): Promise<BenchResult> {
 
 function median(values: number[]): number {
   return percentile(values, 0.5)
+}
+
+async function waitUntilReady(port: number): Promise<void> {
+  const deadline = performance.now() + 5000
+  while (true) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}${requestPath}`)
+      await response.arrayBuffer()
+      return
+    } catch {
+      if (performance.now() > deadline) throw new Error(`benchmark server on ${port} did not become ready`)
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+  }
 }
 
 function percentile(values: number[], rank: number): number {

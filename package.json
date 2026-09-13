@@ -57,6 +57,7 @@
     "./plugins": "./dist-package/packages/plugins/src/index.js",
     "./observability": "./dist-package/packages/observability/src/index.js",
     "./runtime-fetch": "./dist-package/packages/runtime-fetch/src/server.js",
+    "./runtime-node-cluster": "./dist-package/packages/runtime-node/src/cluster.js",
     "./graphql": "./dist-package/packages/integrations-graphql/src/index.js",
     "./drizzle": "./dist-package/packages/integrations-drizzle/src/index.js",
     "./prisma": "./dist-package/packages/integrations-prisma/src/index.js",

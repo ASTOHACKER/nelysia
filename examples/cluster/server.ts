@@ -1,0 +1,23 @@
+import cluster from "node:cluster"
+import { Nelysia } from "../../packages/core/src/index.ts"
+import { serveClustered } from "../../packages/runtime-node/src/cluster.ts"
+
+// Smoke entry for multi-process serving (used by tests; not a library API).
+// PORT=0 picks an ephemeral port per worker; WORKERS controls fork count.
+const server = serveClustered(
+  () => new Nelysia({ requestId: false }).get("/json", () => ({ ok: true })),
+  {
+    port: Number(process.env.PORT ?? 4321),
+    workers: Number(process.env.WORKERS ?? 1),
+    respawn: false,
+  },
+)
+
+if (server === undefined) {
+  cluster.on("message", (_worker, message) => {
+    const port = (message as { nelysiaWorkerListening?: boolean; port?: number } | undefined)?.port
+    if ((message as { nelysiaWorkerListening?: boolean } | undefined)?.nelysiaWorkerListening) {
+      console.log(`ready:${port}`)
+    }
+  })
+}

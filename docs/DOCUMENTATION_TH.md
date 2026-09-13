@@ -487,6 +487,24 @@ process.on("SIGINT", async () => {
 })
 ```
 
+### รันหลาย Process (`serveClustered`, Node.js)
+
+ขยายข้าม core ด้วยการ fork worker ตามจำนวน CPU แต่ละ worker สร้าง app ของตัวเอง
+(พร้อม compiled dispatcher ของตัวเอง) ผ่าน factory:
+
+```ts
+import { serveClustered } from "@narudom96/nelysia/runtime-node-cluster"
+import { Nelysia } from "@narudom96/nelysia"
+
+serveClustered(() => new Nelysia({ requestId: false }).get("/json", () => ({ ok: true })), {
+  port: 3000,     // worker ทุกตัว share port เดียวกันผ่าน OS
+  workers: 4,     // ค่าเริ่มต้นเท่าจำนวน CPU
+  respawn: true,  // worker ตายให้ fork ตัวใหม่ (ค่าเริ่มต้น)
+})
+```
+
+คืน `Server` ของ worker หรือ `undefined` ใน primary process ดูตัวอย่างที่ `examples/cluster/server.ts`
+
 ---
 
 ## 8. การใช้งาน WebSockets
