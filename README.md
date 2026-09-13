@@ -109,7 +109,7 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 | # | Superpower / จุดเด่น | Description / รายละเอียด |
 | :---: | :--- | :--- |
 | **1** | 🧬 **3-Lane AOT Compiler** | Static routes → raw buffer (zero overhead). Param routes → direct URL extraction. Complex routes → full pipeline. Right engine for every request, no waste. |
-| **2** | 🏎️ **30,618 req/s — Faster than Raw Bun** | 0.33 ms latency, +7% over Elysia, **0% GC pressure** on static paths. Verified benchmark — no garbage, no pauses, no surprises. |
+| **2** | 🏎️ **100,471 req/s — Faster than Raw Bun** | TechEmpower plaintext benchmark, **0% GC pressure** on static paths. Verified with `oha` — no garbage, no pauses, no surprises. |
 | **3** | 🎯 **V8 Stays in Fast Lane** | Context shape never mutates → V8 Inline Cache stays monomorphic. Use `context.store` instead of `.decorate()` — the JIT never de-opts. |
 | **4** | 🌐 **Node.js + Bun, No Polyfills** | Node.js 22+ on native `node:http` — run TypeScript with zero build step. Bun 1.4+ on native `Bun.serve` — full power, no shims, no wrappers. |
 | **5** | 🚀 **Multi-Core — No PM2 Needed** | Call `serveClustered()` and every CPU core pitches in. Graceful drain on shutdown — existing connections finish cleanly, no process manager required. |

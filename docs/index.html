@@ -1567,24 +1567,31 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
               <tbody>
                 <tr>
                   <td><b>Bun Static:</b> <code>GET /json</code></td>
-                  <td class="lead-col status">30,618 req/s (0.33 ms)</td>
-                  <td>28,615 req/s (0.35 ms)</td>
-                  <td>29,625 req/s (Raw Bun)</td>
-                  <td><span class="badge-win">+7.0% vs Elysia</span></td>
+                  <td class="lead-col status">99,103 req/s</td>
+                  <td>83,937 req/s</td>
+                  <td>87,460 req/s (Raw Bun)</td>
+                  <td><span class="badge-win">+18.1% vs Elysia</span></td>
+                </tr>
+                <tr>
+                  <td><b>Bun Plaintext:</b> <code>GET /plaintext</code></td>
+                  <td class="lead-col status">100,471 req/s (0.50 ms)</td>
+                  <td>70,735 req/s (0.70 ms)</td>
+                  <td>85,837 req/s (Raw Bun)</td>
+                  <td><span class="badge-win">+42.0% vs Elysia</span></td>
                 </tr>
                 <tr>
                   <td><b>Bun Dynamic:</b> <code>GET /users/:id</code></td>
-                  <td class="lead-col status">28,991 req/s (0.34 ms)</td>
-                  <td>28,125 req/s (0.35 ms)</td>
-                  <td>29,587 req/s (Raw Bun)</td>
-                  <td><span class="badge-win">+3.1% vs Elysia</span></td>
+                  <td class="lead-col status">96,859 req/s (0.51 ms)</td>
+                  <td>95,015 req/s (0.52 ms)</td>
+                  <td>93,421 req/s (Raw Bun)</td>
+                  <td><span class="badge-win">+2.0% vs Elysia</span></td>
                 </tr>
                 <tr>
-                  <td><b>Node.js 22+:</b> Native Strip-Types</td>
-                  <td class="lead-col status">5,208 - 7,055 req/s</td>
-                  <td>Adapter plugin required</td>
-                  <td>5,816 req/s (Raw Node)</td>
-                  <td><span class="badge-feat">Zero-build TS</span></td>
+                  <td><b>Node.js 22+:</b> HTTP Adapter</td>
+                  <td class="lead-col status">34,821 req/s (1.43 ms)</td>
+                  <td>38,990 req/s (Fastify 5)</td>
+                  <td>21,719 req/s (Express 5)</td>
+                  <td><span class="badge-win">+60.3% vs Express</span></td>
                 </tr>
               </tbody>
             </table>
@@ -1603,10 +1610,10 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
               <p data-lang="th">รูทคงที่ → ตอบกลับทันทีไม่สร้าง Context. รูทมี param → ดึงค่าตรงจาก URL. รูทซับซ้อน → Full pipeline. ประหยัดทุกรอบ ไม่เสียพลังงานเกินจำเป็น</p>
             </div>
             <div class="tile">
-              <b data-lang="en">2. 🏎️ 30,618 req/s — Faster than Raw Bun</b>
-              <b data-lang="th">2. 🏎️ 30,618 req/s — เร็วกว่า Raw Bun</b>
-              <p data-lang="en">0.33 ms latency. +7% over Elysia. 0% GC pressure on static paths — no garbage, no pauses, no surprises.</p>
-              <p data-lang="th">Latency เพียง 0.33 ms. เร็วกว่า Elysia +7%. GC เป็น 0% บน static route — ไม่มีขยะหน่วยความจำ ไม่สะดุด ไม่แปลกใจ</p>
+                  <b data-lang="en">2. 🏎️ 100,471 req/s — Faster than Raw Bun</b>
+                  <b data-lang="th">2. 🏎️ 100,471 req/s — เร็วกว่า Raw Bun</b>
+                  <p data-lang="en">TechEmpower plaintext benchmark. +42% over Elysia. 0% GC pressure on static paths — no garbage, no pauses, no surprises.</p>
+                  <p data-lang="th">ผลทดสอบ TechEmpower plaintext เร็วกว่า Elysia +42%. GC เป็น 0% บน static route — ไม่มีขยะหน่วยความจำ ไม่สะดุด ไม่แปลกใจ</p>
             </div>
             <div class="tile">
               <b data-lang="en">3. 🎯 V8 Stays in Fast Lane</b>
@@ -1821,7 +1828,7 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
               <div class="bench-row highlight" id="row-nelysia">
                 <div class="bench-row-top">
                   <span class="bench-row-name"><span class="badge-win">Nelysia</span> (Bun 1.4+)</span>
-                  <span class="bench-row-val" id="val-nelysia">30,618 req/s</span>
+                  <span class="bench-row-val" id="val-nelysia">100,471 req/s</span>
                 </div>
                 <div class="bench-track"><div class="bench-fill" id="fill-nelysia" style="width: 100%;"></div></div>
               </div>
@@ -1829,17 +1836,33 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
               <div class="bench-row" id="row-rawbun">
                 <div class="bench-row-top">
                   <span class="bench-row-name">Raw Bun (Bun.serve)</span>
-                  <span class="bench-row-val" id="val-rawbun">29,625 req/s</span>
+                  <span class="bench-row-val" id="val-rawbun">85,837 req/s</span>
                 </div>
-                <div class="bench-track"><div class="bench-fill" id="fill-rawbun" style="width: 96.7%;"></div></div>
+                <div class="bench-track"><div class="bench-fill" id="fill-rawbun" style="width: 84.0%;"></div></div>
               </div>
               <!-- Elysia -->
               <div class="bench-row" id="row-elysia">
                 <div class="bench-row-top">
                   <span class="bench-row-name">ElysiaJS (Bun)</span>
-                  <span class="bench-row-val" id="val-elysia">28,615 req/s</span>
+                  <span class="bench-row-val" id="val-elysia">70,735 req/s</span>
                 </div>
-                <div class="bench-track"><div class="bench-fill" id="fill-elysia" style="width: 93.4%;"></div></div>
+                <div class="bench-track"><div class="bench-fill" id="fill-elysia" style="width: 78.8%;"></div></div>
+              </div>
+              <!-- Fastify -->
+              <div class="bench-row" id="row-fastify">
+                <div class="bench-row-top">
+                  <span class="bench-row-name">Fastify 5 (Node.js)</span>
+                  <span class="bench-row-val" id="val-fastify">38,990 req/s</span>
+                </div>
+                <div class="bench-track"><div class="bench-fill" id="fill-fastify" style="width: 37.5%;"></div></div>
+              </div>
+              <!-- Express -->
+              <div class="bench-row" id="row-express">
+                <div class="bench-row-top">
+                  <span class="bench-row-name">Express 5 (Node.js)</span>
+                  <span class="bench-row-val" id="val-express">21,719 req/s</span>
+                </div>
+                <div class="bench-track"><div class="bench-fill" id="fill-express" style="width: 20.9%;"></div></div>
               </div>
               <!-- Fastify -->
               <div class="bench-row" id="row-fastify">
@@ -4693,18 +4716,18 @@ npm run release:check</code></pre>
     // Interactive Benchmark Visualizer Logic
     const benchMetrics = {
       rps: {
-        nelysia: { val: "30,618 req/s", scale: "1" },
-        rawbun: { val: "29,625 req/s", scale: "0.967" },
-        elysia: { val: "28,615 req/s", scale: "0.934" },
-        fastify: { val: "18,400 req/s", scale: "0.601" },
-        express: { val: "7,200 req/s", scale: "0.235" }
+        nelysia: { val: "100,471 req/s", scale: "1" },
+        rawbun: { val: "85,837 req/s", scale: "0.854" },
+        elysia: { val: "70,735 req/s", scale: "0.704" },
+        fastify: { val: "38,990 req/s", scale: "0.375" },
+        express: { val: "21,719 req/s", scale: "0.209" }
       },
       lat: {
-        nelysia: { val: "0.33 ms (Lowest)", scale: "0.239" },
-        rawbun: { val: "0.34 ms", scale: "0.246" },
-        elysia: { val: "0.35 ms", scale: "0.253" },
-        fastify: { val: "0.54 ms", scale: "0.391" },
-        express: { val: "1.38 ms", scale: "1" }
+        nelysia: { val: "0.50 ms (Lowest)", scale: "0.362" },
+        rawbun: { val: "0.57 ms", scale: "0.413" },
+        elysia: { val: "1.22 ms", scale: "0.884" },
+        fastify: { val: "1.43 ms", scale: "1" },
+        express: { val: "2.34 ms", scale: "1" }
       },
       gc: {
         nelysia: { val: "0% (Zero Alloc)", scale: "0.03" },

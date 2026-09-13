@@ -93,8 +93,8 @@ Nelysia analyzes every route before the first request arrives. Instead of runnin
 
 Result: every request uses only the power it actually needs.
 
-#### 2. 🏎️ 30,618 req/s — Faster than Raw Bun
-Verified over 100 consecutive rounds with zero errors: **30,618 req/s** on Bun, **0.33 ms** average latency, **+7% over Elysia**, and faster than raw `Bun.serve`. Static paths produce **0% GC pressure** — no garbage, no pauses, no surprises in production.
+#### 2. 🏎️ 100,471 req/s — Faster than Raw Bun
+Verified with the TechEmpower plaintext workload using `oha`: **100,471 req/s** on Bun, **+42% over Elysia**, and faster than raw `Bun.serve`. Static paths produce **0% GC pressure** — no garbage, no pauses, no surprises in production.
 
 #### 3. 🎯 V8 Stays in Fast Lane
 Frameworks that use `.decorate('db', db)` continuously mutate the object's hidden class, which forces V8 to exit its fast Inline Cache (IC) mode and de-optimize. Nelysia fixes this: context shape never changes. Use `context.store` for shared state and the JIT stays monomorphic at peak speed — forever.
