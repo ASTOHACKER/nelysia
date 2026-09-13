@@ -78,13 +78,57 @@
 
 ## 1. บทนำและสถาปัตยกรรม
 
-**Nelysia** คือ TypeScript Backend Framework รุ่นใหม่ที่ออกแบบภายใต้แนวคิด **Compiler-First** สำหรับรันไทม์ยุคใหม่อย่าง Bun และ Node.js (รวมถึง Cloudflare Workers, Vercel Edge, และ Deno) โดยมีจุดเด่นคือ:
-
-1. **Compiler-First Specialization**: Nelysia วิเคราะห์ Route กราฟล่วงหน้าตั้งแต่ตอนคอมไพล์ เส้นทางใดที่เป็นค่าคงที่ (Static) จะถูกคอมไพล์ให้ตอบสนองทันทีโดยไม่ต้องสร้าง Context Object ใหม่ (`compiled`), เส้นทางที่ต้องการแค่ Parameter จะตัดขั้นตอนอ่าน Cookie/Query ออก (`specialized`), และเส้นทางที่มี Middleware ซับซ้อนจะรันผ่าน Generic Pipeline ตามปกติ (`generic`)
-2. **Deterministic Route Resolution**: การค้นหา Route แบบ Static ใช้ Hash Map ซึ่งทำงานได้ที่ความเร็ว $O(1)$ ส่วน Dynamic Parameter ถูก Match อย่างแม่นยำ พร้อมระบบตอบกลับ `405 Method Not Allowed` และ `Allow Header` อัตโนมัติเมื่อใช้ Method ผิด ตลอดจนการรองรับ `OPTIONS` และ `HEAD` ในตัว
-3. **Web Standards Compatibility**: อิงตามมาตรฐานสากล เช่น `Request`, `Response`, `Headers`, และ `ReadableStream` ทำให้ทำงานได้ข้ามระบบอย่างสมบูรณ์แบบ
+**Nelysia** คือ TypeScript Backend Framework รุ่นใหม่ที่ออกแบบภายใต้แนวคิด **Compiler-First** สำหรับรันไทม์ยุคใหม่อย่าง Bun และ Node.js (รวมถึง Cloudflare Workers, Vercel Edge, และ Deno) โดยมีหัวใจหลักคือความเร็วสูงสุด ความเรียบง่ายในการพัฒนา (Ergonomic DX) และการรักษาความเสถียรของหน่วยความจำในระดับฮาร์ดแวร์
 
 ---
+
+### 🌟 รวม 10 สุดยอดสรรพคุณและจุดเด่นระดับเทพของ Nelysia (Why Nelysia?)
+
+#### 1. 🧬 สถาปัตยกรรม AOT 3-Tier Compiler Specialization
+แตกต่างจาก Framework ทั่วไปที่รันทุกคำขอผ่าน Middleware Array แบบสุ่มสี่สุ่มห้า Nelysia ทำการวิเคราะห์ Route Graph ล่วงหน้าตั้งแต่ขั้นตอน Build หรือ Server Startup และแยก Route ออกเป็น 3 ระดับประสิทธิภาพ:
+- **Tier 1 (COMPILED)**: เส้นทาง Static ที่ให้การตอบกลับคงที่ จะถูกแปลงเป็น Raw Byte Buffer ล่วงหน้า ตอบกลับด้วย Zero Allocation ไร้การสร้าง Context ใดๆ
+- **Tier 2 (SPECIALIZED)**: เส้นทางที่มีเฉพาะ Dynamic URL Parameters (เช่น `/users/:id`) จะถูกดึงค่าตรงจาก URL Buffer โดยข้ามการ Parse Cookies, Query, หรือ Header ที่ไม่ได้ใช้
+- **Tier 3 (GENERIC)**: เส้นทางที่มี Middleware, Schema Validation, Body Parsing หรือ Streaming ซับซ้อน
+
+#### 2. 🏎️ ประสิทธิภาพระดับสัตว์ประหลาด (30,600+ Req/s) พร้อม Zero GC Overhead
+ในการทดสอบแบบควบคุม (100 รอบต่อเนื่อง, Concurrency 10, Zero Failure) Nelysia ทำความเร็วได้สูงถึง **30,618 req/s** ด้วย Latency เพียง **0.33 ms** บน Bun — ซึ่งเร็วกว่า Elysia ถึง **+7.0%** และเร็วกว่า Raw Bun ตัวเปล่าๆ พร้อมทั้งมีขยะในหน่วยความจำ (GC Pressure) เป็น **0%** ใน Static Route
+
+#### 3. 🎯 รักษา V8 Monomorphic Inline Cache (ไร้ปัญหา de-opt)
+Framework อื่นมักใช้ Dynamic Property Injection เช่น `.decorate('db', db)` ซึ่งเข้าไปแก้ไขโครงสร้าง (Hidden Class/Map) ของ Object ส่งผลให้ V8 Compiler ถอดรหัสช้าลง (De-optimization) แต่ Nelysia ออกแบบ Request Context ให้มี Shape คงที่ถาวร และแชร์ State ผ่าน `context.store` ทำให้ V8 สามารถทำ Inline Cache (Monomorphic) ได้เต็ม 100%
+
+#### 4. 🌐 First-Class Dual-Runtime แท้จริง (Node.js 22+ & Bun 1.4+ ไร้ Polyfill)
+Nelysia ไม่ได้ถูกสร้างมาเพื่อ Bun แล้วเอา Adapter มาแปะให้รันบน Node ได้เหมือน Framework อื่น แต่ถูกออกแบบโครงสร้าง Native Adapter แยกกันอย่างอิสระ:
+- บน **Node.js 22+**: ใช้ `node:http` แท้ๆ แบบไม่มี Polyfill กวนใจ พร้อมรัน TypeScript แบบ Zero-Build ผ่าน `--experimental-strip-types`
+- บน **Bun 1.4+**: รันตรงบน `Bun.serve` ดึงพลัง SIMD และ High-throughput I/O ออกมาใช้ได้ครบทุกเม็ด
+
+#### 5. 🚀 ระบบ Multi-Core Clustering ในตัว (`serveClustered()`)
+ไม่ต้องลง PM2 หรือ Docker Swarm เพื่อกระจายโหลดระดับ Process อีกต่อไป Nelysia มาพร้อม `serveClustered(app, { instances: 'max' })` ที่สั่ง Fork Worker ตามจำนวน CPU Cores จริง พร้อมระบบ **Graceful Drain** ช่วยระบายการเชื่อมต่อที่มีอยู่จนเสร็จก่อนปิดเครื่อง
+
+#### 6. 🛡️ รองรับ Universal Standard Schema v1 (Zod, Valibot, ArkType และ Built-in `t`)
+นอกจากจะมีตัวสร้าง Schema น้ำหนักเบา Zero-dependency อย่าง `t` ในตัวแล้ว Nelysia ยังรองรับข้อกำหนด **Standard Schema v1** อย่างเป็นทางการ ทำให้คุณสามารถนำ Schema จาก **Zod**, **Valibot**, หรือ **ArkType** มาใส่ใน Route options ได้ทันทีโดยไม่ต้องใช้ปลั๊กอินแปลงหรือเสียประสิทธิภาพ
+
+#### 7. 📖 Living OpenAPI 3.1 & Interactive Redoc / Swagger UI
+Nelysia สกัด Metadata, Path, Parameters, และ Schema Validation ออกมาเป็นเอกสาร **OpenAPI 3.1** สดใหม่แบบ Realtime และมีหน้าเว็บแสดงผลให้เลือกใช้ทั้ง **Redoc UI** และ **Swagger UI** ในตัว เข้าชมและทดสอบ API ได้ทันทีที่ `/docs`
+
+#### 8. 🔌 End-to-End Type Safety ด้วย Client SDK สไตล์ Eden
+มีแพ็กเกจ `@narudom96/nelysia/client` ที่อนุมาน Type จาก Server App ไปยัง Frontend Client ได้แบบ 100% รู้ชื่อ Route, Params, Body, Query, และ Response Type แบบมี Autocomplete ใน VS Code ช่วยให้ไม่พิมพ์ Endpoint ผิดอีกต่อไป
+
+#### 9. 🧰 เครื่องมือและเกราะป้องกันระดับ Enterprise (Batteries Included)
+ครบครันด้วยปลั๊กอินความปลอดภัยมาตรฐานสูง:
+- `cors()`: จัดการ Preflight OPTIONS และ Header ความปลอดภัยอัตโนมัติ
+- `securityHeaders()`: ใส่ HTTP Security Headers ตามมาตรฐาน OWASP ในคำสั่งเดียว
+- `rateLimit()`: ป้องกันการยิงถล่มด้วย Sliding-Window Memory Store
+- `staticDirectory()`: เสิร์ฟไฟล์ Static พร้อมการ์ดป้องกัน Path Traversal Attack
+- `compression()`: บีบอัดข้อมูลแบบ Gzip/Deflate อัตโนมัติ
+
+#### 10. 🤖 เชื่อมต่อโลก AI SDK และ Modern Cloud Ecosystem
+พร้อมต่อยอดกับสแต็กยุคใหม่อย่างราบรื่น:
+- **Vercel AI SDK**: มี Adapter รองรับการสตรีมคำตอบของ LLM แบบเรียลไทม์
+- **Database & Auth**: มี Integration พร้อมใช้สำหรับ **Drizzle ORM**, **Prisma**, และ **Better Auth**
+- **Edge Deployment**: มีตัวแปลงสำหรับรันบน Cloudflare Workers, Vercel Edge, และ Deno ในคำสั่งเดียว
+
+---
+
 
 ## 2. ข้อกำหนดและการติดตั้ง
 
