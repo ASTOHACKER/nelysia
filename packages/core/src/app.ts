@@ -1,22 +1,120 @@
 import { compilePath, matchRoute, normalizeMethod } from "./router.ts"
 import { fromStandardSchema, type Schema, type StandardSchema } from "./schema.ts"
-import { HttpError, requestIdFor, responseMarker, type AfterHook, type Context, type CookieOptions, type ErrorHandler, type Handler, type Hook, type NelysiaOptions, type RequestData, type ResponseData, type RouteGraph, type RouteOptions, type RouteRecord, type Telemetry, type WebSocketHandlers } from "./types.ts"
+import { HttpError, requestIdFor, responseMarker, type AfterHook, type Context, type CookieOptions, type ErrorHandler, type Handler, type Hook, type HttpMethod, type InjectOptions, type InjectResponse, type NelysiaOptions, type RequestData, type ResponseData, type RouteGraph, type RouteOptions, type RouteRecord, type Telemetry, type WebSocketHandlers } from "./types.ts"
 import { createBunServer } from "../../runtime-bun/src/server.ts"
 import { createNodeServer } from "../../runtime-node/src/server.ts"
 
 const asHeaders = (headers?: Headers): Headers => headers ?? new Headers()
 
+let requestSeq = 0
+
+class DefaultContext implements Context {
+  readonly _app: Nelysia
+  readonly _rawRequest: RequestData
+  body: unknown
+  readonly responseHeaders: Headers
+  params: Record<string, string>
+  readonly requestId: string
+  auth?: unknown
+  readonly setCookie: (name: string, value: string, options?: CookieOptions) => void
+  readonly response: (status: number, body: unknown, headers?: Record<string, string>) => ResponseData
+  private _clientIp?: string | null
+  private _headersInstance?: Headers
+  private _requestWithHeaders?: RequestData
+  private readonly _search: string
+  private _query?: URLSearchParams
+  private _cookies?: Record<string, string>
+
+  constructor(app: Nelysia, request: RequestData, requestId: string, params: Record<string, string>, search: string, responseHeaders: Headers) {
+    this._app = app
+    this._rawRequest = request
+    this.requestId = requestId
+    this.params = params
+    this.body = request.body
+    this._search = search
+    this.responseHeaders = responseHeaders
+
+    this.setCookie = (name: string, value: string, options?: CookieOptions) => {
+      this.responseHeaders.append(
+        "set-cookie",
+        serializeCookie(name, value, this._app.secureCookies ? { ...options, secure: options?.secure ?? true } : options)
+      )
+    }
+
+    this.response = (status: number, body: unknown, headers?: Record<string, string>): ResponseData => {
+      return {
+        status,
+        body,
+        headers: mergeHeaders(this.responseHeaders, headers),
+        [responseMarker]: true
+      }
+    }
+  }
+
+  get request(): RequestData {
+    if (!this._requestWithHeaders) {
+      this._requestWithHeaders = { ...this._rawRequest, headers: this.headers }
+    }
+    return this._requestWithHeaders
+  }
+
+  get clientIp(): string | undefined {
+    if (this._clientIp === undefined) {
+      const forwarded = this._app.trustedProxy ? this.headers.get("x-forwarded-for")?.split(",")[0]?.trim() : undefined
+      this._clientIp = forwarded || this._rawRequest.remoteAddress || null
+    }
+    return this._clientIp ?? undefined
+  }
+
+  get headers(): Headers {
+    if (!this._headersInstance) {
+      if (this._rawRequest.headers instanceof Headers) {
+        this._headersInstance = this._rawRequest.headers
+      } else if (this._rawRequest.headers) {
+        this._headersInstance = new Headers(this._rawRequest.headers as Record<string, string>)
+      } else {
+        this._headersInstance = new Headers()
+      }
+    }
+    return this._headersInstance
+  }
+
+  set headers(val: Headers) {
+    this._headersInstance = val
+    if (this._requestWithHeaders) this._requestWithHeaders.headers = val
+  }
+
+  get query(): URLSearchParams {
+    if (!this._query) {
+      this._query = new URLSearchParams(this._search)
+    }
+    return this._query
+  }
+
+  set query(val: URLSearchParams) {
+    this._query = val
+  }
+
+  get cookies(): Record<string, string> {
+    if (!this._cookies) {
+      this._cookies = parseCookies(this.headers.get("cookie"))
+    }
+    return this._cookies
+  }
+}
+
 export class Nelysia {
   readonly graph: RouteGraph = { routes: [] }
   readonly bodyLimit: number
-  private readonly trustedProxy: boolean
-  private readonly secureCookies: boolean
+  readonly trustedProxy: boolean
+  readonly secureCookies: boolean
   private hooks: Hook[] = []
   private afterHooks: AfterHook[] = []
   private errorHandlers: ErrorHandler[] = []
   readonly telemetry?: Telemetry
   readonly websocketRoutes: { path: string; handlers: WebSocketHandlers }[] = []
-  private readonly staticRoutes = new Map<string, RouteRecord>()
+  readonly staticRoutes = new Map<string, RouteRecord>()
+  readonly dynamicRoutes: RouteRecord[] = []
 
   constructor(options: NelysiaOptions = {}) {
     this.bodyLimit = options.bodyLimit ?? 1024 * 1024
@@ -90,6 +188,7 @@ export class Nelysia {
       const mounted = { ...route, path, ...metadata }
       this.graph.routes.push(mounted)
       if (mounted.static) this.staticRoutes.set(`${mounted.method} ${mounted.path}`, mounted)
+      else this.dynamicRoutes.push(mounted)
     }
     return this
   }
@@ -101,73 +200,179 @@ export class Nelysia {
     return createNodeServer(this).listen(actualPort)
   }
 
+  async inject(options: InjectOptions = {}): Promise<InjectResponse> {
+    let url = options.url ?? options.path ?? "/"
+    if (options.query) {
+      const q = new URLSearchParams(options.query).toString()
+      if (q) url += (url.includes("?") ? "&" : "?") + q
+    }
+    const headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers)
+    let body = options.body
+    if (body !== undefined && typeof body !== "string" && !(body instanceof Uint8Array) && !(body instanceof ReadableStream)) {
+      if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8")
+    }
+    const res = await this.handle({
+      method: options.method ?? "GET",
+      url,
+      headers,
+      body
+    })
+    return {
+      status: res.status,
+      statusCode: res.status,
+      headers: res.headers,
+      body: res.body,
+      async json<T = unknown>(): Promise<T> {
+        if (typeof res.body === "string") return JSON.parse(res.body) as T
+        if (res.body instanceof Response) return (await res.body.json()) as T
+        if (res.body instanceof ReadableStream) return (await new Response(res.body).json()) as T
+        return res.body as T
+      },
+      async text(): Promise<string> {
+        if (typeof res.body === "string") return res.body
+        if (res.body instanceof Response) return await res.body.text()
+        if (res.body instanceof ReadableStream) return await new Response(res.body).text()
+        if (res.body instanceof Uint8Array) return new TextDecoder().decode(res.body)
+        return JSON.stringify(res.body)
+      },
+      async bytes(): Promise<Uint8Array> {
+        if (res.body instanceof Uint8Array) return res.body
+        if (typeof res.body === "string") return new TextEncoder().encode(res.body)
+        if (res.body instanceof Response) return new Uint8Array(await res.body.arrayBuffer())
+        if (res.body instanceof ReadableStream) return new Uint8Array(await new Response(res.body).arrayBuffer())
+        return new TextEncoder().encode(JSON.stringify(res.body))
+      }
+    }
+  }
+
   route(method: string, path: string, handler: Handler, options: RouteOptions = {}): this {
     const metadata = compilePath(path)
     if (this.graph.routes.some((route) => route.method === normalizeMethod(method) && route.path === path)) {
       throw new Error(`Duplicate route: ${method.toUpperCase()} ${path}`)
     }
-    const route = { method: normalizeMethod(method), path, ...metadata, handler, hooks: [...this.hooks], afterHooks: [...this.afterHooks], errorHandlers: [...this.errorHandlers], bodySchema: normalizeSchema(options.body), paramsSchema: normalizeSchema(options.params), querySchema: normalizeSchema(options.query), headersSchema: normalizeSchema(options.headers), responseSchema: normalizeSchema(options.response) }
+    const route = { method: normalizeMethod(method), path, ...metadata, handler, hooks: [...this.hooks], afterHooks: [...this.afterHooks], errorHandlers: [...this.errorHandlers], auth: options.auth, bodySchema: normalizeSchema(options.body), paramsSchema: normalizeSchema(options.params), querySchema: normalizeSchema(options.query), headersSchema: normalizeSchema(options.headers), responseSchema: normalizeSchema(options.response) }
     this.graph.routes.push(route)
     if (route.static) this.staticRoutes.set(`${route.method} ${route.path}`, route)
+    else this.dynamicRoutes.push(route)
     return this
   }
 
   async handle(request: RequestData): Promise<ResponseData> {
     const { pathname, search } = splitUrl(request.url)
-    let method
+    let method: HttpMethod
     try { method = normalizeMethod(request.method) } catch { return this.response(400, { error: "Unsupported HTTP method" }) }
     const lookupMethod = method === "HEAD" ? "GET" : method
-    const directRoute = this.staticRoutes.get(`${lookupMethod} ${pathname}`)
-    const route = directRoute ?? this.graph.routes.find((candidate) => candidate.method === lookupMethod && matchRoute(candidate, pathname))
-    const pathRoutes = this.graph.routes.filter((candidate) => matchRoute(candidate, pathname))
-    if (method === "OPTIONS" && pathRoutes.length > 0) return this.response(204, undefined, { allow: allowedMethods(pathRoutes) })
-    if (!route) return pathRoutes.length > 0 ? this.response(405, { error: "Method Not Allowed" }, { allow: allowedMethods(pathRoutes) }) : this.response(404, { error: "Not Found" })
-    const params = directRoute ? {} : matchRoute(route, pathname)!
-    const headers = asHeaders(request.headers)
-    const cookies = parseCookies(headers.get("cookie"))
-    const responseHeaders = new Headers()
-    const requestId = requestIdFor({ ...request, headers })
-    const forwardedIp = this.trustedProxy ? headers.get("x-forwarded-for")?.split(",")[0]?.trim() : undefined
-    const clientIp = forwardedIp || request.remoteAddress
-    responseHeaders.set("x-request-id", requestId)
-    const startedAt = performance.now()
-    const context: Context = {
-      request: { ...request, headers },
-      requestId,
-      clientIp,
-      params,
-      query: new URLSearchParams(search),
-      body: request.body,
-      headers,
-      cookies,
-      setCookie: (name, value, options) => responseHeaders.append("set-cookie", serializeCookie(name, value, this.secureCookies ? { ...options, secure: options?.secure ?? true } : options)),
-      response: (status, body, headers) => ({ status, body, headers: mergeHeaders(responseHeaders, headers), [responseMarker]: true })
-    }
-    try {
-      await this.telemetry?.onRequest?.(context)
-      if (route.paramsSchema) context.params = await route.paramsSchema.validate(context.params) as Record<string, string>
-      if (route.querySchema) context.query = await route.querySchema.validate(Object.fromEntries(context.query.entries())) as URLSearchParams
-      if (route.headersSchema) context.headers = await route.headersSchema.validate(Object.fromEntries(context.headers.entries())) as Headers
-      if (route.bodySchema) context.body = await route.bodySchema.validate(context.body)
-      for (const hook of route.hooks) {
-        const result = await hook(context)
-        if (isResponse(result)) return result
+    let route = this.staticRoutes.get(`${lookupMethod} ${pathname}`)
+    let params: Record<string, string> = {}
+
+    if (!route) {
+      for (let i = 0; i < this.dynamicRoutes.length; i++) {
+        const candidate = this.dynamicRoutes[i]
+        if (candidate.method === lookupMethod) {
+          const matched = matchRoute(candidate, pathname)
+          if (matched !== undefined) {
+            route = candidate
+            params = matched
+            break
+          }
+        }
       }
+    }
+
+    if (method === "OPTIONS") {
+      const pathRoutes = this.graph.routes.filter((candidate) => matchRoute(candidate, pathname))
+      if (pathRoutes.length > 0) return this.response(204, undefined, { allow: allowedMethods(pathRoutes) })
+    }
+
+    if (!route) {
+      const pathRoutes = this.graph.routes.filter((candidate) => matchRoute(candidate, pathname))
+      return pathRoutes.length > 0
+        ? this.response(405, { error: "Method Not Allowed" }, { allow: allowedMethods(pathRoutes) })
+        : this.response(404, { error: "Not Found" })
+    }
+
+    const responseHeaders = new Headers()
+    const rawReqId = request.requestId ?? (request.headers?.get ? request.headers.get("x-request-id") : (request.headers as Record<string, string> | undefined)?.["x-request-id"])
+    const requestId = rawReqId || requestIdFor(request)
+    responseHeaders.set("x-request-id", requestId)
+
+    const context = new DefaultContext(this, request, requestId, params, search, responseHeaders)
+    const hasTelemetry = this.telemetry !== undefined
+    const startedAt = hasTelemetry ? performance.now() : 0
+
+    try {
+      if (hasTelemetry) await this.telemetry!.onRequest?.(context)
+      if (route.paramsSchema) context.params = (await route.paramsSchema.validate(context.params)) as Record<string, string>
+      if (route.querySchema) context.query = (await route.querySchema.validate(Object.fromEntries(context.query.entries()))) as URLSearchParams
+      if (route.headersSchema) context.headers = (await route.headersSchema.validate(Object.fromEntries(context.headers.entries()))) as Headers
+      if (route.bodySchema) context.body = await route.bodySchema.validate(context.body)
+
+      if (route.hooks.length > 0) {
+        for (let i = 0; i < route.hooks.length; i++) {
+          const hookResult = await route.hooks[i](context)
+          if (isResponse(hookResult)) return hookResult
+        }
+      }
+
       const result = await route.handler(context)
-      const response = isResponse(result) ? result : result instanceof Response
-        ? { status: result.status, headers: mergeHeaders(responseHeaders, Object.fromEntries(result.headers.entries())), body: result.body, [responseMarker]: true as const }
-        : this.response(200, result, Object.fromEntries(responseHeaders.entries()))
-      if (route.responseSchema) response.body = await route.responseSchema.validate(response.body, "response")
-      for (const hook of route.afterHooks) await hook(context, response)
-      await this.telemetry?.onResponse?.(context, response)
-      await this.telemetry?.exportSpan?.({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: response.status, durationMs: performance.now() - startedAt })
+
+      let response: ResponseData
+      if (isResponse(result)) {
+        response = result
+      } else if (result instanceof Response) {
+        response = {
+          status: result.status,
+          headers: mergeHeaders(responseHeaders, Object.fromEntries(result.headers.entries())),
+          body: result.body,
+          [responseMarker]: true as const
+        }
+      } else {
+        response = {
+          status: 200,
+          headers: responseHeaders,
+          body: result,
+          [responseMarker]: true as const
+        }
+      }
+
+      if (route.responseSchema) (response as { body: unknown }).body = await route.responseSchema.validate(response.body, "response")
+
+      if (route.afterHooks.length > 0) {
+        for (let i = 0; i < route.afterHooks.length; i++) {
+          await route.afterHooks[i](context, response)
+        }
+      }
+
+      if (hasTelemetry) {
+        await this.telemetry!.onResponse?.(context, response)
+        await this.telemetry!.exportSpan?.({
+          name: `${method} ${route.path}`,
+          requestId,
+          method,
+          route: route.path,
+          status: response.status,
+          durationMs: performance.now() - startedAt
+        })
+      }
       return response
     } catch (error) {
-      await this.telemetry?.onError?.(context, error)
-      await this.telemetry?.exportSpan?.({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: error instanceof HttpError ? error.status : 500, durationMs: performance.now() - startedAt, error })
-      for (const handler of route.errorHandlers) {
-        const result = await handler(error, context)
-        if (isResponse(result)) return result
+      if (hasTelemetry) {
+        await this.telemetry!.onError?.(context, error)
+        await this.telemetry!.exportSpan?.({
+          name: `${method} ${route.path}`,
+          requestId,
+          method,
+          route: route.path,
+          status: error instanceof HttpError ? error.status : 500,
+          durationMs: performance.now() - startedAt,
+          error
+        })
+      }
+      if (route.errorHandlers.length > 0) {
+        for (let i = 0; i < route.errorHandlers.length; i++) {
+          const res = await route.errorHandlers[i](error, context)
+          if (isResponse(res)) return res
+        }
       }
       throw error
     }

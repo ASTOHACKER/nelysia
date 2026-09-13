@@ -339,3 +339,28 @@ test("isolates mounted plugin after and error lifecycle", async () => {
   assert.equal((await app.handle({ method: "GET", url: "/outside" })).body, "outside")
   assert.deepEqual(events, ["child-after"])
 })
+
+test("app.inject executes requests without binding a network port", async () => {
+  const app = new Nelysia()
+    .get("/users/:id", ({ params, query }) => ({ id: params.id, filter: query.get("filter") }))
+    .post("/echo", ({ body }) => body)
+
+  const res1 = await app.inject({
+    method: "GET",
+    path: "/users/42",
+    query: { filter: "active" }
+  })
+  assert.equal(res1.statusCode, 200)
+  assert.equal(res1.status, 200)
+  assert.deepEqual(await res1.json(), { id: "42", filter: "active" })
+
+  const res2 = await app.inject({
+    method: "POST",
+    path: "/echo",
+    body: { hello: "world" }
+  })
+  assert.equal(res2.statusCode, 200)
+  assert.deepEqual(await res2.json(), { hello: "world" })
+  assert.equal(typeof (await res2.text()), "string")
+  assert.ok((await res2.bytes()) instanceof Uint8Array)
+})

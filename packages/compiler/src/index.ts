@@ -62,8 +62,8 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
   const useFallback = app.telemetry !== undefined
   // Shared Headers instances: Bun normalizes plain-object headers on every
   // construction (~1.8M/s) but reuses Headers instances (~2.8M/s).
-  const jsonHeaders = new Headers({ "content-type": "application/json; charset=utf-8" })
-  const textHeaders = new Headers({ "content-type": "text/plain; charset=utf-8" })
+  const jsonHeaders = new Headers({ "content-type": "application/json; charset=utf-8", "server": "Nelysia" })
+  const textHeaders = new Headers({ "content-type": "text/plain", "server": "Nelysia" })
 
   interface FastStatic { response: Response }
   interface FastRoute {
@@ -94,8 +94,15 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
     })
 
   const staticMap = new Map<string, Response>()
-  for (const c of compiled) if (c.route.static && c.staticFast) staticMap.set(c.route.path, c.staticFast.response)
+  const staticFunctionMap = new Map<string, FastRoute>()
+  for (const c of compiled) {
+    if (c.route.static) {
+      if (c.staticFast) staticMap.set(c.route.path, c.staticFast.response)
+      else staticFunctionMap.set(c.route.path, c)
+    }
+  }
 
+  const prefixFastList = compiled.filter((c) => !c.route.static && c.prefixFast !== undefined)
   const single = compiled.length === 1 ? compiled[0] : undefined
 
   const singleStatic = single !== undefined && single.route.static && single.staticFast !== undefined ? single : undefined
@@ -117,30 +124,58 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
       if (params !== undefined) return runParamsOnly(singleDynamic, params, fallback)
       return fallback(request)
     }
-    // O(1) static hit.
+    // O(1) static precomputed hit.
     const hit = staticMap.get(pathname)
     if (hit !== undefined) return hit.clone()
+
+    // O(1) static function hit.
+    const fnHit = staticFunctionMap.get(pathname)
+    if (fnHit !== undefined) {
+      try {
+        const result = fnHit.paramsOnly || fnHit.route.handler.length === 0
+          ? (fnHit.route.handler as () => unknown)()
+          : fnHit.route.handler({ params: {} } as Context)
+        if (result instanceof Promise) return result.then((v) => fastJson(v), () => fallback(request))
+        return fastJson(result)
+      } catch {
+        return fallback(request)
+      }
+    }
+
     // Trailing-slash normalization only when needed (avoids alloc on hot path).
     let path = pathname
     if (path.length > 1 && path.charCodeAt(path.length - 1) === 47) {
       path = path.slice(0, -1)
       const hit2 = staticMap.get(path)
       if (hit2 !== undefined) return hit2.clone()
+      const fnHit2 = staticFunctionMap.get(path)
+      if (fnHit2 !== undefined) {
+        try {
+          const result = fnHit2.paramsOnly || fnHit2.route.handler.length === 0
+            ? (fnHit2.route.handler as () => unknown)()
+            : fnHit2.route.handler({ params: {} } as Context)
+          if (result instanceof Promise) return result.then((v) => fastJson(v), () => fallback(request))
+          return fastJson(result)
+        } catch {
+          return fallback(request)
+        }
+      }
     }
     if (single !== undefined) return dispatchFast(single, path, request, fallback)
+
+    for (let i = 0; i < prefixFastList.length; i++) {
+      const c = prefixFastList[i]
+      const r = matchPrefix(c.prefixFast!, path)
+      if (r !== undefined) return runParamsOnly(c, r, fallback)
+    }
+
     for (let i = 0; i < compiled.length; i++) {
       const c = compiled[i]
-      // Inline static check for multi-static apps without map miss above (already handled).
-      if (c.route.static) continue
-      if (c.prefixFast !== undefined) {
-        const r = matchPrefix(c.prefixFast, path)
-        if (r !== undefined) return runParamsOnly(c, r, fallback)
-      } else {
-        const params = c.match(path)
-        if (params !== undefined) {
-          if (c.paramsOnly) return runParamsOnly(c, params, fallback)
-          return runGeneric(c.route, params, request, fallback)
-        }
+      if (c.route.static || c.prefixFast !== undefined) continue
+      const params = c.match(path)
+      if (params !== undefined) {
+        if (c.paramsOnly) return runParamsOnly(c, params, fallback)
+        return runGeneric(c.route, params, request, fallback)
       }
     }
     return fallback(request)
@@ -213,7 +248,7 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
     if (typeof value === "string") return new Response(value, { status: 200, headers: textHeaders })
     if (value instanceof Uint8Array) return new Response(value as unknown as BodyInit, { status: 200, headers: textHeaders })
     // Response.json is faster than manual stringify + construction in Bun.
-    return Response.json(value)
+    return Response.json(value, { headers: jsonHeaders })
   }
 }
 

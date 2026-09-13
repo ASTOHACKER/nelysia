@@ -1,6 +1,8 @@
 node_modules/
 dist/
 dist-package/
+dist-techempower/
+Logo/
 .nelysia-cache/
 *.tgz
 *.log

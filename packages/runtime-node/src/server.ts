@@ -7,9 +7,21 @@ import type { RequestData, ResponseData } from "../../core/src/types.ts"
 export function createNodeServer(app: Nelysia) {
   const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
-      const headers = new Headers(request.headers as Record<string, string>)
-      const body = await readBody(request, Number(headers.get("content-length") ?? 0), app.bodyLimit, headers.get("content-type"))
-       const data: RequestData = { method: request.method ?? "GET", url: request.url ?? "/", requestId: randomUUID(), remoteAddress: request.socket.remoteAddress, headers, body }
+      const rawHeaders = request.headers
+      const contentLength = Number(rawHeaders["content-length"] ?? 0)
+      const contentType = (rawHeaders["content-type"] as string | undefined) ?? null
+      const isPostOrPut = request.method !== "GET" && request.method !== "HEAD"
+      const body = isPostOrPut && (contentLength > 0 || rawHeaders["transfer-encoding"] !== undefined)
+        ? await readBody(request, contentLength, app.bodyLimit, contentType)
+        : undefined
+
+      const data: RequestData = {
+        method: request.method ?? "GET",
+        url: request.url ?? "/",
+        remoteAddress: request.socket.remoteAddress,
+        headers: rawHeaders as unknown as Headers,
+        body
+      }
       const result = await app.handle(data)
       await writeResponse(response, result, request.method === "HEAD")
     } catch (error) {
@@ -45,13 +57,24 @@ function attachWebSocketHandlers(websocket: WebSocket, handlers: { open?(socket:
 }
 
 async function writeResponse(response: ServerResponse, result: ResponseData, head = false): Promise<void> {
-  const headers = new Headers(result.headers)
+  const headers = result.headers
   const getSetCookie = (headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
-  const writeHeaders = () => {
-    const values = Object.fromEntries(headers.entries()) as Record<string, string | string[]>
-    if (getSetCookie) values["set-cookie"] = getSetCookie.call(headers)
+
+  const writeHeaders = (extraType?: string) => {
+    if (extraType && !headers.has("content-type")) {
+      headers.set("content-type", extraType)
+    }
+    const values: Record<string, string | string[]> = {}
+    for (const [key, value] of headers.entries()) {
+      values[key] = value
+    }
+    if (getSetCookie) {
+      const cookies = getSetCookie.call(headers)
+      if (cookies && cookies.length > 0) values["set-cookie"] = cookies
+    }
     response.writeHead(result.status, values)
   }
+
   if (result.body instanceof Response) {
     for (const [key, value] of result.body.headers) headers.set(key, value)
     writeHeaders()
@@ -67,8 +90,7 @@ async function writeResponse(response: ServerResponse, result: ResponseData, hea
     return
   }
   if (typeof result.body === "string" || result.body instanceof Uint8Array) {
-    if (!headers.has("content-type")) headers.set("content-type", "text/plain; charset=utf-8")
-    writeHeaders()
+    writeHeaders("text/plain; charset=utf-8")
     if (!head) response.end(result.body)
     else response.end()
     return
@@ -81,8 +103,7 @@ async function writeResponse(response: ServerResponse, result: ResponseData, hea
     }
     return pipeWebBody(response, result.body)
   }
-  if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8")
-  writeHeaders()
+  writeHeaders("application/json; charset=utf-8")
   if (!head) response.end(JSON.stringify(result.body))
   else response.end()
 }

@@ -59,6 +59,7 @@ export interface RouteOptions {
   query?: import("./schema.ts").Schema | import("./schema.ts").StandardSchema
   headers?: import("./schema.ts").Schema | import("./schema.ts").StandardSchema
   response?: import("./schema.ts").Schema | import("./schema.ts").StandardSchema
+  auth?: string | boolean | Record<string, unknown>
 }
 
 export interface ResponseData {
@@ -71,7 +72,9 @@ export interface ResponseData {
 export const responseMarker = Symbol("nelysia.response")
 
 export function requestIdFor(request: RequestData): string {
-  return request.requestId ?? request.headers?.get("x-request-id") ?? `req-${request.method}-${request.url}`
+  const h = request.headers as any
+  const headerId = typeof h?.get === "function" ? h.get("x-request-id") : h?.["x-request-id"]
+  return request.requestId ?? headerId ?? `req-${request.method}-${request.url}`
 }
 
 export class HttpError extends Error {
@@ -83,6 +86,25 @@ export class HttpError extends Error {
   }
 }
 
+export interface InjectOptions {
+  method?: string
+  url?: string
+  path?: string
+  headers?: Record<string, string> | Headers
+  body?: unknown
+  query?: Record<string, string>
+}
+
+export interface InjectResponse {
+  readonly status: number
+  readonly statusCode: number
+  readonly headers: Headers
+  readonly body: unknown
+  json<T = unknown>(): Promise<T>
+  text(): Promise<string>
+  bytes(): Promise<Uint8Array>
+}
+
 export interface Context {
   request: RequestData
   requestId: string
@@ -92,6 +114,7 @@ export interface Context {
   body: unknown
   headers: Headers
   cookies: Record<string, string>
+  auth?: unknown
   setCookie(name: string, value: string, options?: CookieOptions): void
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
 }
@@ -114,6 +137,7 @@ export interface RouteRecord {
   wildcard?: boolean
   contextFree?: boolean
   staticValue?: unknown
+  auth?: string | boolean | Record<string, unknown>
   bodySchema?: import("./schema.ts").Schema
   paramsSchema?: import("./schema.ts").Schema
   querySchema?: import("./schema.ts").Schema

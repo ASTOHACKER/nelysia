@@ -33,4 +33,25 @@ BENCH_CASE=dynamic BENCH_DURATION_MS=10000 BENCH_CONCURRENCY=20 npm run benchmar
 
 This compares a raw `Bun.serve()` handler, Nelysia's explicit `getStatic()` compiled path, and `elysia@2.0.0-exp.60` under the same workload. The Nelysia static path is intentionally reported by name and must not be confused with the generic `.get()` path.
 
+## High-Performance Benchmarks with `oha`
+
+Dedicated load-generator benchmarking using [`oha`](https://github.com/hatoo/oha):
+
+```bash
+# Run full suite (Bun + Node)
+npm run benchmark:oha
+
+# Run Bun suite only
+npm run benchmark:oha:bun
+
+# Run Node suite only
+npm run benchmark:oha:node
+```
+
+Environment variables to customize:
+
+```bash
+BENCH_DURATION_SEC=10 BENCH_CONCURRENCY=50 BENCH_ROUNDS=3 npm run benchmark:oha
+```
+
 This is a smoke benchmark, not a framework claim. Record Node version, CPU, OS, dependency versions, and whether other workloads are running before comparing results. Use a dedicated load generator and multiple repetitions before publishing numbers.
