@@ -176,6 +176,7 @@ export class Nelysia {
       clientIp,
       params,
       query: createParsedQuery(search),
+      set: { status: undefined, headers: {} },
       body: request.body,
       headers,
       cookies: lazyCookies(headers),
@@ -193,9 +194,12 @@ export class Nelysia {
         if (isResponse(result)) return result
       }
       const result = await route.handler(context)
-      const response = isResponse(result) ? result : result instanceof Response
-        ? { status: result.status, headers: mergeHeaders(responseHeaders, Object.fromEntries(result.headers.entries())), body: result.body, [responseMarker]: true as const }
-        : { status: 200, body: result, headers: responseHeaders, [responseMarker]: true as const }
+      const effectiveHeaders = Object.keys(context.set.headers).length > 0 ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
+      const response = isResponse(result)
+        ? (context.set.status !== undefined && result.status === 200 ? { ...result, status: context.set.status, headers: mergeHeaders(result.headers, context.set.headers) } : (Object.keys(context.set.headers).length > 0 ? { ...result, headers: mergeHeaders(result.headers, context.set.headers) } : result))
+        : result instanceof Response
+        ? { status: context.set.status ?? result.status, headers: mergeHeaders(effectiveHeaders, Object.fromEntries(result.headers.entries())), body: result.body, [responseMarker]: true as const }
+        : { status: context.set.status ?? 200, body: result, headers: effectiveHeaders, [responseMarker]: true as const }
       if (route.responseSchema) response.body = await route.responseSchema.validate(response.body, "response")
       for (const hook of route.afterHooks) await hook(context, response)
       await this.telemetry?.onResponse?.(context, response)

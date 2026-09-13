@@ -87,12 +87,18 @@ export class HttpError extends Error {
 
 export type ParsedQuery = URLSearchParams & Record<string, string | undefined>
 
+export interface ResponseSetContext {
+  status?: number
+  headers: Record<string, string>
+}
+
 export interface Context {
   request: RequestData
   requestId: string
   clientIp?: string
   params: Record<string, string>
   query: ParsedQuery
+  set: ResponseSetContext
   body: unknown
   headers: Headers
   cookies: Record<string, string>

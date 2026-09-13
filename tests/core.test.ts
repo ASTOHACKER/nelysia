@@ -129,6 +129,23 @@ test("provides ergonomic proxy access to context.query while preserving URLSearc
   })
 })
 
+test("supports setting response status and headers via context.set", async () => {
+  const app = new Nelysia()
+    .post("/items", ({ body, set }) => {
+      set.status = 201
+      set.headers["x-custom-engine"] = "nelysia"
+      return { created: true, body }
+    })
+  const result = await app.handle({
+    method: "POST",
+    url: "/items",
+    body: { name: "Keyboard" },
+  })
+  assert.equal(result.status, 201)
+  assert.deepEqual(result.body, { created: true, body: { name: "Keyboard" } })
+  assert.equal(result.headers.get("x-custom-engine"), "nelysia")
+})
+
 test("supports static value handlers", async () => {
   const app = new Nelysia()
     .get("/text", "hello")
