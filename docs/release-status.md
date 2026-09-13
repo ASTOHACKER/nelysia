@@ -57,7 +57,6 @@ This file is the finite progress board for work after v0.1. A checkbox is marked
 - [x] Prisma SQLite example with generated client and Node smoke test
 - [x] Better Auth route integration contract
 - [x] GraphQL integration
-- [x] AI SDK example (deterministic AI SDK test model; provider credentials and streaming remain application concerns)
 - [x] Migration guides for Express, Fastify, and Elysia
 - [x] npm package dry-run verification
 

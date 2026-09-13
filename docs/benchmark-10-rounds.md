@@ -1,6 +1,6 @@
-# Ten-Round Benchmark
+# Ten-Round Historical Benchmark
 
-Measured locally with 10 repeats, 1 second per repeat, 10 concurrent workers, and zero failures. These are directional local results, not a universal framework ranking.
+Measured locally with 10 repeats, 1 second per repeat, 10 concurrent workers, and zero failures. This is the historical baseline; the current headline results are in the TechEmpower Round 22 tables in the main documentation.
 
 ## Node
 

@@ -10,7 +10,7 @@
 
 ## Install
 
-> ⚠️ **Right now `npm install @narudom96/nelysia` does NOT work yet** (npm account
+> **Current installation note:** `npm install @narudom96/nelysia` does NOT work yet (npm account
 > suspension until Sep 16 — then the registry install below takes over).
 > **Until then, do THIS instead** (2 commands, same result):
 
@@ -30,7 +30,6 @@ npm install graphql          # for @narudom96/nelysia/graphql
 npm install drizzle-orm      # for @narudom96/nelysia/drizzle
 npm install @prisma/client   # for @narudom96/nelysia/prisma
 npm install better-auth      # for @narudom96/nelysia/better-auth
-npm install ai               # for AI SDK routes
 ```
 
 ### Install from GitHub Releases (no registry needed)
@@ -72,7 +71,7 @@ export const app = new Nelysia()
   })
 
 app.listen(3000, ({ port, url }) => {
-  console.log(`🚀 Nelysia server running at ${url} on port ${port}`)
+  console.log(`Nelysia server running at ${url} on port ${port}`)
 })
 ```
 
@@ -83,41 +82,41 @@ bun run app.ts       # Bun 1.4+
 
 Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@narudom96/nelysia/runtime-fetch`, `@narudom96/nelysia/runtime-vercel`, and `@narudom96/nelysia/runtime-cloudflare`.
 
-📚 **Full Documentation / คู่มือการใช้งานอย่างละเอียด:**
-- 🏛️ [System Architecture Blueprint (โครงสร้างสถาปัตยกรรม)](./docs/ARCHITECTURE.md)
-- 🇬🇧 [Comprehensive Documentation (English)](./docs/DOCUMENTATION_EN.md)
-- 🇹🇭 [คู่มือการใช้งานอย่างละเอียด (ภาษาไทย)](./docs/DOCUMENTATION_TH.md)
-- 🌐 [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
+**Full Documentation / คู่มือการใช้งานอย่างละเอียด:**
+- [System Architecture Blueprint (โครงสร้างสถาปัตยกรรม)](./docs/ARCHITECTURE.md)
+- [Comprehensive Documentation (English)](./docs/DOCUMENTATION_EN.md)
+- [คู่มือการใช้งานอย่างละเอียด (ภาษาไทย)](./docs/DOCUMENTATION_TH.md)
+- [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
 
 ### What's New in v0.1.4
-- 🔐 **Official `@narudom96/nelysia/jwt`**: Native Web Crypto HMAC-SHA256 JWT auth with zero external dependencies and zero-overhead routing for unauthenticated routes.
-- 🧪 **Zero-Port Testing API (`app.inject`)**: Fast in-memory HTTP request injection for unit and integration testing without binding network sockets.
-- 🏆 **TechEmpower Round 22 Benchmark Suite**: Verified 100% compliant with TechEmpower specifications — hits **103k+ req/s** on JSON and **100k+ req/s** on Plaintext.
-- 🚀 **Standard Path & Node.js Engine Optimization**: Lazy context getters (query, cookies, clientIp), zero-copy Node headers, and lazy 405 check pushing Node.js throughput to **~34,800 req/s** (+51.5%).
-- ⚡ **Response Shorthands**: `context.html()`, `context.text()`, `context.json()`, and `context.redirect()`.
-- 🔍 **`context.query` Proxy**: Destructure query parameters directly: `({ query }) => query.search`.
-- 🛠️ **`context.set` & `context.store`**: Status/header mutation (`set.status = 201`) and request-scoped state sharing.
-- 🛡️ **Built-in Plugins**: `cors()`, `securityHeaders()`, and `staticDirectory()`.
-- 📂 **Route Grouping**: `app.group(prefix, callback)` with nested hook inheritance.
-- 🚫 **Custom 404 Handler**: `app.notFound(({ path }) => ...)` for tailored fallback responses.
-- 📖 **OpenAPI & Swagger UI**: `swaggerUi()` interactive documentation and route metadata (`summary`, `description`, `tags`).
+- **Official `@narudom96/nelysia/jwt`**: Native Web Crypto HMAC-SHA256 JWT auth with zero external dependencies and zero-overhead routing for unauthenticated routes.
+- **Zero-Port Testing API (`app.inject`)**: Fast in-memory HTTP request injection for unit and integration testing without binding network sockets.
+- **TechEmpower Round 22 Benchmark Suite**: Verified 100% compliant with TechEmpower specifications — **99k+ req/s** on JSON and **100k+ req/s** on Plaintext.
+- **Standard Path and Node.js Engine Optimization**: Lazy context getters, zero-copy Node headers, and lazy 405 checks pushing Node.js throughput to **~34,800 req/s**.
+- **Response Shorthands**: `context.html()`, `context.text()`, `context.json()`, and `context.redirect()`.
+- **`context.query` Proxy**: Destructure query parameters directly: `({ query }) => query.search`.
+- **`context.set` and `context.store`**: Status/header mutation and request-scoped state sharing.
+- **Built-in Plugins**: `cors()`, `securityHeaders()`, and `staticDirectory()`.
+- **Route Grouping**: `app.group(prefix, callback)` with nested hook inheritance.
+- **Custom 404 Handler**: `app.notFound(({ path }) => ...)` for tailored fallback responses.
+- **OpenAPI and Swagger UI**: `swaggerUi()` interactive documentation and route metadata.
 
 ---
 
-## ⚡ 10 Superpowers & Killer Capabilities (10 สรรพคุณระดับเทพ)
+## 10 Superpowers and Killer Capabilities (10 สรรพคุณระดับเทพ)
 
 | # | Superpower / จุดเด่น | Description / รายละเอียด |
 | :---: | :--- | :--- |
-| **1** | 🧬 **3-Lane AOT Compiler** | Static routes → raw buffer (zero overhead). Param routes → direct URL extraction. Complex routes → full pipeline. Right engine for every request, no waste. |
-| **2** | 🏎️ **100,471 req/s — Faster than Raw Bun** | TechEmpower plaintext benchmark, **0% GC pressure** on static paths. Verified with `oha` — no garbage, no pauses, no surprises. |
-| **3** | 🎯 **V8 Stays in Fast Lane** | Context shape never mutates → V8 Inline Cache stays monomorphic. Use `context.store` instead of `.decorate()` — the JIT never de-opts. |
-| **4** | 🌐 **Node.js + Bun, No Polyfills** | Node.js 22+ on native `node:http` — run TypeScript with zero build step. Bun 1.4+ on native `Bun.serve` — full power, no shims, no wrappers. |
-| **5** | 🚀 **Multi-Core — No PM2 Needed** | Call `serveClustered()` and every CPU core pitches in. Graceful drain on shutdown — existing connections finish cleanly, no process manager required. |
-| **6** | 🛡️ **Zod, Valibot, ArkType — Just Plug In** | Built-in zero-dep `t` schema builder included. Bring your own via Standard Schema v1 — Zod/Valibot/ArkType work natively, no adapter overhead. |
-| **7** | 📖 **API Docs at `/docs`, Auto-Generated** | Routes + schemas → live OpenAPI 3.1 spec. Redoc and Swagger UI ready at `/docs` — test your API in the browser, zero config. |
-| **8** | 🔌 **Frontend Autocomplete, Typo-Free** | `@narudom96/nelysia/client` mirrors every route, param, body, and response type to your frontend — full IDE autocomplete, zero runtime surprises. |
-| **9** | 🧰 **Security Suite Out of the Box** | CORS preflight, OWASP security headers, sliding-window rate limiter, traversal-guarded static files, and Gzip compression — all built-in, one import each. |
-| **10** | 🤖 **AI Streaming + Modern Cloud, Ready Now** | Stream LLM responses via Vercel AI SDK. Connect Drizzle ORM, Prisma, Better Auth out of the box. Deploy to Cloudflare, Vercel, or Deno Edge in one step. |
+| **1** | **3-Lane AOT Compiler** | Static routes → raw buffer (zero overhead). Param routes → direct URL extraction. Complex routes → full pipeline. |
+| **2** | **100,471 req/s — Faster than Raw Bun** | TechEmpower plaintext benchmark, **0% GC pressure** on static paths. Verified with `oha`. |
+| **3** | **V8 Stays in Fast Lane** | Stable context shape keeps the inline cache monomorphic. |
+| **4** | **Node.js and Bun, No Polyfills** | Native `node:http` and `Bun.serve` runtimes. |
+| **5** | **Multi-Core — No PM2 Needed** | `serveClustered()` uses every available CPU core. |
+| **6** | **Zod, Valibot, ArkType — Just Plug In** | Standard Schema v1 support without adapter overhead. |
+| **7** | **API Docs at `/docs`, Auto-Generated** | OpenAPI 3.1, Redoc, and Swagger UI support. |
+| **8** | **Frontend Autocomplete, Typo-Free** | Typed client routes, params, bodies, and responses. |
+| **9** | **Security Suite Out of the Box** | CORS, security headers, rate limiting, safe static files, and compression. |
+| **10** | **Cloud Runtime Support** | Drizzle, Prisma, Better Auth, Cloudflare, Vercel, and Deno Edge integrations. |
 
 ---
 
@@ -142,8 +141,6 @@ Live implementation status is tracked in [`docs/release-status.md`](./docs/relea
 Runtime support and verification commands are tracked in [`docs/compatibility.md`](./docs/compatibility.md).
 
 Platform examples are documented in [`docs/platform-examples.md`](./docs/platform-examples.md).
-
-The credential-free AI SDK route example is documented in [`docs/ai-sdk.md`](./docs/ai-sdk.md).
 
 Migration notes are documented in [`docs/migration.md`](./docs/migration.md).
 

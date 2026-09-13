@@ -1309,7 +1309,7 @@
 <body class="lang-en">
   <div class="reading-progress-bar" id="reading-progress" aria-hidden="true"></div>
   <!--
-  THESIS: An authoritative, high-density compiler-first technical manual that rejects murky hacker slop and generic AI cards in favor of a pristine, high-clarity obsidian engineering document.
+  THESIS: An authoritative, high-density compiler-first technical manual that rejects murky hacker slop and generic card layouts in favor of a pristine, high-clarity obsidian engineering document.
   OWN-WORLD: Deep obsidian ground (#080c10, #111720), subtle slate borders (rgba(255,255,255,0.08)), luminous emerald signals (#10b981), and Tokyo Night syntax highlighting.
   STORY: Engineers immediately verify Nelysia's deterministic speed advantages, understand the compiler pipeline, and copy production-ready TypeScript patterns across Bun and Node 22+.
   FIRST VIEWPORT: Fixed glass header with search and bilingual switch; sticky curated sidebar; prominent hero with benchmark pill, dual primary actions, and side-by-side terminal verification snippet.
@@ -1376,7 +1376,6 @@
           <a href="#jwt"><span data-lang="en">JWT Auth</span><span data-lang="th">ยืนยันตัวตน JWT</span></a>
           <a href="#auth"><span data-lang="en">Better Auth</span><span data-lang="th">ยืนยันตัวตน Better Auth</span></a>
           <a href="#testing"><span data-lang="en">Testing (app.inject)</span><span data-lang="th">การทดสอบ (app.inject)</span></a>
-          <a href="#aisdk"><span data-lang="en">AI SDK</span><span data-lang="th">การเชื่อมต่อ AI SDK</span></a>
         </div>
 
         <div class="nav-group">
@@ -1598,70 +1597,70 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
           </div>
 
           <h3 style="margin-top: 2rem;">
-            <span data-lang="en">⚡ The 10 Superpowers of Nelysia</span>
-            <span data-lang="th">⚡ 10 สุดยอดสรรพคุณระดับเทพของ Nelysia</span>
+            <span data-lang="en">The 10 Superpowers of Nelysia</span>
+            <span data-lang="th">10 สุดยอดสรรพคุณระดับเทพของ Nelysia</span>
           </h3>
 
           <div class="grid">
             <div class="tile">
-              <b data-lang="en">1. 🧬 3-Lane AOT Compiler</b>
-              <b data-lang="th">1. 🧬 คอมไพเลอร์แยก 3 เลน</b>
+              <b data-lang="en">1. 3-Lane AOT Compiler</b>
+              <b data-lang="th">1. คอมไพเลอร์แยก 3 เลน</b>
               <p data-lang="en">Static routes → raw buffer (no overhead). Param routes → direct URL extraction. Complex routes → full pipeline. Right engine for every request, zero waste.</p>
               <p data-lang="th">รูทคงที่ → ตอบกลับทันทีไม่สร้าง Context. รูทมี param → ดึงค่าตรงจาก URL. รูทซับซ้อน → Full pipeline. ประหยัดทุกรอบ ไม่เสียพลังงานเกินจำเป็น</p>
             </div>
             <div class="tile">
-                  <b data-lang="en">2. 🏎️ 100,471 req/s — Faster than Raw Bun</b>
-                  <b data-lang="th">2. 🏎️ 100,471 req/s — เร็วกว่า Raw Bun</b>
+                  <b data-lang="en">2. 100,471 req/s — Faster than Raw Bun</b>
+                  <b data-lang="th">2. 100,471 req/s — เร็วกว่า Raw Bun</b>
                   <p data-lang="en">TechEmpower plaintext benchmark. +42% over Elysia. 0% GC pressure on static paths — no garbage, no pauses, no surprises.</p>
                   <p data-lang="th">ผลทดสอบ TechEmpower plaintext เร็วกว่า Elysia +42%. GC เป็น 0% บน static route — ไม่มีขยะหน่วยความจำ ไม่สะดุด ไม่แปลกใจ</p>
             </div>
             <div class="tile">
-              <b data-lang="en">3. 🎯 V8 Stays in Fast Lane</b>
-              <b data-lang="th">3. 🎯 V8 ไม่เบรก ไม่สะดุด</b>
+              <b data-lang="en">3. V8 Stays in Fast Lane</b>
+              <b data-lang="th">3. V8 ไม่เบรก ไม่สะดุด</b>
               <p data-lang="en">Context shape never mutates → V8 Inline Cache stays monomorphic. Use <code>context.store</code> instead of <code>.decorate()</code> and the JIT never de-opts.</p>
               <p data-lang="th">Shape ของ Context ไม่เปลี่ยน → V8 Cache ทำงานเต็มสปีดตลอด. ใช้ <code>context.store</code> แทน <code>.decorate()</code> แล้ว JIT ไม่เบรกหนี</p>
             </div>
             <div class="tile">
-              <b data-lang="en">4. 🌐 Node.js + Bun, No Polyfills</b>
-              <b data-lang="th">4. 🌐 Node.js + Bun แท้ ไม่ต้องลง Polyfill</b>
+              <b data-lang="en">4. Node.js + Bun, No Polyfills</b>
+              <b data-lang="th">4. Node.js + Bun แท้ ไม่ต้องลง Polyfill</b>
               <p data-lang="en">Node.js 22+ via native <code>node:http</code> — run TypeScript with zero build. Bun 1.4+ via native <code>Bun.serve</code> — full SIMD power. No shims, no wrappers.</p>
               <p data-lang="th">Node.js 22+ ใช้ <code>node:http</code> แท้ รัน TypeScript ไม่ต้อง build. Bun 1.4+ ใช้ <code>Bun.serve</code> ตรง ดึงพลังเต็มสูบ ไม่มี Adapter กวนใจ</p>
             </div>
             <div class="tile">
-              <b data-lang="en">5. 🚀 Multi-Core — No PM2 Needed</b>
-              <b data-lang="th">5. 🚀 Multi-Core ในตัว ไม่ต้องลง PM2</b>
+              <b data-lang="en">5. Multi-Core — No PM2 Needed</b>
+              <b data-lang="th">5. Multi-Core ในตัว ไม่ต้องลง PM2</b>
               <p data-lang="en">Call <code>serveClustered()</code> and every CPU core pitches in. Graceful drain on shutdown — existing connections finish cleanly before the process exits.</p>
               <p data-lang="th">เรียก <code>serveClustered()</code> ปุ๊บ ทุก CPU Core มาช่วยกัน. ปิดเครื่องแบบนุ่มนวล (Graceful Drain) — request ที่ค้างอยู่เสร็จก่อน แล้วค่อยออก</p>
             </div>
             <div class="tile">
-              <b data-lang="en">6. 🛡️ Zod, Valibot, ArkType — Just Plug In</b>
-              <b data-lang="th">6. 🛡️ Zod, Valibot, ArkType — เสียบใช้ได้เลย</b>
+              <b data-lang="en">6. Zod, Valibot, ArkType — Just Plug In</b>
+              <b data-lang="th">6. Zod, Valibot, ArkType — เสียบใช้ได้เลย</b>
               <p data-lang="en">Built-in zero-dep <code>t</code> schema builder included. Or bring your own — Standard Schema v1 means Zod/Valibot/ArkType work natively, no adapter overhead.</p>
               <p data-lang="th">มี <code>t</code> ในตัวน้ำหนักเบา. หรือจะใช้ Zod / Valibot / ArkType ก็ได้ — Standard Schema v1 เสียบแล้วรัน ไม่มี Wrapper ช้าๆ</p>
             </div>
             <div class="tile">
-              <b data-lang="en">7. 📖 API Docs at <code>/docs</code>, Auto-Generated</b>
-              <b data-lang="th">7. 📖 หน้า API Docs สวยๆ ที่ <code>/docs</code> สร้างเอง</b>
+              <b data-lang="en">7. API Docs at <code>/docs</code>, Auto-Generated</b>
+              <b data-lang="th">7. หน้า API Docs สวยๆ ที่ <code>/docs</code> สร้างเอง</b>
               <p data-lang="en">Routes + schemas → live OpenAPI 3.1 spec. Redoc and Swagger UI ready at <code>/docs</code> — test your API in the browser, zero config.</p>
               <p data-lang="th">Route + Schema → สเปก OpenAPI 3.1 สดใหม่. เปิด Redoc หรือ Swagger UI ที่ <code>/docs</code> ได้ทันที ทดสอบ API ในเบราว์เซอร์เลย ไม่ต้องตั้งค่าเพิ่ม</p>
             </div>
             <div class="tile">
-              <b data-lang="en">8. 🔌 Frontend Autocomplete, Typo-Free</b>
-              <b data-lang="th">8. 🔌 Frontend พิมพ์ผิดไม่ได้แล้ว</b>
+              <b data-lang="en">8. Frontend Autocomplete, Typo-Free</b>
+              <b data-lang="th">8. Frontend พิมพ์ผิดไม่ได้แล้ว</b>
               <p data-lang="en"><code>@narudom96/nelysia/client</code> mirrors every route, param, body, and response type to your frontend — full IDE autocomplete, zero runtime surprises.</p>
               <p data-lang="th"><code>@narudom96/nelysia/client</code> ส่ง Type ทุก route, param, body, response ไปยัง frontend — กด Tab มี Autocomplete เด้ง ไม่พิมพ์ endpoint ผิดอีก</p>
             </div>
             <div class="tile">
-              <b data-lang="en">9. 🧰 Security Suite Out of the Box</b>
-              <b data-lang="th">9. 🧰 เกราะป้องกัน Production ครบในกล่อง</b>
+              <b data-lang="en">9. Security Suite Out of the Box</b>
+              <b data-lang="th">9. เกราะป้องกัน Production ครบในกล่อง</b>
               <p data-lang="en">CORS preflight, OWASP security headers, sliding-window rate limiter, traversal-guarded static files, and Gzip compression — all built-in, one import each.</p>
               <p data-lang="th">CORS, OWASP Headers, Rate Limiter กันถล่ม, Static File ปลอดภัย, Gzip — ทุกอย่างอยู่ในตัว ไม่ต้องหาปลั๊กอินเพิ่ม</p>
             </div>
             <div class="tile">
-              <b data-lang="en">10. 🤖 AI Streaming + Modern Cloud, Ready Now</b>
-              <b data-lang="th">10. 🤖 AI Streaming + Cloud ยุคใหม่ พร้อมเดี๋ยวนี้</b>
-              <p data-lang="en">Stream LLM responses via Vercel AI SDK. Connect Drizzle ORM, Prisma, Better Auth out of the box. Deploy to Cloudflare, Vercel, or Deno Edge in one step.</p>
-              <p data-lang="th">สตรีมคำตอบ LLM ผ่าน Vercel AI SDK. เชื่อม Drizzle, Prisma, Better Auth ได้เลย. Deploy บน Cloudflare / Vercel / Deno Edge ในขั้นตอนเดียว</p>
+              <b data-lang="en">10. Cloud Runtime Support</b>
+              <b data-lang="th">10. รองรับ Cloud Runtime</b>
+              <p data-lang="en">Connect Drizzle ORM, Prisma, and Better Auth out of the box. Deploy to Cloudflare, Vercel, or Deno Edge in one step.</p>
+              <p data-lang="th">เชื่อม Drizzle, Prisma และ Better Auth ได้เลย. Deploy บน Cloudflare, Vercel หรือ Deno Edge ในขั้นตอนเดียว</p>
             </div>
           </div>
 
@@ -2094,7 +2093,7 @@ npm install ./nelysia.tgz</code></pre>
 
 <span class="kw">if</span> (import.meta.main || process.env.NODE_ENV !== <span class="str">"test"</span>) {
   app.<span class="fn">listen</span>(<span class="num">3000</span>, ({ port, url }) =&gt; {
-    console.<span class="fn">log</span>(<span class="str">`🚀 Server running at ${url} on port ${port}`</span>)
+    console.<span class="fn">log</span>(<span class="str">`Server running at ${url} on port ${port}`</span>)
   })
 }</code></pre>
           </div>
@@ -2308,7 +2307,7 @@ app.<span class="fn">notFound</span>(({ html, request }) =&gt; {
 
 <span class="com">// Unified listen callback with ServerInfo</span>
 app.<span class="fn">listen</span>(<span class="num">3000</span>, ({ port, url }) =&gt; {
-  console.<span class="fn">log</span>(<span class="str">`🚀 Nelysia running at ${url} (port ${port})`</span>)
+  console.<span class="fn">log</span>(<span class="str">`Nelysia running at ${url} (port ${port})`</span>)
 })</code></pre>
           </div>
         </section>
@@ -3639,46 +3638,6 @@ console.<span class="fn">log</span>(<span class="kw">await</span> res.<span clas
           </div>
         </section>
 
-        <!-- 16e. AI SDK -->
-        <section id="aisdk">
-          <h2>
-            <span data-lang="en">AI SDK Integration</span>
-            <span data-lang="th">การเชื่อมต่อ AI SDK</span>
-          </h2>
-
-          <p data-lang="en">
-            Call Vercel AI SDK <code>generateText</code> inside a route via an injectable helper (see <code>examples/ai-sdk/app.ts</code>). The checked-in example uses <code>MockLanguageModelV3</code> from <code>ai/test</code> — deterministic, no network, no credentials. For production, pass a real provider model in:
-          </p>
-          <p data-lang="th">
-            เรียก <code>generateText</code> ของ Vercel AI SDK ใน route ผ่าน helper แบบ injectable (ดู <code>examples/ai-sdk/app.ts</code>) ตัวอย่างที่ check-in ใช้ <code>MockLanguageModelV3</code> จาก <code>ai/test</code> — ไม่ใช้ network/credentials ส่วน production ให้ส่ง provider model จริงเข้าไปเอง:
-          </p>
-
-          <div class="code">
-            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>AI Route (examples/ai-sdk/app.ts)</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
-            <pre><code><span class="kw">import</span> { generateText, type LanguageModel } <span class="kw">from</span> <span class="str">"ai"</span>
-<span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
-
-<span class="kw">export function</span> <span class="fn">createAiSdkApp</span>(model: LanguageModel): Nelysia {
-  <span class="kw">return new</span> <span class="fn">Nelysia</span>().<span class="fn">post</span>(<span class="str">"/ai"</span>, <span class="kw">async</span> ({ body, response }) =&gt; {
-    <span class="kw">if</span> (!body || <span class="kw">typeof</span> body !== <span class="str">"object"</span> || <span class="kw">typeof</span> (body <span class="kw">as</span> any).prompt !== <span class="str">"string"</span>) {
-      <span class="kw">return</span> <span class="fn">response</span>(<span class="num">400</span>, { error: <span class="str">"Expected a JSON body with a string prompt"</span> })
-    }
-    <span class="kw">const</span> { text } = <span class="kw">await</span> <span class="fn">generateText</span>({ model, prompt: (body <span class="kw">as</span> any).prompt })
-    <span class="kw">return</span> { text }
-  })
-}</code></pre>
-          </div>
-
-          <div class="code">
-            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>Terminal</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
-            <pre><code>npm run ai:example
-curl -X POST http://localhost:3001/ai \
-  -H <span class="str">'content-type: application/json'</span> \
-  -d <span class="str">'{"prompt":"Say hello"}'</span>
-<span class="com"># {"text":"Deterministic AI SDK response"}</span></code></pre>
-          </div>
-        </section>
-
         <!-- 17. Client SDK -->
         <section id="client">
           <h2>
@@ -4369,7 +4328,6 @@ npm run release:check</code></pre>
                 </tr>
                 <tr>
                   <td><code>npm run ai:example</code></td>
-                  <td><span data-lang="en">Serves the AI SDK example on port <code>3001</code>.</span><span data-lang="th">รันตัวอย่าง AI SDK ที่พอร์ต <code>3001</code></span></td>
                 </tr>
               </tbody>
             </table>
@@ -4478,17 +4436,17 @@ npm run release:check</code></pre>
     const cmdList = document.getElementById('cmd-list');
 
     const cmdItems = [
-      { title: "⚡ 10 Superpowers & Killer Capabilities", hash: "#at-a-glance", group: "Highlights", badge: "AOT" },
-      { title: "🧪 Interactive AOT Compiler Simulator", hash: "#aot-simulator", group: "Interactive", badge: "Engine" },
+      { title: "10 Superpowers & Killer Capabilities", hash: "#at-a-glance", group: "Highlights", badge: "AOT" },
+      { title: "Interactive AOT Compiler Simulator", hash: "#aot-simulator", group: "Interactive", badge: "Engine" },
       { title: "📊 Interactive Benchmark Visualizer", hash: "#bench-viz", group: "Interactive", badge: "30k req/s" },
-      { title: "🚀 Quick Start & Live API Tester", hash: "#quickstart", group: "Guides", badge: "DX" },
+      { title: "Quick Start & Live API Tester", hash: "#quickstart", group: "Guides", badge: "DX" },
       { title: "⚖️ Framework Comparison (vs Elysia, Fastify, Express)", hash: "#comparison", group: "Overview", badge: "Parity" },
       { title: "⚙️ Core HTTP & Method Chaining", hash: "#architecture", group: "Core", badge: "API" },
-      { title: "🌐 Multi-Runtime & Node.js 22+ Native", hash: "#runtimes", group: "Runtimes", badge: "Zero-Build" },
-      { title: "🧰 Built-in Enterprise Plugins (CORS, RateLimit, OTel)", hash: "#plugins", group: "Plugins", badge: "Armor" },
-      { title: "📖 OpenAPI 3.1 & Swagger / Redoc UI", hash: "#openapi", group: "Docs", badge: "Interactive" },
+      { title: "Multi-Runtime & Node.js 22+ Native", hash: "#runtimes", group: "Runtimes", badge: "Zero-Build" },
+      { title: "Built-in Enterprise Plugins (CORS, RateLimit, OTel)", hash: "#plugins", group: "Plugins", badge: "Armor" },
+      { title: "OpenAPI 3.1 & Swagger / Redoc UI", hash: "#openapi", group: "Docs", badge: "Interactive" },
       { title: "🔄 Elysia to Nelysia Migration Guide", hash: "#migration", group: "Migration", badge: "Syntax" },
-      { title: "🏎️ Performance Tuning Guide", hash: "#performance", group: "Tuning", badge: "Fast-Path" },
+      { title: "Performance Tuning Guide", hash: "#performance", group: "Tuning", badge: "Fast-Path" },
       { title: "🚢 Production Checklist & Verification", hash: "#verify", group: "Deploy", badge: "Gates" }
     ];
 

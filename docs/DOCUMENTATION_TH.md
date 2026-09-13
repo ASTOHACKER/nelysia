@@ -54,25 +54,24 @@
 12. [การเชื่อมต่อกับ GraphQL](#12-การเชื่อมต่อกับ-graphql)
 13. [การเชื่อมต่อฐานข้อมูล (Drizzle & Prisma)](#13-การเชื่อมต่อฐานข้อมูล-drizzle--prisma)
 14. [การยืนยันตัวตนด้วย Better Auth](#14-การยืนยันตัวตนด้วย-better-auth)
-15. [การเชื่อมต่อ AI SDK](#15-การเชื่อมต่อ-ai-sdk)
-16. [Nelysia Client SDK (`@nelysia/client`)](#16-nelysia-client-sdk-nelysiaclient)
-17. [ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)](#17-ระบบคอมไพเลอร์และเครื่องมือ-cli-nelysia)
+15. [Nelysia Client SDK (`@nelysia/client`)](#15-nelysia-client-sdk-nelysiaclient)
+16. [ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)](#16-ระบบคอมไพเลอร์และเครื่องมือ-cli-nelysia)
     - [การจัดหมวดหมู่ Route (Compiled vs Specialized vs Generic)](#การจัดหมวดหมู่-route)
     - [Standalone Generation](#standalone-generation-เส้นทางที่รองรับ)
     - [คำสั่ง CLI (`inspect`, `build`)](#คำสั่ง-cli)
     - [Build Manifest และ Cache](#build-manifest-และ-cache)
-18. [รันไทม์ที่รองรับและ Adapter](#18-รันไทม์ที่รองรับและ-adapter)
-19. [การเชื่อมต่อกับ Full-Stack Web Frameworks](#19-การเชื่อมต่อกับ-full-stack-web-frameworks)
+17. [รันไทม์ที่รองรับและ Adapter](#17-รันไทม์ที่รองรับและ-adapter)
+18. [การเชื่อมต่อกับ Full-Stack Web Frameworks](#18-การเชื่อมต่อกับ-full-stack-web-frameworks)
     - [Next.js App Router](#nextjs-app-router)
     - [Nuxt](#nuxt)
     - [SvelteKit](#sveltekit)
     - [Astro](#astro)
     - [TanStack Start](#tanstack-start)
-20. [การทดสอบประสิทธิภาพและ Soak Testing (Benchmark)](#20-การทดสอบประสิทธิภาพและ-soak-testing)
-21. [คู่มือการย้ายโค้ด (Migration Guide)](#21-คู่มือการย้ายโค้ด-migration-guide)
-22. [คู่มือปรับประสิทธิภาพ (Performance Tuning)](#22-คู่มือปรับประสิทธิภาพ-performance-tuning)
-23. [เช็กลิสต์ Deploy ขึ้น Production](#23-เช็กลิสต์-deploy-ขึ้น-production)
-24. [แก้ปัญหาและ FAQ (Troubleshooting)](#24-แก้ปัญหาและ-faq-troubleshooting)
+19. [การทดสอบประสิทธิภาพและ Soak Testing (Benchmark)](#19-การทดสอบประสิทธิภาพและ-soak-testing)
+20. [คู่มือการย้ายโค้ด (Migration Guide)](#20-คู่มือการย้ายโค้ด-migration-guide)
+21. [คู่มือปรับประสิทธิภาพ (Performance Tuning)](#21-คู่มือปรับประสิทธิภาพ-performance-tuning)
+22. [เช็กลิสต์ Deploy ขึ้น Production](#22-เช็กลิสต์-deploy-ขึ้น-production)
+23. [แก้ปัญหาและ FAQ (Troubleshooting)](#23-แก้ปัญหาและ-faq-troubleshooting)
 
 ---
 
@@ -82,9 +81,9 @@
 
 ---
 
-### 🌟 รวม 10 สุดยอดสรรพคุณและจุดเด่นระดับเทพของ Nelysia (Why Nelysia?)
+### รวม 10 สุดยอดสรรพคุณและจุดเด่นระดับเทพของ Nelysia (Why Nelysia?)
 
-#### 1. 🧬 คอมไพเลอร์แยก 3 เลน (AOT 3-Lane)
+#### 1. คอมไพเลอร์แยก 3 เลน (AOT 3-Lane)
 Nelysia วิเคราะห์ Route ทั้งหมดล่วงหน้าตั้งแต่เปิดเซิร์ฟเวอร์ แล้วแยกออกเป็น 3 เลนตามความซับซ้อน:
 - **เลน 1 (COMPILED)**: รูทคงที่ — ตอบกลับทันทีจาก Raw Buffer ไม่สร้าง Object ใดๆ ไม่มี Overhead ใดๆ
 - **เลน 2 (SPECIALIZED)**: รูทมี param เช่น `/users/:id` — ดึงค่าตรงจาก URL ข้ามการ Parse Cookie/Query ที่ไม่ได้ใช้
@@ -92,33 +91,33 @@ Nelysia วิเคราะห์ Route ทั้งหมดล่วงห�
 
 ผลลัพธ์: แต่ละ Request ใช้พลังงานพอดีกับสิ่งที่ต้องการ ไม่เปลือง ไม่เสียเวลา
 
-#### 2. 🏎️ 100,471 req/s — เร็วกว่า Raw Bun
+#### 2. 100,471 req/s — เร็วกว่า Raw Bun
 ทดสอบจริงด้วย workload แบบ TechEmpower plaintext ผ่าน `oha`: **100,471 req/s** บน Bun, เร็วกว่า Elysia **+42%** และเร็วกว่า Raw Bun ตัวเปล่า พร้อมขยะหน่วยความจำ (GC) เป็น **0%** บน static route — ไม่มีขยะ ไม่สะดุด ไม่แปลกใจ
 
-#### 3. 🎯 V8 ไม่เบรก ไม่สะดุด (Monomorphic IC)
+#### 3. V8 ไม่เบรก ไม่สะดุด (Monomorphic IC)
 Framework อื่นมักยัดข้อมูลลง Context ด้วย `.decorate()` ซึ่งเปลี่ยน Shape ของ Object ทำให้ V8 ต้องออกจากโหมดเร็วไปโหมดช้า (De-opt)
 
 Nelysia ใช้ `context.store` แทน — Shape คงที่ตลอด V8 Cache ทำงานเต็มสปีด JIT ไม่เบรกหนีแม้แต่ครั้งเดียว
 
-#### 4. 🌐 Node.js + Bun แท้ ไม่ต้องลง Polyfill
+#### 4. Node.js + Bun แท้ ไม่ต้องลง Polyfill
 - **Node.js 22+**: ใช้ `node:http` แท้ รัน TypeScript ได้เลยโดยไม่ต้อง build ผ่าน `--experimental-strip-types`
 - **Bun 1.4+**: ใช้ `Bun.serve` ตรง ดึงพลัง SIMD และ Zero-Copy I/O ได้เต็มสูบ
 
 ไม่มี Polyfill กวนใจ ไม่มี Adapter ซ้อน ทั้งสองรันไทม์เป็น First-Class Citizen
 
-#### 5. 🚀 Multi-Core ในตัว ไม่ต้องลง PM2
+#### 5. Multi-Core ในตัว ไม่ต้องลง PM2
 เรียก `serveClustered(app, { instances: 'max' })` ปุ๊บ ทุก CPU Core ของเครื่องมาช่วยกันรับโหลดทันที พร้อม Graceful Drain — request ที่ค้างอยู่จะเสร็จก่อน แล้วค่อยปิด Process ไม่มี connection ขาดกลางอากาศ
 
-#### 6. 🛡️ Zod, Valibot, ArkType — เสียบใช้ได้เลย
+#### 6. Zod, Valibot, ArkType — เสียบใช้ได้เลย
 มี Schema Builder น้ำหนักเบา `t` ในตัวโดยไม่มี dependency. หรือจะใช้ **Zod**, **Valibot**, หรือ **ArkType** ที่คุ้นเคยก็ได้ — ผ่าน Standard Schema v1 เสียบแล้วรัน ไม่ต้องมีปลั๊กอินแปลง ไม่มี Overhead เสริม
 
-#### 7. 📖 หน้า API Docs สวยๆ ที่ `/docs` สร้างเอง
+#### 7. หน้า API Docs สวยๆ ที่ `/docs` สร้างเอง
 Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โดยอัตโนมัติ พร้อมหน้าเว็บ **Redoc** และ **Swagger UI** ให้เลือกใช้ที่ `/docs` — เปิดแล้วทดสอบ API ในเบราว์เซอร์ได้ทันที ไม่ต้องตั้งค่าเพิ่มเลย
 
-#### 8. 🔌 Frontend พิมพ์ผิดไม่ได้แล้ว (Type-Safe Client SDK)
+#### 8. Frontend พิมพ์ผิดไม่ได้แล้ว (Type-Safe Client SDK)
 `@narudom96/nelysia/client` ส่ง Type ทุก Route, Param, Body, Query, และ Response จาก Server ไปยัง Frontend ครบ 100% — กด Tab มี Autocomplete เด้งทันทีใน VS Code ไม่พิมพ์ Endpoint ผิดอีก
 
-#### 9. 🧰 เกราะป้องกัน Production ครบในกล่อง
+#### 9. เกราะป้องกัน Production ครบในกล่อง
 ทุกอย่างอยู่ในตัว ไม่ต้องหาปลั๊กอินเพิ่ม:
 - `cors()`: จัดการ CORS Preflight อัตโนมัติ
 - `securityHeaders()`: ใส่ OWASP Security Headers ในคำสั่งเดียว
@@ -126,8 +125,7 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
 - `staticDirectory()`: เสิร์ฟไฟล์ Static พร้อมการ์ดป้องกัน Path Traversal
 - `compression()`: บีบอัดข้อมูล Gzip/Deflate อัตโนมัติ
 
-#### 10. 🤖 AI Streaming + Cloud ยุคใหม่ พร้อมเดี๋ยวนี้
-- **Vercel AI SDK**: สตรีมคำตอบ LLM แบบ Realtime ไม่ต้องเขียน Adapter เพิ่ม
+#### 10. Cloud Runtime Integrations
 - **Database & Auth**: เชื่อม **Drizzle ORM**, **Prisma**, และ **Better Auth** ได้เลยตามเอกสาร
 - **Edge Deployment**: Deploy บน Cloudflare Workers, Vercel Edge, และ Deno ในขั้นตอนเดียว
 
@@ -189,7 +187,7 @@ export const app = new Nelysia()
 // สั่งเปิดเซิร์ฟเวอร์พร้อม Callback แสดง URL
 if (import.meta.main || process.env.NODE_ENV !== "test") {
   app.listen(3000, ({ port, url }) => {
-    console.log(`🚀 Nelysia กำลังทำงานที่ ${url} (port ${port})`)
+    console.log(`Nelysia กำลังทำงานที่ ${url} (port ${port})`)
   })
 }
 ```
@@ -377,12 +375,12 @@ interface ServerInfo {
 ```ts
 // 1. ระบุเฉพาะ Port
 app.listen(3000, ({ port, url }) => {
-  console.log(`🚀 เซิร์ฟเวอร์เริ่มทำงานแล้วที่ ${url} (port ${port})`)
+    console.log(`เซิร์ฟเวอร์เริ่มทำงานแล้วที่ ${url} (port ${port})`)
 })
 
 // 2. หรือระบุทั้ง Port และ Hostname
 app.listen({ port: 8080, hostname: "0.0.0.0" }, ({ url }) => {
-  console.log(`🌐 พร้อมรับการเชื่อมต่อจากทุก Network Interface: ${url}`)
+    console.log(`พร้อมรับการเชื่อมต่อจากทุก Network Interface: ${url}`)
 })
 ```
 
@@ -1084,38 +1082,7 @@ app.use(betterAuthPlugin(auth)) // ค่าเริ่มต้น prefix: /ap
 
 ---
 
-## 15. การเชื่อมต่อ AI SDK
-
-เรียก `generateText` ของ Vercel AI SDK ภายใน route ได้ตรงๆ ผ่าน helper แบบ injectable (ดู `examples/ai-sdk/app.ts`):
-
-```ts
-import { generateText, type LanguageModel } from "ai"
-import { Nelysia } from "@narudom96/nelysia"
-
-export function createAiSdkApp(model: LanguageModel): Nelysia {
-  return new Nelysia().post("/ai", async ({ body, response }) => {
-    if (!body || typeof body !== "object" || typeof (body as any).prompt !== "string") {
-      return response(400, { error: "Expected a JSON body with a string prompt" })
-    }
-    const { text } = await generateText({ model, prompt: (body as any).prompt })
-    return { text }
-  })
-}
-```
-
-```bash
-npm run ai:example
-curl -X POST http://localhost:3001/ai \
-  -H 'content-type: application/json' \
-  -d '{"prompt":"Say hello"}'
-# {"text":"Deterministic AI SDK response"}
-```
-
-ตัวอย่างที่ check-in ใช้ `MockLanguageModelV3` จาก `ai/test` จึงไม่ต้องใช้ network/credentials — สำหรับ production ให้ส่ง provider model จริง (เช่น OpenAI/Anthropic provider) เข้า `createAiSdkApp` เอง ส่วน streaming, tool calling และ API key เป็นความรับผิดชอบของแอป
-
----
-
-## 16. Nelysia Client SDK (`@nelysia/client`)
+## 15. Nelysia Client SDK (`@nelysia/client`)
 
 ไลบรารี Client น้ำหนักเบาที่ช่วยให้เรียกใช้ API ของ Nelysia ได้ง่ายและปลอดภัย:
 
@@ -1139,7 +1106,7 @@ await api.post("/users", { name: "กรรณิการ์", age: 25 })
 
 ---
 
-## 17. ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)
+## 16. ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)
 
 ### การจัดหมวดหมู่ Route
 เมื่อผ่านคอมไพเลอร์ Route แต่ละเส้นทางจะถูกวิเคราะห์ออกเป็น 3 ระดับ:
@@ -1202,7 +1169,7 @@ console.log(generateClientTypes(app))
 
 ---
 
-## 18. รันไทม์ที่รองรับและ Adapter
+## 17. รันไทม์ที่รองรับและ Adapter
 
 | คุณสมบัติ | Bun 1.4+ | Node.js 22+ | Standard Fetch | Vercel | Cloudflare | Deno |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -1242,7 +1209,7 @@ Deno.serve(createFetchHandler(app))
 
 ---
 
-## 19. การเชื่อมต่อกับ Full-Stack Web Frameworks
+## 18. การเชื่อมต่อกับ Full-Stack Web Frameworks
 
 คุณสามารถนำ Nelysia ไปใช้เป็น Backend API ภายใน Full-stack Frameworks ยอดนิยมได้ผ่าน `createFetchHandler`:
 
@@ -1302,7 +1269,7 @@ export const fetchHandler = createFetchHandler(app)
 
 ---
 
-## 20. การทดสอบประสิทธิภาพและ Soak Testing
+## 19. การทดสอบประสิทธิภาพและ Soak Testing
 
 ```bash
 # TechEmpower Round 22 Benchmark Suite (Plaintext & JSON บนระดับ Concurrency 50-500)
@@ -1354,7 +1321,7 @@ npm run release:check
 
 ---
 
-## 21. คู่มือการย้ายโค้ด (Migration Guide)
+## 20. คู่มือการย้ายโค้ด (Migration Guide)
 
 ### จาก Express
 - ใน Express ต้องเรียก `res.json(data)` หรือ `res.send(text)`
@@ -1461,7 +1428,7 @@ app.getStatic('/health', { status: 'ok' })
 
 ---
 
-## 22. คู่มือปรับประสิทธิภาพ (Performance Tuning)
+## 21. คู่มือปรับประสิทธิภาพ (Performance Tuning)
 
 อยากให้ route ร้อนวิ่งบน fast path ทำตามนี้:
 
@@ -1483,7 +1450,7 @@ ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 
 ---
 
-## 23. เช็กลิสต์ Deploy ขึ้น Production
+## 22. เช็กลิสต์ Deploy ขึ้น Production
 
 - [ ] `npm run release:check` ผ่าน (typecheck + tests Node/Bun + soak + Deno check + audit)
 - [ ] ดู coverage ของ dispatcher: build แล้วอ่าน `NELY003` ใน `dist/manifest.json` — route ร้อนควรอยู่บน fast path
@@ -1495,7 +1462,7 @@ ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 
 ---
 
-## 24. แก้ปัญหาและ FAQ (Troubleshooting)
+## 23. แก้ปัญหาและ FAQ (Troubleshooting)
 
 | อาการ | สาเหตุ | วิธีแก้ |
 | :--- | :--- | :--- |

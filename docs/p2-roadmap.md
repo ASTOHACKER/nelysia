@@ -68,7 +68,6 @@ Compiler regression benchmark is enforced in CI
 - Drizzle and Prisma examples
 - Better Auth integration
 - GraphQL integration
-- AI SDK integration
 - Migration guides from Elysia, Fastify, and Express
 
 ### Exit Criteria

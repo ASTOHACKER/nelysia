@@ -17,7 +17,7 @@ frameworks/TypeScript/nelysia/
 
 ---
 
-## 🚀 How to Submit to TechEmpower (Step-by-Step)
+## How to Submit to TechEmpower (Step-by-Step)
 
 ### Step 1: Generate the Bundle
 Run the bundle generator script from the Nelysia root directory:

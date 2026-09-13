@@ -59,21 +59,20 @@
 12. [GraphQL Integration](#12-graphql-integration)
 13. [Database Integrations (Drizzle & Prisma)](#13-database-integrations-drizzle--prisma)
 14. [Authentication with Better Auth](#14-authentication-with-better-auth)
-15. [AI SDK Integration](#15-ai-sdk-integration)
-16. [Client SDK (`@nelysia/client`)](#16-client-sdk-nelysiaclient)
-17. [Compiler Platform & CLI](#17-compiler-platform--cli)
-18. [Supported Runtimes & Adapters](#18-supported-runtimes--adapters)
-19. [Full-Stack Framework Integrations](#19-full-stack-framework-integrations)
+15. [Client SDK (`@nelysia/client`)](#15-client-sdk-nelysiaclient)
+16. [Compiler Platform & CLI](#16-compiler-platform--cli)
+17. [Supported Runtimes & Adapters](#17-supported-runtimes--adapters)
+18. [Full-Stack Framework Integrations](#18-full-stack-framework-integrations)
     - [Next.js App Router](#nextjs-app-router)
     - [Nuxt](#nuxt)
     - [SvelteKit](#sveltekit)
     - [Astro](#astro)
     - [TanStack Start](#tanstack-start)
-20. [Benchmarking & Soak Testing](#20-benchmarking--soak-testing)
-21. [Migration Guides](#21-migration-guides)
-22. [Performance Tuning Guide](#22-performance-tuning-guide)
-23. [Production Deployment Checklist](#23-production-deployment-checklist)
-24. [Troubleshooting & FAQ](#24-troubleshooting--faq)
+19. [Benchmarking & Soak Testing](#19-benchmarking--soak-testing)
+20. [Migration Guides](#20-migration-guides)
+21. [Performance Tuning Guide](#21-performance-tuning-guide)
+22. [Production Deployment Checklist](#22-production-deployment-checklist)
+23. [Troubleshooting & FAQ](#23-troubleshooting--faq)
 
 ---
 
@@ -83,9 +82,9 @@
 
 ---
 
-### 🌟 The 10 Superpowers of Nelysia (Why Nelysia Wins)
+### The 10 Superpowers of Nelysia (Why Nelysia Wins)
 
-#### 1. 🧬 3-Lane AOT Compiler
+#### 1. 3-Lane AOT Compiler
 Nelysia analyzes every route before the first request arrives. Instead of running everything through the same middleware chain, it puts each route in the right lane:
 - **Lane 1 (COMPILED)**: Static endpoints → pre-serialized raw buffer. Zero per-request object allocation, zero context overhead.
 - **Lane 2 (SPECIALIZED)**: Param routes like `/users/:id` → parameters extracted directly from the URL buffer, bypassing cookie/query parsing entirely.
@@ -93,32 +92,32 @@ Nelysia analyzes every route before the first request arrives. Instead of runnin
 
 Result: every request uses only the power it actually needs.
 
-#### 2. 🏎️ 100,471 req/s — Faster than Raw Bun
+#### 2. 100,471 req/s — Faster than Raw Bun
 Verified with the TechEmpower plaintext workload using `oha`: **100,471 req/s** on Bun, **+42% over Elysia**, and faster than raw `Bun.serve`. Static paths produce **0% GC pressure** — no garbage, no pauses, no surprises in production.
 
-#### 3. 🎯 V8 Stays in Fast Lane
+#### 3. V8 Stays in Fast Lane
 Frameworks that use `.decorate('db', db)` continuously mutate the object's hidden class, which forces V8 to exit its fast Inline Cache (IC) mode and de-optimize. Nelysia fixes this: context shape never changes. Use `context.store` for shared state and the JIT stays monomorphic at peak speed — forever.
 
-#### 4. 🌐 Node.js + Bun, No Polyfills
+#### 4. Node.js + Bun, No Polyfills
 Both runtimes are first-class — not an afterthought:
 - **Node.js 22+**: Native `node:http`, run TypeScript with zero build step via `--experimental-strip-types`.
 - **Bun 1.4+**: Native `Bun.serve`, full SIMD byte parsing and zero-copy I/O.
 
 No shims, no wrappers, no compatibility tax.
 
-#### 5. 🚀 Multi-Core — No PM2 Needed
+#### 5. Multi-Core — No PM2 Needed
 Call `serveClustered(app, { instances: 'max' })` and every CPU core pitches in automatically. Graceful drain on shutdown — existing connections finish cleanly before the process exits. No PM2, no Docker Swarm required.
 
-#### 6. 🛡️ Zod, Valibot, ArkType — Just Plug In
+#### 6. Zod, Valibot, ArkType — Just Plug In
 Built-in zero-dep `t` schema builder included out of the box. Or bring the schema library you already use — Standard Schema v1 means **Zod**, **Valibot**, and **ArkType** work natively without extra plugins, bridges, or runtime adapter overhead.
 
-#### 7. 📖 API Docs at `/docs`, Auto-Generated
+#### 7. API Docs at `/docs`, Auto-Generated
 Routes and schemas are automatically converted into a live **OpenAPI 3.1** spec. Both **Redoc** and **Swagger UI** are bundled and accessible at `/docs` — open your browser, test your API, zero config.
 
-#### 8. 🔌 Frontend Autocomplete, Typo-Free
+#### 8. Frontend Autocomplete, Typo-Free
 `@narudom96/nelysia/client` mirrors every route, param, request body, and response type to your frontend with full IDE autocomplete. If it compiles, the endpoint exists and the types match — no runtime surprises.
 
-#### 9. 🧰 Security Suite Out of the Box
+#### 9. Security Suite Out of the Box
 All built-in, one import each:
 - `cors()`: Automated preflight `OPTIONS` and security headers.
 - `securityHeaders()`: Defense-in-depth OWASP-compliant headers.
@@ -126,8 +125,7 @@ All built-in, one import each:
 - `staticDirectory()`: Fast static file server with path traversal protection.
 - `compression()`: Automatic Gzip and Deflate response negotiation.
 
-#### 10. 🤖 AI Streaming + Modern Cloud, Ready Now
-- **Vercel AI SDK**: Direct streaming LLM completions — no adapter to write.
+#### 10. Cloud Runtime Integrations
 - **Database & Auth**: Ready-to-use recipes for **Drizzle ORM**, **Prisma**, and **Better Auth**.
 - **Serverless & Edge**: One-step deployment to Cloudflare Workers, Vercel Edge, and Deno with unified Fetch handler adapters.
 
@@ -190,7 +188,7 @@ export const app = new Nelysia()
 // Listen directly with server info callback
 if (import.meta.main || process.env.NODE_ENV !== "test") {
   app.listen(3000, ({ port, url }) => {
-    console.log(`🚀 Nelysia server running at ${url} (port ${port})`)
+    console.log(`Nelysia server running at ${url} (port ${port})`)
   })
 }
 ```
@@ -380,12 +378,12 @@ Usage examples:
 ```ts
 // 1. Simple port listening with callback
 app.listen(3000, ({ port, url }) => {
-  console.log(`🚀 Server listening on ${url} (port ${port})`)
+    console.log(`Server listening on ${url} (port ${port})`)
 })
 
 // 2. Specific host and port binding
 app.listen({ port: 8080, hostname: "0.0.0.0" }, ({ url }) => {
-  console.log(`🌐 Server bound to all network interfaces at ${url}`)
+    console.log(`Server bound to all network interfaces at ${url}`)
 })
 ```
 
@@ -1140,38 +1138,7 @@ app.use(betterAuthPlugin(auth)) // default prefix: /api/auth
 
 ---
 
-## 15. AI SDK Integration
-
-Call Vercel AI SDK `generateText` inside a route via an injectable helper (see `examples/ai-sdk/app.ts`):
-
-```ts
-import { generateText, type LanguageModel } from "ai"
-import { Nelysia } from "@narudom96/nelysia"
-
-export function createAiSdkApp(model: LanguageModel): Nelysia {
-  return new Nelysia().post("/ai", async ({ body, response }) => {
-    if (!body || typeof body !== "object" || typeof (body as any).prompt !== "string") {
-      return response(400, { error: "Expected a JSON body with a string prompt" })
-    }
-    const { text } = await generateText({ model, prompt: (body as any).prompt })
-    return { text }
-  })
-}
-```
-
-```bash
-npm run ai:example
-curl -X POST http://localhost:3001/ai \
-  -H 'content-type: application/json' \
-  -d '{"prompt":"Say hello"}'
-# {"text":"Deterministic AI SDK response"}
-```
-
-The checked-in example uses `MockLanguageModelV3` from `ai/test`, so it needs no network or credentials. For production, pass a real provider model into `createAiSdkApp`; streaming, tool calling, and API keys remain the application's responsibility.
-
----
-
-## 16. Client SDK (`@nelysia/client`)
+## 15. Client SDK (`@nelysia/client`)
 
 A lightweight, type-friendly client for invoking Nelysia endpoints:
 
@@ -1195,7 +1162,7 @@ await client.post("/users", { name: "John Doe", age: 30 })
 
 ---
 
-## 17. Compiler Platform & CLI
+## 16. Compiler Platform & CLI
 
 Nelysia includes an ahead-of-time compiler and CLI tool: `nelysia`.
 
@@ -1276,7 +1243,7 @@ console.log(generateClientTypes(app))
 
 ---
 
-## 18. Supported Runtimes & Adapters
+## 17. Supported Runtimes & Adapters
 
 Nelysia runs anywhere modern JavaScript executes:
 
@@ -1336,7 +1303,7 @@ export default {
 
 ---
 
-## 19. Full-Stack Framework Integrations
+## 18. Full-Stack Framework Integrations
 
 Nelysia integrates seamlessly into popular full-stack frameworks via `createFetchHandler` (see `examples/*` and `tests/framework-examples.test.ts`):
 
@@ -1402,7 +1369,7 @@ export const fetchHandler = createFetchHandler(app)
 
 ---
 
-## 20. Benchmarking & Soak Testing
+## 19. Benchmarking & Soak Testing
 
 Nelysia includes automated micro-benchmarks and memory soak runners.
 
@@ -1466,7 +1433,7 @@ Output highlights:
 
 ---
 
-## 21. Migration Guides
+## 20. Migration Guides
 
 ### From Express
 
@@ -1582,7 +1549,7 @@ app.getStatic('/health', { status: 'ok' })
 ---
 
 
-## 22. Performance Tuning Guide
+## 21. Performance Tuning Guide
 
 Hot routes should land on the compiled fast path. The rules are simple:
 
@@ -1604,7 +1571,7 @@ Per-request cost ranking (most to least expensive): JSON body parsing → schema
 
 ---
 
-## 23. Production Deployment Checklist
+## 22. Production Deployment Checklist
 
 - [ ] `npm run release:check` passes (typecheck + Node/Bun tests + soak + Deno check + audit).
 - [ ] Check dispatcher coverage: build and read `NELY003` in `dist/manifest.json` — hot routes should be on the fast path.
@@ -1616,7 +1583,7 @@ Per-request cost ranking (most to least expensive): JSON body parsing → schema
 
 ---
 
-## 24. Troubleshooting & FAQ
+## 23. Troubleshooting & FAQ
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |

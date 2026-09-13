@@ -72,7 +72,6 @@ These should be adapters or official examples, not dependencies in `core`:
 - Drizzle
 - Prisma
 - Better Auth
-- AI SDK
 - GraphQL
 
 ## Implementation Order

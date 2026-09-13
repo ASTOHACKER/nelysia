@@ -27,7 +27,6 @@
   "scripts": {
     "test": "node --experimental-strip-types --test tests/**/*.test.ts",
     "example": "node --experimental-strip-types examples/hello/index.ts",
-    "ai:example": "node --experimental-strip-types examples/ai-sdk/index.ts",
     "bun:example": "bun run examples/hello/bun.ts",
     "bun:smoke": "bun run examples/hello/bun-smoke.ts",
     "benchmark": "node --experimental-strip-types benchmarks/run.ts",
@@ -86,7 +85,6 @@
     "@types/bun": "^1.4.2",
     "@types/node": "^22.20.2",
     "@types/ws": "^8.18.1",
-    "ai": "^7.0.99",
     "better-auth": "^1.7.4",
     "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.45.2",
@@ -106,16 +104,12 @@
   },
   "peerDependencies": {
     "@prisma/client": "^6.12.0",
-    "ai": "^7.0.99",
     "better-auth": "^1.7.4",
     "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.45.2"
   },
   "peerDependenciesMeta": {
     "@prisma/client": {
-      "optional": true
-    },
-    "ai": {
       "optional": true
     },
     "better-auth": {

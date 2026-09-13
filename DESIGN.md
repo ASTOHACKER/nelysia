@@ -132,7 +132,7 @@ components:
 
 ## Overview
 
-The Nelysia visual design system is engineered specifically for technical documentation (mode: **Read**). It departs from murky hacker green palettes and generic AI-generated interface tropes (side-tab borders, pulsing dots, colored halos, gradient text) in favor of a pristine, high-clarity **Obsidian & Emerald** visual architecture.
+The Nelysia visual design system is engineered specifically for technical documentation (mode: **Read**). It departs from murky hacker green palettes and generic interface tropes (side-tab borders, pulsing dots, colored halos, gradient text) in favor of a pristine, high-clarity **Obsidian & Emerald** visual architecture.
 
 ## Colors
 

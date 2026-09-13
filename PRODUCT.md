@@ -35,7 +35,7 @@ The documentation website (docs/index.html) is accessed by engineers evaluating 
 - Single-file standalone HTML distribution: all CSS and JS embedded or CDN-linked with zero local bundler requirement.
 - Full bilingual fidelity: instant client-side switching between English and Thai (data-lang=en / data-lang=th).
 - Keyboard-accessible search filter with instant jump to section.
-- High visual craft: adheres to impeccable craft floor (strict contrast >= 4.5:1, generous hierarchy, refined obsidian/slate dark theme, zero AI-slop side-tab borders or colored halo glows, authentic SVG icons, mac-style code chrome).
+- High visual craft: strict contrast >= 4.5:1, generous hierarchy, refined obsidian/slate dark theme, authentic SVG icons, and mac-style code chrome.
 
 ## Brand Commitments
 
