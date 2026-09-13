@@ -198,7 +198,7 @@ test("generates OpenAPI paths from route schemas", () => {
   })
   const document = generateOpenAPI(app, { title: "Test API" })
   assert.equal(document.info.title, "Test API")
-  assert.deepEqual(document.paths["/users"]?.post?.requestBody?.content["application/json"]?.schema, {
+  assert.deepEqual((document.paths["/users"]?.post as Record<string, any>)?.requestBody?.content["application/json"]?.schema, {
     type: "object",
     properties: { name: { type: "string" } },
     required: ["name"]
@@ -220,7 +220,7 @@ test("generates OpenAPI paths and parameters from StandardSchema", () => {
     query: fakeStandardObject
   })
   const document = generateOpenAPI(app)
-  assert.deepEqual(document.paths["/items"]?.get?.parameters, [
+  assert.deepEqual((document.paths["/items"]?.get as Record<string, any>)?.parameters, [
     { name: "search", in: "query", required: true, schema: { type: "string" } },
     { name: "limit", in: "query", required: true, schema: { type: "number" } },
   ])

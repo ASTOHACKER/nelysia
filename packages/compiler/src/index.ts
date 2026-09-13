@@ -1,4 +1,4 @@
-import type { Nelysia } from "../../core/src/app.ts"
+import { createParsedQuery, type Nelysia } from "../../core/src/app.ts"
 import { requestIdFor, responseMarker, type Context, type RouteGraph, type RouteRecord } from "../../core/src/types.ts"
 import type { Schema } from "../../core/src/schema.ts"
 import { createBunHandler } from "../../runtime-bun/src/server.ts"
@@ -141,7 +141,8 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
       requestId: requestIdFor(request),
       clientIp: undefined,
       params,
-      query: new URLSearchParams(requestQuery(request.url)),
+      query: createParsedQuery(requestQuery(request.url)),
+      set: { status: undefined, headers: {} },
       body: undefined,
       headers,
       cookies: {},
@@ -150,22 +151,25 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
     }
     try {
       const out = route.handler(context) as unknown
-      if (out instanceof Promise) return out.then((v) => genericToResponse(v), () => fb(request))
-      return genericToResponse(out)
+      if (out instanceof Promise) return out.then((v) => genericToResponse(v, context), () => fb(request))
+      return genericToResponse(out, context)
     } catch { return fb(request) }
   }
 
-  function genericToResponse(result: unknown): Response {
+  function genericToResponse(result: unknown, ctx: Context): Response {
     if (isResponseData(result)) return responseFromResult(result.status, result.headers, result.body)
-    return fastJson(result)
+    const status = ctx.set.status ?? 200
+    const extraHeaders = Object.keys(ctx.set.headers).length > 0 ? ctx.set.headers : undefined
+    return fastJson(result, status, extraHeaders)
   }
 
-  function fastJson(value: unknown): Response {
-    if (value === undefined || value === null) return new Response(null, { status: 200 })
-    if (typeof value === "string") return new Response(value, { status: 200, headers: textHeaders })
-    if (value instanceof Uint8Array) return new Response(value as unknown as BodyInit, { status: 200, headers: textHeaders })
+  function fastJson(value: unknown, status = 200, headers?: Record<string, string>): Response {
+    if (value === undefined || value === null) return new Response(null, { status, headers })
+    const combinedHeaders = headers ? { ...textHeaders, ...headers } : textHeaders
+    if (typeof value === "string") return new Response(value, { status, headers: combinedHeaders })
+    if (value instanceof Uint8Array) return new Response(value as unknown as BodyInit, { status, headers: combinedHeaders })
     // Response.json is faster than manual stringify + construction in Bun.
-    return Response.json(value)
+    return Response.json(value, { status, headers })
   }
 }
 
