@@ -1409,9 +1409,84 @@ const app = new Nelysia()
 
 ### From Elysia
 
-Nelysia adopts the familiar chainable design of Elysia, making migration nearly 1:1, while providing native Node.js support alongside Bun and compiler inspection.
+Nelysia was designed with a familiar chainable DX inspired by Elysia, but introduces key architectural distinctions for AOT compiler specialization, V8 Monomorphic shape stability, and native zero-polyfill dual-runtime (Node.js & Bun) performance.
+
+#### Syntax & Architecture Comparison Matrix (Elysia vs Nelysia)
+
+| Feature / Pattern | ElysiaJS | Nelysia | Architectural Rationale |
+| :--- | :--- | :--- | :--- |
+| **State Injection** | `app.state('k', v)`<br>`app.decorate('db', db)`<br>→ `({ db, store }) => ...` | `context.store`<br>→ `({ store }) => { store.db = ... }` | Elysia mutates context object shapes, causing V8 Inline Cache de-optimizations. Nelysia preserves stable object shapes for peak V8 monomorphic execution. |
+| **Sub-Apps** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Distinct separation: `use()` is strictly for plugin functions `(app) => app \| void`; `mount()` is for routing trees. |
+| **Route Grouping** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | Identical DX. Nested groups inherit parent lifecycle hooks (`onBeforeHandle`, etc.). |
+| **Guards / Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Explicit group hooks maintain predictable AOT dispatch compiler analysis. |
+| **Static Endpoints** | Generic dynamic handler `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` or static data | **AOT Tier 1 (COMPILED)**: Pre-serialized to raw bytes at startup; zero per-request allocation or context creation (~1.8x faster). |
+| **Node.js Support** | Bun-first; requires `@bogeychan/elysia-polyfill` on Node.js | Native Node.js 22+ (`node:http`) & Bun 1.4+ (`Bun.serve`) | First-class citizen on both platforms with 0 polyfill overhead. |
+| **Multi-Core Scaling** | Requires external cluster manager (PM2) | `serveClustered(app, { port, instances: 'max' })` | Native Node.js cluster fork management built-in with graceful shutdown. |
+| **Schema Validation** | TypeBox (`t`) | Built-in `t` + **Standard Schema v1** (Zod, Valibot, ArkType) | Universal schema support without extra bridge plugins. |
+| **Cookies** | `({ cookie: { session } }) => ...` (Proxy) | `({ cookies, setCookie, deleteCookie }) => ...` | Clean explicit helper API, eliminating proxy overhead. |
+
+#### Code Migration Examples
+
+##### 1. Mounting Sub-Apps vs Plugins
+
+```ts
+// ❌ Elysia: Overloaded use() for both plugins and sub-apps
+import { Elysia } from 'elysia'
+const userRoutes = new Elysia({ prefix: '/users' }).get('/', () => ['Alice', 'Bob'])
+const app = new Elysia().use(userRoutes)
+
+// ✅ Nelysia: Explicit mount() for sub-apps, use() for plugins
+import { Nelysia } from '@narudom96/nelysia'
+const userRoutes = new Nelysia().get('/', () => ['Alice', 'Bob'])
+const app = new Nelysia()
+  .mount('/users', userRoutes) // mounts to /users
+```
+
+##### 2. Context State & Decorators
+
+```ts
+// ❌ Elysia: Decorating properties directly on context object
+const app = new Elysia()
+  .decorate('db', database)
+  .get('/items', ({ db }) => db.findAll())
+
+// ✅ Nelysia: Access via context.store (V8 Monomorphic Safe)
+const app = new Nelysia()
+  .onBeforeHandle(({ store }) => {
+    store.db = database
+  })
+  .get('/items', ({ store }) => store.db.findAll())
+```
+
+##### 3. Route Groups & Protected Scopes
+
+```ts
+// Elysia
+app.group('/admin', (app) =>
+  app.guard({ beforeHandle: checkAuth }, (app) =>
+    app.get('/dashboard', () => ({ secret: true }))
+  )
+)
+
+// Nelysia
+app.group('/admin', (admin) => {
+  admin.onBeforeHandle(checkAuth)
+  admin.get('/dashboard', () => ({ secret: true }))
+})
+```
+
+##### 4. Constant / Static Endpoints
+
+```ts
+// Elysia: Evaluated through standard handler pipeline
+app.get('/health', () => ({ status: 'ok' }))
+
+// Nelysia: Zero-overhead AOT pre-serialized bytes
+app.getStatic('/health', { status: 'ok' })
+```
 
 ---
+
 
 ## 22. Performance Tuning Guide
 

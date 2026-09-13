@@ -1250,14 +1250,106 @@ npm run release:check
 
 ### จาก Express
 - ใน Express ต้องเรียก `res.json(data)` หรือ `res.send(text)`
-- ใน Nelysia เพียงแค่ `return data` หรือส่งกลับเป็น Object ได้โดยตรง
+- ใน Nelysia เพียงแค่ `return data` หรือส่งกลับเป็น Object ได้โดยตรง โดย Nelysia จะ serialize และตั้งค่า Header ให้อัตโนมัติ
+
+```ts
+// Express
+app.get("/users/:id", (req, res) => res.json({ id: req.params.id }))
+
+// Nelysia
+app.get("/users/:id", ({ params }) => ({ id: params.id }))
+```
 
 ### จาก Fastify
 - Schema ใน Fastify สามารถแมปเข้ามาใช้ใน Options `{ body, params, query }` ของ Nelysia ได้ทันที
 - Validation จะทำงานก่อนที่ Handler จะถูกเรียกใช้เสมอ
 
+```ts
+// Fastify
+fastify.post("/users", { schema: { body: userSchema } }, async (req) => req.body)
+
+// Nelysia
+app.post("/users", ({ body }) => body, { body: userSchema })
+```
+
 ### จาก Elysia
-- Nelysia ใช้สไตล์การเขียน Method Chaining ที่คุ้นเคยของ Elysia เช่น `.get()`, `.post()`, `.use()`, `.onBeforeHandle()` ทำให้เรียนรู้และใช้งานต่อได้ทันที
+
+Nelysia ได้รับแรงบันดาลใจจาก Developer Experience (DX) ที่ยอดเยี่ยมและ Method Chaining ของ Elysia แต่มีความแตกต่างด้านสถาปัตยกรรมภายในและไวยากรณ์บางจุด เพื่อความเร็วสูงสุดระดับ AOT, การรักษา V8 Monomorphic shape และความเข้ากันได้กับ Node.js 22+ แบบ Zero-polyfill
+
+#### ตารางเปรียบเทียบไวยากรณ์และฟีเจอร์ (Elysia vs Nelysia)
+
+| ฟีเจอร์ / รูปแบบ | ElysiaJS | Nelysia | เหตุผลและจุดต่างของ Nelysia |
+| :--- | :--- | :--- | :--- |
+| **State & Decorator** | `app.state('k', v)`<br>`app.decorate('db', db)`<br>→ รับผ่าน `({ db, store }) => ...` | `context.store`<br>→ รับผ่าน `({ store }) => { store.db = ... }` | Elysia แทรก property เข้าไปใน context object ทำให้ V8 Hidden Class เปลี่ยนรูป (de-opt) ส่วน Nelysia ยึด object shape เดิมเพื่อรักษา V8 Inline Cache ให้เร็วคงที่ |
+| **การต่อ Sub-App** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Nelysia แยกหน้าที่ชัดเจน: `.use()` ใช้สำหรับ Plugin Function `(app) => void` เท่านั้น, ส่วนซับแอพแยกไฟล์ใช้ `.mount()` |
+| **การจัดกลุ่ม Route** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | ไวยากรณ์เหมือนกัน โดย group ใน Nelysia จะสืบทอด Lifecycle Hooks (`onBeforeHandle`) จากกลุ่มแม่โดยตรง |
+| **Guards & Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Nelysia ใช้ Hook ปกติผ่าน group เพื่อให้ AOT Dispatch Compiler วิเคราะห์เส้นทางและคอมไพล์ได้เร็วแม่นยำ |
+| **Route ค่าคงที่ (Static)** | รันผ่าน dynamic handler ปกติ `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` หรือส่ง static data | **AOT Tier 1 (COMPILED)**: คอมไพล์เป็น Bytes เตรียมไว้ล่วงหน้า ตอบกลับทันทีโดยไม่สร้าง context object (เร็วกว่า ~1.8 เท่า) |
+| **รันบน Node.js** | เน้น Bun; บน Node.js ต้องใช้ `@bogeychan/elysia-polyfill` | รองรับทั้ง **Node.js 22+** (`node:http`) และ **Bun 1.4+** เป็น First-class | ทำงานบน Node.js ได้เนทีฟ 100% ไม่ต้องลง polyfill หรือ adapter เสริม |
+| **Multi-Core Scaling** | ต้องใช้ Cluster ภายนอก (เช่น PM2) | `serveClustered(app, { port, instances: 'max' })` | มีตัวจัดการ Node.js Cluster Fork ในตัว พร้อมจัดการ Graceful Shutdown |
+| **Schema Validation** | TypeBox (`t`) เป็นหลัก | Built-in `t` + **Standard Schema v1** | รองรับทั้ง `t` ในตัว และใช้ Zod, Valibot, ArkType ได้ทันทีโดยไม่ต้องลงปลั๊กอินแปลง |
+| **Cookies** | `({ cookie: { session } }) => ...` (Proxy) | `({ cookies, setCookie, deleteCookie }) => ...` | ฟังก์ชันจัดการ Cookie ตรงไปตรงมา ชัดเจน ไร้ความซับซ้อนของ Proxy |
+
+#### ตัวอย่างการแปลงโค้ดจาก Elysia มาเป็น Nelysia
+
+##### 1. การ Mount ซับแอพ (Sub-Apps)
+
+```ts
+// ❌ Elysia: นำ sub-app มาใส่ใน .use()
+import { Elysia } from 'elysia'
+const userRoutes = new Elysia({ prefix: '/users' }).get('/', () => ['Alice', 'Bob'])
+const app = new Elysia().use(userRoutes)
+
+// ✅ Nelysia: แยก .mount() สำหรับ sub-app และ .use() สำหรับ plugin
+import { Nelysia } from '@narudom96/nelysia'
+const userRoutes = new Nelysia().get('/', () => ['Alice', 'Bob'])
+const app = new Nelysia()
+  .mount('/users', userRoutes) // mount ไปที่ path /users
+```
+
+##### 2. การใช้งาน State และ Database (Context Store)
+
+```ts
+// ❌ Elysia: decorate ค่าลงไปใน Context โดยตรง
+const app = new Elysia()
+  .decorate('db', database)
+  .get('/items', ({ db }) => db.findAll())
+
+// ✅ Nelysia: ใช้ context.store เพื่อให้ V8 Monomorphic คงประสิทธิภาพสูงสุด
+const app = new Nelysia()
+  .onBeforeHandle(({ store }) => {
+    store.db = database
+  })
+  .get('/items', ({ store }) => store.db.findAll())
+```
+
+##### 3. การป้องกัน Route ด้วย Group (Route Guarding)
+
+```ts
+// Elysia
+app.group('/admin', (app) =>
+  app.guard({ beforeHandle: checkAuth }, (app) =>
+    app.get('/dashboard', () => ({ secret: true }))
+  )
+)
+
+// Nelysia
+app.group('/admin', (admin) => {
+  admin.onBeforeHandle(checkAuth)
+  admin.get('/dashboard', () => ({ secret: true }))
+})
+```
+
+##### 4. การปรับ Route ค่าคงที่ให้ได้ความเร็วระดับสูงสุด (Static Route Optimization)
+
+```ts
+// Elysia: ผ่านกระบวนการ Handler ปกติ
+app.get('/health', () => ({ status: 'ok' }))
+
+// Nelysia: ใช้ AOT Tier 1 (COMPILED) ไร้ Overhead
+app.getStatic('/health', { status: 'ok' })
+```
+
 
 ---
 

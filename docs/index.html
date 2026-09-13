@@ -3304,8 +3304,8 @@ npm run soak</code></pre>
         <!-- 22. Migration Guides -->
         <section id="migration">
           <h2>
-            <span data-lang="en">Migration Guides</span>
-            <span data-lang="th">คู่มือการย้ายโค้ด (Migration Guide)</span>
+            <span data-lang="en">Migration Guides & Syntax Differences</span>
+            <span data-lang="th">คู่มือการย้ายโค้ดและข้อแตกต่างด้านไวยากรณ์ (Migration Guide)</span>
           </h2>
 
           <div class="grid">
@@ -3321,8 +3321,93 @@ npm run soak</code></pre>
             </div>
             <div class="tile">
               <b>FROM ELYSIA</b>
-              <p data-lang="en">Identical chainable patterns with native Node.js 22+ support alongside Bun.</p>
-              <p data-lang="th">รูปแบบ Method Chaining ที่คุ้นเคย พร้อมรองรับทั้ง Node.js 22+ และ Bun ในตัว</p>
+              <p data-lang="en">Familiar chainable design, optimized with explicit mounting, context store, and AOT compiler tiers.</p>
+              <p data-lang="th">รูปแบบ Method Chaining ที่คุ้นเคย พร้อมการแยกหน้าที่ชัดเจน และสถาปัตยกรรม AOT ที่เร็วยิ่งขึ้น</p>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 1.5rem;">
+            <span data-lang="en">Elysia vs Nelysia: Detailed Comparison</span>
+            <span data-lang="th">ตารางเปรียบเทียบจุดต่างระหว่าง Elysia กับ Nelysia</span>
+          </h3>
+
+          <div class="table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th><span data-lang="en">Feature</span><span data-lang="th">คุณสมบัติ</span></th>
+                  <th>ElysiaJS</th>
+                  <th class="lead-col">Nelysia</th>
+                  <th><span data-lang="en">Rationale</span><span data-lang="th">เหตุผลและการออกแบบ</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Sub-App Mounting</b></td>
+                  <td><code>app.use(subApp)</code></td>
+                  <td class="lead-col"><code>app.mount('/prefix', subApp)</code></td>
+                  <td><span data-lang="en"><code>use()</code> is strictly for plugins; <code>mount()</code> is for sub-apps</span><span data-lang="th">แยกชัดเจน: <code>use()</code> สำหรับ Plugin, <code>mount()</code> สำหรับ Sub-app</span></td>
+                </tr>
+                <tr>
+                  <td><b>State / Store</b></td>
+                  <td><code>app.decorate('db', db)</code><br><code>app.state('k', v)</code></td>
+                  <td class="lead-col"><code>context.store</code><br><code>({ store }) => ...</code></td>
+                  <td><span data-lang="en">Avoids mutating context shapes to preserve V8 Monomorphic Inline Caches</span><span data-lang="th">รักษาโครงสร้าง Object ไม่ให้ V8 de-opt เพื่อความเร็วสูงสุด</span></td>
+                </tr>
+                <tr>
+                  <td><b>Route Groups & Hooks</b></td>
+                  <td><code>app.guard({ ... })</code><br><code>app.macro({ ... })</code></td>
+                  <td class="lead-col"><code>app.group('/v1', (g) => {<br>&nbsp;&nbsp;g.onBeforeHandle(...)<br>})</code></td>
+                  <td><span data-lang="en">Predictable hook inheritance with compile-time path optimization</span><span data-lang="th">สืบทอด Lifecycle Hook ชัดเจน วิเคราะห์ล่วงหน้าด้วย AOT Dispatcher</span></td>
+                </tr>
+                <tr>
+                  <td><b>Static Responses</b></td>
+                  <td>Generic handler pipeline</td>
+                  <td class="lead-col"><span class="badge-win"><code>app.getStatic('/ping', 'pong')</code></span></td>
+                  <td><span data-lang="en">AOT Tier 1 (COMPILED): Pre-serialized bytes, 0 context allocation (~1.8x faster)</span><span data-lang="th">แปลงเป็นไบต์ล่วงหน้า ไม่สร้าง Context ในแต่ละ Request (เร็วกว่า ~1.8 เท่า)</span></td>
+                </tr>
+                <tr>
+                  <td><b>Node.js Runtime</b></td>
+                  <td>Bun-first (requires polyfills on Node)</td>
+                  <td class="lead-col"><span class="badge-win">Native Node.js 22+ & Bun 1.4+</span></td>
+                  <td><span data-lang="en">Zero external polyfills. Native <code>node:http</code> and <code>Bun.serve</code></span><span data-lang="th">รองรับทั้งสอง Runtime แบบ First-class ไร้ Polyfill</span></td>
+                </tr>
+                <tr>
+                  <td><b>Multi-Core Scaling</b></td>
+                  <td>External process manager (PM2)</td>
+                  <td class="lead-col"><code>serveClustered(app, { instances: 'max' })</code></td>
+                  <td><span data-lang="en">Built-in Node.js cluster fork manager with graceful shutdown</span><span data-lang="th">มี Cluster Manager ในตัว พร้อม Graceful Shutdown</span></td>
+                </tr>
+                <tr>
+                  <td><b>Schema Validation</b></td>
+                  <td>TypeBox (<code>t</code>)</td>
+                  <td class="lead-col">Built-in <code>t</code> + Standard Schema v1</td>
+                  <td><span data-lang="en">Native support for Zod, Valibot, and ArkType without wrappers</span><span data-lang="th">ใช้ได้ทั้ง <code>t</code> ในตัว และ Zod / Valibot / ArkType</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-top: 1.5rem;">
+            <span data-lang="en">Code Conversion Examples</span>
+            <span data-lang="th">ตัวอย่างการแปลงโค้ดจาก Elysia สู่ Nelysia</span>
+          </h3>
+
+          <div class="grid">
+            <div class="tile">
+              <b>1. SUB-APP MOUNTING</b>
+              <p data-lang="en"><b>Elysia:</b> <code>app.use(userRoutes)</code><br><b>Nelysia:</b> <code>app.mount('/users', userRoutes)</code></p>
+              <p data-lang="th"><b>Elysia:</b> <code>app.use(userRoutes)</code><br><b>Nelysia:</b> <code>app.mount('/users', userRoutes)</code></p>
+            </div>
+            <div class="tile">
+              <b>2. CONTEXT STATE & DB</b>
+              <p data-lang="en"><b>Elysia:</b> <code>app.decorate('db', db)</code> → <code>({ db })</code><br><b>Nelysia:</b> <code>app.onBeforeHandle(({ store }) => { store.db = db })</code></p>
+              <p data-lang="th"><b>Elysia:</b> <code>app.decorate('db', db)</code> → <code>({ db })</code><br><b>Nelysia:</b> <code>app.onBeforeHandle(({ store }) => { store.db = db })</code></p>
+            </div>
+            <div class="tile">
+              <b>3. CONSTANT FAST-PATH</b>
+              <p data-lang="en"><b>Elysia:</b> <code>app.get('/ok', () => 'ok')</code><br><b>Nelysia:</b> <code>app.getStatic('/ok', 'ok')</code> (Tier 1 AOT)</p>
+              <p data-lang="th"><b>Elysia:</b> <code>app.get('/ok', () => 'ok')</code><br><b>Nelysia:</b> <code>app.getStatic('/ok', 'ok')</code> (AOT Tier 1 เร็วสุด)</p>
             </div>
           </div>
         </section>
