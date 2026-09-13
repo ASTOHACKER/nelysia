@@ -246,6 +246,7 @@ function lazyCookies(headers: Headers): Record<string, string> {
 
 function normalizeSchema(schema: Schema | StandardSchema | undefined): Schema | undefined {
   if (!schema) return undefined
+  if ("~standard" in schema) return fromStandardSchema(schema)
   return "validate" in schema ? schema : fromStandardSchema(schema)
 }
 
