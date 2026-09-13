@@ -108,6 +108,27 @@ test("routes errors through onError", async () => {
   assert.deepEqual(result.body, { message: "broken" })
 })
 
+test("provides ergonomic proxy access to context.query while preserving URLSearchParams methods", async () => {
+  const app = new Nelysia()
+    .get("/search", ({ query }) => {
+      const { category, q } = query
+      return {
+        category,
+        q,
+        rawCategory: query.get("category"),
+        hasQ: query.has("q"),
+      }
+    })
+  const result = await app.handle({ method: "GET", url: "/search?category=hardware&q=board" })
+  assert.equal(result.status, 200)
+  assert.deepEqual(result.body, {
+    category: "hardware",
+    q: "board",
+    rawCategory: "hardware",
+    hasQ: true,
+  })
+})
+
 test("supports static value handlers", async () => {
   const app = new Nelysia()
     .get("/text", "hello")

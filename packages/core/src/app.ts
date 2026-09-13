@@ -1,6 +1,6 @@
 import { allowedMethodsFor, compilePath, lookupDynamicRoute, normalizeMethod, normalizePathname, splitSegments } from "./router.ts"
 import { fromStandardSchema, type Schema, type StandardSchema } from "./schema.ts"
-import { HttpError, responseMarker, type AfterHook, type Context, type CookieOptions, type ErrorHandler, type Handler, type Hook, type NelysiaOptions, type RequestData, type ResponseData, type RouteGraph, type RouteOptions, type RouteRecord, type Telemetry, type WebSocketHandlers } from "./types.ts"
+import { HttpError, responseMarker, type AfterHook, type Context, type CookieOptions, type ErrorHandler, type Handler, type Hook, type NelysiaOptions, type ParsedQuery, type RequestData, type ResponseData, type RouteGraph, type RouteOptions, type RouteRecord, type Telemetry, type WebSocketHandlers } from "./types.ts"
 import { createBunServer } from "../../runtime-bun/src/server.ts"
 import { createNodeServer } from "../../runtime-node/src/server.ts"
 
@@ -175,7 +175,7 @@ export class Nelysia {
       requestId,
       clientIp,
       params,
-      query: search === "" ? new URLSearchParams() : new URLSearchParams(search),
+      query: createParsedQuery(search),
       body: request.body,
       headers,
       cookies: lazyCookies(headers),
@@ -185,7 +185,7 @@ export class Nelysia {
     try {
       await this.telemetry?.onRequest?.(context)
       if (route.paramsSchema) context.params = await route.paramsSchema.validate(context.params) as Record<string, string>
-      if (route.querySchema) context.query = await route.querySchema.validate(Object.fromEntries(context.query.entries())) as URLSearchParams
+      if (route.querySchema) context.query = asParsedQuery(await route.querySchema.validate(Object.fromEntries(context.query.entries())))
       if (route.headersSchema) context.headers = await route.headersSchema.validate(Object.fromEntries(context.headers.entries())) as Headers
       if (route.bodySchema) context.body = await route.bodySchema.validate(context.body)
       for (const hook of route.hooks) {
@@ -291,4 +291,59 @@ function mergeHeaders(base: Headers, extra?: Record<string, string>): Headers {
   const headers = new Headers(base)
   for (const [key, value] of Object.entries(extra ?? {})) headers.set(key, value)
   return headers
+}
+
+export function createParsedQuery(search: string): ParsedQuery {
+  const params = search === "" ? new URLSearchParams() : new URLSearchParams(search)
+  return new Proxy(params, {
+    get(target, prop, receiver) {
+      if (typeof prop === "symbol" || prop in target) {
+        const val = Reflect.get(target, prop, receiver)
+        return typeof val === "function" ? val.bind(target) : val
+      }
+      return target.get(String(prop)) ?? undefined
+    },
+    has(target, prop) {
+      if (typeof prop === "symbol") return Reflect.has(target, prop)
+      return target.has(String(prop)) || prop in target
+    },
+    ownKeys(target) {
+      return Array.from(new Set([...Reflect.ownKeys(target), ...target.keys()]))
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (typeof prop === "string" && target.has(prop)) {
+        return {
+          enumerable: true,
+          configurable: true,
+          writable: true,
+          value: target.get(prop) ?? undefined,
+        }
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop)
+    }
+  }) as ParsedQuery
+}
+
+export function asParsedQuery(source: unknown): ParsedQuery {
+  if (typeof source === "string") return createParsedQuery(source)
+  if (source instanceof URLSearchParams) return createParsedQuery(source.toString())
+  if (typeof source === "object" && source !== null) {
+    const entries = Object.entries(source).map(([k, v]) => [k, String(v ?? "")])
+    const params = new URLSearchParams(entries)
+    return new Proxy(source as Record<string, unknown>, {
+      get(target, prop, receiver) {
+        if (prop === "get") return (key: string) => params.get(key)
+        if (prop === "has") return (key: string) => params.has(key)
+        if (prop === "entries") return () => params.entries()
+        if (prop === "keys") return () => params.keys()
+        if (prop === "values") return () => params.values()
+        if (prop === "toString") return () => params.toString()
+        if (typeof prop === "symbol" || prop in target) {
+          return Reflect.get(target, prop, receiver)
+        }
+        return params.get(String(prop)) ?? undefined
+      }
+    }) as unknown as ParsedQuery
+  }
+  return createParsedQuery("")
 }
