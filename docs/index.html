@@ -1620,54 +1620,64 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
 
           <div class="grid">
             <div class="tile">
-              <b>1. 🧬 AOT 3-TIER COMPILER SPECIALIZATION</b>
-              <p data-lang="en">Static route graph analysis splits routes into 3 tiers: <code>compiled</code> static (zero context overhead), <code>specialized</code> params-only (direct URL extraction), and <code>generic</code> full pipeline.</p>
-              <p data-lang="th">วิเคราะห์เส้นทางล่วงหน้าเป็น 3 ลำดับ: <code>compiled</code> ค่าคงที่ไร้ context overhead, <code>specialized</code> ดึง parameter ตรงจาก URL และ <code>generic</code> สำหรับ middleware ซับซ้อน</p>
+              <b data-lang="en">1. 🧬 3-Lane AOT Compiler</b>
+              <b data-lang="th">1. 🧬 คอมไพเลอร์แยก 3 เลน</b>
+              <p data-lang="en">Static routes → raw buffer (no overhead). Param routes → direct URL extraction. Complex routes → full pipeline. Right engine for every request, zero waste.</p>
+              <p data-lang="th">รูทคงที่ → ตอบกลับทันทีไม่สร้าง Context. รูทมี param → ดึงค่าตรงจาก URL. รูทซับซ้อน → Full pipeline. ประหยัดทุกรอบ ไม่เสียพลังงานเกินจำเป็น</p>
             </div>
             <div class="tile">
-              <b>2. 🏎️ 30,600+ REQ/S & ZERO GC OVERHEAD</b>
-              <p data-lang="en">Verified 30,618 req/s throughput on Bun with 0.33 ms latency — beating Elysia (+7.0%) and Raw Bun with 0% memory GC pressure on static buffer endpoints.</p>
-              <p data-lang="th">ความเร็วทดสอบจริง 30,618 req/s บน Bun ค่า Latency เพียง 0.33 ms เร็วกว่า Elysia (+7.0%) และเร็วกว่า Raw Bun พร้อมขยะหน่วยความจำ (GC) เป็น 0% บน static buffer</p>
+              <b data-lang="en">2. 🏎️ 30,618 req/s — Faster than Raw Bun</b>
+              <b data-lang="th">2. 🏎️ 30,618 req/s — เร็วกว่า Raw Bun</b>
+              <p data-lang="en">0.33 ms latency. +7% over Elysia. 0% GC pressure on static paths — no garbage, no pauses, no surprises.</p>
+              <p data-lang="th">Latency เพียง 0.33 ms. เร็วกว่า Elysia +7%. GC เป็น 0% บน static route — ไม่มีขยะหน่วยความจำ ไม่สะดุด ไม่แปลกใจ</p>
             </div>
             <div class="tile">
-              <b>3. 🎯 V8 MONOMORPHIC SHAPE STABILITY</b>
-              <p data-lang="en">Preserves object hidden classes (Shape/Map) to ensure peak V8 JIT Inline Cache performance. Request state is safely isolated in <code>context.store</code> without de-opts.</p>
-              <p data-lang="th">รักษาโครงสร้าง Hidden Class ใน V8 ไม่ให้เปลี่ยนรูป ช่วยให้ V8 Inline Cache ทำงานเต็มสปีด ปราศจากการ de-opt จาก dynamic property decoration</p>
+              <b data-lang="en">3. 🎯 V8 Stays in Fast Lane</b>
+              <b data-lang="th">3. 🎯 V8 ไม่เบรก ไม่สะดุด</b>
+              <p data-lang="en">Context shape never mutates → V8 Inline Cache stays monomorphic. Use <code>context.store</code> instead of <code>.decorate()</code> and the JIT never de-opts.</p>
+              <p data-lang="th">Shape ของ Context ไม่เปลี่ยน → V8 Cache ทำงานเต็มสปีดตลอด. ใช้ <code>context.store</code> แทน <code>.decorate()</code> แล้ว JIT ไม่เบรกหนี</p>
             </div>
             <div class="tile">
-              <b>4. 🌐 DUAL FIRST-CLASS RUNTIMES (ZERO POLYFILLS)</b>
-              <p data-lang="en">First-class citizen on both Node.js 22+ (native <code>node:http</code> and <code>--experimental-strip-types</code> with zero build steps) and Bun 1.4+ (<code>Bun.serve</code>).</p>
-              <p data-lang="th">รันได้เต็มประสิทธิภาพทั้งบน Node.js 22+ แบบไม่ต้อง build TypeScript และไม่ต้องลง polyfill ใดๆ และบน Bun 1.4+ ด้วย <code>Bun.serve</code> แท้ๆ</p>
+              <b data-lang="en">4. 🌐 Node.js + Bun, No Polyfills</b>
+              <b data-lang="th">4. 🌐 Node.js + Bun แท้ ไม่ต้องลง Polyfill</b>
+              <p data-lang="en">Node.js 22+ via native <code>node:http</code> — run TypeScript with zero build. Bun 1.4+ via native <code>Bun.serve</code> — full SIMD power. No shims, no wrappers.</p>
+              <p data-lang="th">Node.js 22+ ใช้ <code>node:http</code> แท้ รัน TypeScript ไม่ต้อง build. Bun 1.4+ ใช้ <code>Bun.serve</code> ตรง ดึงพลังเต็มสูบ ไม่มี Adapter กวนใจ</p>
             </div>
             <div class="tile">
-              <b>5. 🚀 BUILT-IN MULTI-CORE CLUSTERING</b>
-              <p data-lang="en">Scale out across all physical CPU cores on Node.js using <code>serveClustered()</code> with built-in worker process forking and graceful connection draining without PM2.</p>
-              <p data-lang="th">กระจายโหลดเต็มทุก CPU Cores บน Node.js ด้วย <code>serveClustered()</code> จัดการ Worker Processes และ Graceful Drain ในตัวโดยไม่ต้องพึ่งพา PM2</p>
+              <b data-lang="en">5. 🚀 Multi-Core — No PM2 Needed</b>
+              <b data-lang="th">5. 🚀 Multi-Core ในตัว ไม่ต้องลง PM2</b>
+              <p data-lang="en">Call <code>serveClustered()</code> and every CPU core pitches in. Graceful drain on shutdown — existing connections finish cleanly before the process exits.</p>
+              <p data-lang="th">เรียก <code>serveClustered()</code> ปุ๊บ ทุก CPU Core มาช่วยกัน. ปิดเครื่องแบบนุ่มนวล (Graceful Drain) — request ที่ค้างอยู่เสร็จก่อน แล้วค่อยออก</p>
             </div>
             <div class="tile">
-              <b>6. 🛡️ UNIVERSAL STANDARD SCHEMA V1</b>
-              <p data-lang="en">Zero-dependency built-in <code>t</code> schema builder with native support for Zod, Valibot, and ArkType via the official Standard Schema v1 specification.</p>
-              <p data-lang="th">ตัวสร้าง Schema ในตัว <code>t</code> น้ำหนักเบาไม่มี dependency พร้อมรองรับข้อกำหนด Standard Schema v1 ของ Zod, Valibot และ ArkType แบบเนทีฟไร้ Wrapper</p>
+              <b data-lang="en">6. 🛡️ Zod, Valibot, ArkType — Just Plug In</b>
+              <b data-lang="th">6. 🛡️ Zod, Valibot, ArkType — เสียบใช้ได้เลย</b>
+              <p data-lang="en">Built-in zero-dep <code>t</code> schema builder included. Or bring your own — Standard Schema v1 means Zod/Valibot/ArkType work natively, no adapter overhead.</p>
+              <p data-lang="th">มี <code>t</code> ในตัวน้ำหนักเบา. หรือจะใช้ Zod / Valibot / ArkType ก็ได้ — Standard Schema v1 เสียบแล้วรัน ไม่มี Wrapper ช้าๆ</p>
             </div>
             <div class="tile">
-              <b>7. 📖 LIVING OPENAPI 3.1 & REDOC / SWAGGER</b>
-              <p data-lang="en">Automatically generates living OpenAPI 3.1 specifications from route schemas, hosting interactive Redoc and Swagger UI interfaces directly at <code>/docs</code>.</p>
-              <p data-lang="th">สร้างสเปก OpenAPI 3.1 สดใหม่ตลอดเวลาจาก Type & Schema ของ Route พร้อมหน้าเว็บ Redoc และ Swagger UI ให้ใช้งานได้ทันทีที่ <code>/docs</code></p>
+              <b data-lang="en">7. 📖 API Docs at <code>/docs</code>, Auto-Generated</b>
+              <b data-lang="th">7. 📖 หน้า API Docs สวยๆ ที่ <code>/docs</code> สร้างเอง</b>
+              <p data-lang="en">Routes + schemas → live OpenAPI 3.1 spec. Redoc and Swagger UI ready at <code>/docs</code> — test your API in the browser, zero config.</p>
+              <p data-lang="th">Route + Schema → สเปก OpenAPI 3.1 สดใหม่. เปิด Redoc หรือ Swagger UI ที่ <code>/docs</code> ได้ทันที ทดสอบ API ในเบราว์เซอร์เลย ไม่ต้องตั้งค่าเพิ่ม</p>
             </div>
             <div class="tile">
-              <b>8. 🔌 EDEN-STYLE END-TO-END CLIENT SDK</b>
-              <p data-lang="en">Full type reflection from server to client with <code>@narudom96/nelysia/client</code>, offering complete IDE autocomplete across routes, params, query, and responses.</p>
-              <p data-lang="th">ส่งผ่าน Type จาก Server สู่ Client แบบ 100% ผ่าน <code>@narudom96/nelysia/client</code> ให้ IDE มี Autocomplete ครบทั้ง route, params, query และ response payload</p>
+              <b data-lang="en">8. 🔌 Frontend Autocomplete, Typo-Free</b>
+              <b data-lang="th">8. 🔌 Frontend พิมพ์ผิดไม่ได้แล้ว</b>
+              <p data-lang="en"><code>@narudom96/nelysia/client</code> mirrors every route, param, body, and response type to your frontend — full IDE autocomplete, zero runtime surprises.</p>
+              <p data-lang="th"><code>@narudom96/nelysia/client</code> ส่ง Type ทุก route, param, body, response ไปยัง frontend — กด Tab มี Autocomplete เด้ง ไม่พิมพ์ endpoint ผิดอีก</p>
             </div>
             <div class="tile">
-              <b>9. 🧰 ENTERPRISE PRODUCTION ARMOR</b>
-              <p data-lang="en">Production security suite included: automatic preflight <code>cors()</code>, OWASP <code>securityHeaders()</code>, sliding-window <code>rateLimit()</code>, safe <code>staticDirectory()</code>, and <code>compression()</code>.</p>
-              <p data-lang="th">ชุดเกราะความปลอดภัยระดับ Production: จัดการ CORS Preflight อัตโนมัติ, OWASP Security Headers, Rate Limiter ป้องกันบอท, ไฟล์ Static ที่ปลอดภัย และการบีบอัดข้อมูล</p>
+              <b data-lang="en">9. 🧰 Security Suite Out of the Box</b>
+              <b data-lang="th">9. 🧰 เกราะป้องกัน Production ครบในกล่อง</b>
+              <p data-lang="en">CORS preflight, OWASP security headers, sliding-window rate limiter, traversal-guarded static files, and Gzip compression — all built-in, one import each.</p>
+              <p data-lang="th">CORS, OWASP Headers, Rate Limiter กันถล่ม, Static File ปลอดภัย, Gzip — ทุกอย่างอยู่ในตัว ไม่ต้องหาปลั๊กอินเพิ่ม</p>
             </div>
             <div class="tile">
-              <b>10. 🤖 AI SDK & MODERN CLOUD ECOSYSTEM</b>
-              <p data-lang="en">Native integrations for Vercel AI SDK (streaming LLM tokens), Drizzle ORM, Prisma, Better Auth, WebSockets, and zero-friction Edge adapters for Cloudflare, Vercel, and Deno.</p>
-              <p data-lang="th">ต่อยอดกับโลกยุคใหม่: สตรีม LLM ผ่าน Vercel AI SDK, เชื่อมต่อ Drizzle ORM, Prisma, Better Auth, WebSockets และ Adapter เสิร์ฟบน Cloudflare, Vercel และ Deno ได้ทันที</p>
+              <b data-lang="en">10. 🤖 AI Streaming + Modern Cloud, Ready Now</b>
+              <b data-lang="th">10. 🤖 AI Streaming + Cloud ยุคใหม่ พร้อมเดี๋ยวนี้</b>
+              <p data-lang="en">Stream LLM responses via Vercel AI SDK. Connect Drizzle ORM, Prisma, Better Auth out of the box. Deploy to Cloudflare, Vercel, or Deno Edge in one step.</p>
+              <p data-lang="th">สตรีมคำตอบ LLM ผ่าน Vercel AI SDK. เชื่อม Drizzle, Prisma, Better Auth ได้เลย. Deploy บน Cloudflare / Vercel / Deno Edge ในขั้นตอนเดียว</p>
             </div>
           </div>
 

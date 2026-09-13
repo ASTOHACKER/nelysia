@@ -85,48 +85,51 @@
 
 ### 🌟 The 10 Superpowers of Nelysia (Why Nelysia Wins)
 
-#### 1. 🧬 AOT 3-Tier Compiler Specialization
-Unlike conventional frameworks that throw every single request through a dynamic, sequential array of middleware functions, Nelysia statically analyzes your route graph at build or boot time. It bifurcates routes into three specialized execution tiers:
-- **Tier 1 (COMPILED)**: Static endpoints are pre-serialized into raw binary buffers at boot. Served with zero per-request object allocation and zero context overhead.
-- **Tier 2 (SPECIALIZED)**: Dynamic parameter routes (`/users/:id`) extract parameters directly from the URL byte buffer, completely bypassing query, header, and cookie parsing.
-- **Tier 3 (GENERIC)**: Heavyweight endpoints with complex lifecycle hooks, schema validation, body parsers, or WebSockets.
+#### 1. 🧬 3-Lane AOT Compiler
+Nelysia analyzes every route before the first request arrives. Instead of running everything through the same middleware chain, it puts each route in the right lane:
+- **Lane 1 (COMPILED)**: Static endpoints → pre-serialized raw buffer. Zero per-request object allocation, zero context overhead.
+- **Lane 2 (SPECIALIZED)**: Param routes like `/users/:id` → parameters extracted directly from the URL buffer, bypassing cookie/query parsing entirely.
+- **Lane 3 (GENERIC)**: Complex routes with middleware, schema validation, body parsing — full pipeline, exactly when needed.
 
-#### 2. 🏎️ Extreme Throughput (30,600+ Req/s) & Zero GC Pressure
-In rigorously controlled benchmarks (100 consecutive rounds, concurrency 10, zero errors), Nelysia clocks **30,618 req/s** with an ultra-low **0.33 ms** average latency on Bun. This represents a **+7.0% throughput gain over Elysia** and directly surpasses raw Bun (`Bun.serve`), achieving **0% GC memory pressure** on static paths.
+Result: every request uses only the power it actually needs.
 
-#### 3. 🎯 V8 Monomorphic Shape Stability (Zero IC De-optimization)
-Frameworks that rely on dynamic context decoration (e.g. `.decorate('db', db)`) continuously mutate the object prototype and hidden class (Shape/Map) of the context object, de-optimizing the V8 JIT compiler's Inline Caches (IC). Nelysia guarantees a permanently stable context shape and isolates request data within `context.store`, keeping all handler invocations monomorphic and peak-performing.
+#### 2. 🏎️ 30,618 req/s — Faster than Raw Bun
+Verified over 100 consecutive rounds with zero errors: **30,618 req/s** on Bun, **0.33 ms** average latency, **+7% over Elysia**, and faster than raw `Bun.serve`. Static paths produce **0% GC pressure** — no garbage, no pauses, no surprises in production.
 
-#### 4. 🌐 True First-Class Dual-Runtime (Node.js 22+ & Bun 1.4+ with Zero Polyfills)
-Nelysia treats both major JavaScript runtimes as tier-1 citizens:
-- **Node.js 22+**: Runs on native `node:http` with zero external polyfills or compatibility layers, fully embracing native TypeScript via `--experimental-strip-types`.
-- **Bun 1.4+**: Directly hooks into `Bun.serve`, leveraging SIMD byte parsing and high-throughput zero-copy I/O.
+#### 3. 🎯 V8 Stays in Fast Lane
+Frameworks that use `.decorate('db', db)` continuously mutate the object's hidden class, which forces V8 to exit its fast Inline Cache (IC) mode and de-optimize. Nelysia fixes this: context shape never changes. Use `context.store` for shared state and the JIT stays monomorphic at peak speed — forever.
 
-#### 5. 🚀 Built-in Multi-Core Clustering (`serveClustered()`)
-Scale out horizontally across physical CPU cores on Node.js without third-party process managers like PM2. `serveClustered(app, { instances: 'max' })` provides native worker process forking with graceful draining and zero-downtime rolling reload capabilities.
+#### 4. 🌐 Node.js + Bun, No Polyfills
+Both runtimes are first-class — not an afterthought:
+- **Node.js 22+**: Native `node:http`, run TypeScript with zero build step via `--experimental-strip-types`.
+- **Bun 1.4+**: Native `Bun.serve`, full SIMD byte parsing and zero-copy I/O.
 
-#### 6. 🛡️ Universal Standard Schema v1 (Zod, Valibot, ArkType & Built-in `t`)
-Nelysia includes a lightweight, zero-dependency schema builder (`t`), while natively supporting the official **Standard Schema v1** specification. Seamlessly validate routes using **Zod**, **Valibot**, or **ArkType** schemas without extra plugins, bridges, or runtime translation overhead.
+No shims, no wrappers, no compatibility tax.
 
-#### 7. 📖 Living OpenAPI 3.1 & Zero-Config Swagger / Redoc UI
-Metadata, URL paths, query parameters, and schema validations are automatically converted into an official **OpenAPI 3.1** specification. Nelysia ships bundled, zero-configuration interactive interfaces for both **Redoc UI** and **Swagger UI** accessible immediately at `/docs`.
+#### 5. 🚀 Multi-Core — No PM2 Needed
+Call `serveClustered(app, { instances: 'max' })` and every CPU core pitches in automatically. Graceful drain on shutdown — existing connections finish cleanly before the process exits. No PM2, no Docker Swarm required.
 
-#### 8. 🔌 End-to-End Type Safety via Eden-Style Client SDK
-Export client types straight from your server definition with `@narudom96/nelysia/client`. Enjoy comprehensive autocompletion and type checking across routes, path parameters, request bodies, query strings, and response payloads directly inside your IDE.
+#### 6. 🛡️ Zod, Valibot, ArkType — Just Plug In
+Built-in zero-dep `t` schema builder included out of the box. Or bring the schema library you already use — Standard Schema v1 means **Zod**, **Valibot**, and **ArkType** work natively without extra plugins, bridges, or runtime adapter overhead.
 
-#### 9. 🧰 Batteries-Included Production Armor
-Comprehensive enterprise-grade security and performance plugins built into the core distribution:
+#### 7. 📖 API Docs at `/docs`, Auto-Generated
+Routes and schemas are automatically converted into a live **OpenAPI 3.1** spec. Both **Redoc** and **Swagger UI** are bundled and accessible at `/docs` — open your browser, test your API, zero config.
+
+#### 8. 🔌 Frontend Autocomplete, Typo-Free
+`@narudom96/nelysia/client` mirrors every route, param, request body, and response type to your frontend with full IDE autocomplete. If it compiles, the endpoint exists and the types match — no runtime surprises.
+
+#### 9. 🧰 Security Suite Out of the Box
+All built-in, one import each:
 - `cors()`: Automated preflight `OPTIONS` and security headers.
-- `securityHeaders()`: Defense-in-depth OWASP-compliant security headers.
-- `rateLimit()`: Sliding-window memory rate limiter with Retry-After headers.
-- `staticDirectory()`: Fast static asset file server with traversal protection.
-- `compression()`: Automatic response negotiation with Gzip and Deflate support.
+- `securityHeaders()`: Defense-in-depth OWASP-compliant headers.
+- `rateLimit()`: Sliding-window memory rate limiter with Retry-After support.
+- `staticDirectory()`: Fast static file server with path traversal protection.
+- `compression()`: Automatic Gzip and Deflate response negotiation.
 
-#### 10. 🤖 AI SDK & Cloud Native Ecosystem
-Turnkey integrations for modern application stacks:
-- **Vercel AI SDK**: Direct streaming LLM completions and tokens.
-- **Database & Auth**: Native recipes for **Drizzle ORM**, **Prisma**, and **Better Auth**.
-- **Serverless & Edge**: Seamless deployment to Cloudflare Workers, Vercel Edge, and Deno with unified Fetch handler adapters.
+#### 10. 🤖 AI Streaming + Modern Cloud, Ready Now
+- **Vercel AI SDK**: Direct streaming LLM completions — no adapter to write.
+- **Database & Auth**: Ready-to-use recipes for **Drizzle ORM**, **Prisma**, and **Better Auth**.
+- **Serverless & Edge**: One-step deployment to Cloudflare Workers, Vercel Edge, and Deno with unified Fetch handler adapters.
 
 ---
 
