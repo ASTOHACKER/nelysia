@@ -210,11 +210,34 @@ const app = new Nelysia().post("/users", ({ body }) => body, {
 import { Nelysia } from "@narudom96/nelysia"
 import { jwt } from "@narudom96/nelysia/jwt"
 
+const secret = process.env.JWT_SECRET
+if (!secret) throw new Error("JWT_SECRET is required")
+
 const app = new Nelysia()
-  .use(jwt({ secret: process.env.JWT_SECRET! }))
+  .use(jwt({
+    secret,
+    expiresIn: 3600
+  }))
+  .post("/login", async ({ jwt }) => {
+    // Replace this with a real user lookup and password check.
+    const token = await jwt.sign({
+      sub: "user-123",
+      role: "admin"
+    })
+
+    return { token }
+  })
   .get("/public", () => ({ status: "open" }))
-  .get("/profile", ({ auth }) => ({ user: auth }), { auth: "jwt" })
+  .get("/profile", ({ auth }) => ({ user: auth }), {
+    auth: "jwt"
+  })
+
+app.listen(3000)
 ```
+
+Run it with `JWT_SECRET` set. Protected routes require
+`Authorization: Bearer <token>`; routes without `auth: "jwt"` do not inspect the
+authorization header.
 
 ### Zero-Port Testing (`app.inject`)
 
