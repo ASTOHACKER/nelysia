@@ -143,6 +143,7 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
       params,
       query: createParsedQuery(requestQuery(request.url)),
       set: { status: undefined, headers: {} },
+      store: {},
       body: undefined,
       headers,
       cookies: {},

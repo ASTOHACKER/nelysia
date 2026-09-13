@@ -20,6 +20,7 @@ export class Nelysia {
   private readonly dynamicRoutes = new Map<string, RouteRecord[]>()
   /** Public so runtime adapters can skip UUID generation when disabled. */
   readonly requestIdEnabled: boolean
+  private notFoundHandler?: Handler
 
   constructor(options: NelysiaOptions = {}) {
     this.bodyLimit = options.bodyLimit ?? 1024 * 1024
@@ -44,6 +45,11 @@ export class Nelysia {
   onError(handler: ErrorHandler): this {
     this.errorHandlers.push(handler)
     for (const route of this.graph.routes) route.errorHandlers.push(handler)
+    return this
+  }
+
+  notFound(handler: Handler): this {
+    this.notFoundHandler = handler
     return this
   }
 
@@ -91,10 +97,33 @@ export class Nelysia {
       const path = `${base}${route.path === "/" ? "" : route.path}`.replace(/\/\/+/g, "/") || "/"
       const metadata = compilePath(path)
       if (this.graph.routes.some((candidate) => candidate.method === route.method && candidate.path === path)) throw new Error(`Duplicate route: ${route.method} ${path}`)
-      const mounted = { ...route, path, ...metadata }
+      const mounted: RouteRecord = {
+        ...route,
+        path,
+        ...metadata,
+        hooks: [...this.hooks, ...route.hooks],
+        afterHooks: [...this.afterHooks, ...route.afterHooks],
+        errorHandlers: [...this.errorHandlers, ...route.errorHandlers]
+      }
       this.registerRoute(mounted)
     }
+    for (const ws of child.websocketRoutes) {
+      const path = `${base}${ws.path === "/" ? "" : ws.path}`.replace(/\/\/+/g, "/") || "/"
+      this.websocketRoutes.push({ path, handlers: ws.handlers })
+    }
     return this
+  }
+
+  group(prefix: string, callback: (app: Nelysia) => void): this {
+    const child = new Nelysia({
+      bodyLimit: this.bodyLimit,
+      trustedProxy: this.trustedProxy,
+      secureCookies: this.secureCookies,
+      requestId: this.requestIdEnabled,
+      telemetry: this.telemetry
+    })
+    callback(child)
+    return this.mount(prefix, child)
   }
 
   listen(port: number | { port: number }): unknown {
@@ -109,7 +138,23 @@ export class Nelysia {
     if (this.graph.routes.some((route) => route.method === normalizeMethod(method) && route.path === path)) {
       throw new Error(`Duplicate route: ${method.toUpperCase()} ${path}`)
     }
-    const route = { method: normalizeMethod(method), path, ...metadata, handler, hooks: [...this.hooks], afterHooks: [...this.afterHooks], errorHandlers: [...this.errorHandlers], bodySchema: normalizeSchema(options.body), paramsSchema: normalizeSchema(options.params), querySchema: normalizeSchema(options.query), headersSchema: normalizeSchema(options.headers), responseSchema: normalizeSchema(options.response) }
+    const route = {
+      method: normalizeMethod(method),
+      path,
+      ...metadata,
+      handler,
+      hooks: [...this.hooks],
+      afterHooks: [...this.afterHooks],
+      errorHandlers: [...this.errorHandlers],
+      summary: options.summary,
+      description: options.description,
+      tags: options.tags,
+      bodySchema: normalizeSchema(options.body),
+      paramsSchema: normalizeSchema(options.params),
+      querySchema: normalizeSchema(options.query),
+      headersSchema: normalizeSchema(options.headers),
+      responseSchema: normalizeSchema(options.response)
+    }
     this.registerRoute(route)
     return this
   }
@@ -125,16 +170,49 @@ export class Nelysia {
     else this.dynamicRoutes.set(route.method, [route])
   }
 
+  private createContext(request: RequestData, params: Record<string, string>, search: string, method: string): { context: Context; responseHeaders: Headers } {
+    const headers = asHeaders(request.headers)
+    let requestId = ""
+    if (this.requestIdEnabled) {
+      requestId = request.requestId ?? headers.get("x-request-id") ?? `req-${method}-${request.url}`
+    }
+    const responseHeaders = new Headers()
+    if (this.requestIdEnabled) responseHeaders.set("x-request-id", requestId)
+    const clientIp = this.trustedProxy ? headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.remoteAddress : request.remoteAddress
+    const context: Context = {
+      request: { ...request, headers },
+      requestId,
+      clientIp,
+      params,
+      query: createParsedQuery(search),
+      set: { status: undefined, headers: {} },
+      store: {},
+      body: request.body,
+      headers,
+      cookies: lazyCookies(headers),
+      setCookie: (name, value, options) => responseHeaders.append("set-cookie", serializeCookie(name, value, this.secureCookies ? { ...options, secure: options?.secure ?? true } : options)),
+      response: (status, body, extraHeaders) => ({ status, body, headers: mergeHeaders(responseHeaders, extraHeaders), [responseMarker]: true })
+    }
+    return { context, responseHeaders }
+  }
+
   async handle(request: RequestData): Promise<ResponseData> {
     const { pathname, search } = splitUrl(request.url)
     const method = fastNormalizeMethod(request.method)
     if (method === undefined) return this.response(400, { error: "Unsupported HTTP method" })
     const lookupMethod = method === "HEAD" ? "GET" : method
     const normalized = normalizePathname(pathname)
-    // OPTIONS is a cold path: preserve the original 204-with-Allow contract first.
+    // OPTIONS is a cold path: preserve the original 204-with-Allow contract first, unless handled by hooks (e.g. CORS preflight).
     if (method === "OPTIONS") {
       const actual = splitSegments(normalized)
       const allow = allowedMethodsFor(this.graph.routes, actual)
+      if (this.hooks.length > 0) {
+        const { context } = this.createContext(request, {}, search, method)
+        for (const hook of this.hooks) {
+          const result = await hook(context)
+          if (isResponse(result)) return result
+        }
+      }
       return allow !== "OPTIONS"
         ? this.response(204, undefined, { allow })
         : this.response(404, { error: "Not Found" })
@@ -152,37 +230,34 @@ export class Nelysia {
       if (match === undefined) {
         // Cold paths only: 404 / 405. Never scanned on a matched request.
         const allow = allowedMethodsFor(this.graph.routes, actual)
-        return allow !== "OPTIONS"
-          ? this.response(405, { error: "Method Not Allowed" }, { allow })
-          : this.response(404, { error: "Not Found" })
+        if (allow !== "OPTIONS") {
+          return this.response(405, { error: "Method Not Allowed" }, { allow })
+        }
+        if (this.notFoundHandler !== undefined) {
+          const { context, responseHeaders } = this.createContext(request, {}, search, method)
+          const result = await this.notFoundHandler(context)
+          if (isResponse(result)) return result
+          if (result instanceof Response) {
+            return {
+              status: context.set.status ?? result.status,
+              headers: mergeHeaders(mergeHeaders(responseHeaders, Object.fromEntries(result.headers.entries())), context.set.headers),
+              body: result.body,
+              [responseMarker]: true as const
+            }
+          }
+          const effectiveStatus = context.set.status ?? 404
+          const effectiveHeaders = Object.keys(context.set.headers).length > 0 ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
+          return { status: effectiveStatus, body: result, headers: effectiveHeaders, [responseMarker]: true as const }
+        }
+        return this.response(404, { error: "Not Found" })
       }
       route = match.route
       params = match.params
     }
-    const headers = asHeaders(request.headers)
     const hasTelemetry = this.telemetry !== undefined
     const startedAt = hasTelemetry ? performance.now() : 0
-    // requestId is resolved without object spreads; skipped entirely when disabled.
-    let requestId = ""
-    if (this.requestIdEnabled) {
-      requestId = request.requestId ?? headers.get("x-request-id") ?? `req-${method}-${request.url}`
-    }
-    const responseHeaders = new Headers()
-    if (this.requestIdEnabled) responseHeaders.set("x-request-id", requestId)
-    const clientIp = this.trustedProxy ? headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.remoteAddress : request.remoteAddress
-    const context: Context = {
-      request: { ...request, headers },
-      requestId,
-      clientIp,
-      params,
-      query: createParsedQuery(search),
-      set: { status: undefined, headers: {} },
-      body: request.body,
-      headers,
-      cookies: lazyCookies(headers),
-      setCookie: (name, value, options) => responseHeaders.append("set-cookie", serializeCookie(name, value, this.secureCookies ? { ...options, secure: options?.secure ?? true } : options)),
-      response: (status, body, headers) => ({ status, body, headers: mergeHeaders(responseHeaders, headers), [responseMarker]: true })
-    }
+    const { context, responseHeaders } = this.createContext(request, params, search, method)
+    const requestId = context.requestId
     try {
       await this.telemetry?.onRequest?.(context)
       if (route.paramsSchema) context.params = await route.paramsSchema.validate(context.params) as Record<string, string>

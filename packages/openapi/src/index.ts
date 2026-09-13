@@ -13,12 +13,21 @@ export interface OpenAPIUiOptions {
   title?: string
 }
 
+export interface SwaggerUiOptions {
+  path?: string
+  specPath?: string
+  title?: string
+}
+
 export function generateOpenAPI(app: Nelysia, options: OpenAPIOptions = {}) {
   const paths: Record<string, Record<string, unknown>> = {}
   for (const route of app.graph.routes) {
     const response: Record<string, unknown> = { description: "Successful response" }
     if (route.responseSchema) response.content = { "application/json": { schema: definition(route.responseSchema) } }
     const operation: Record<string, unknown> = { responses: { "200": response } }
+    if (route.summary) operation.summary = route.summary
+    if (route.description) operation.description = route.description
+    if (route.tags) operation.tags = route.tags
     if (route.paramsSchema) operation.parameters = parameters(route.paramsSchema)
     if (route.querySchema) operation.parameters = [...(operation.parameters as unknown[] ?? []), ...queryParameters(route.querySchema)]
     if (route.bodySchema) operation.requestBody = { required: true, content: { "application/json": { schema: definition(route.bodySchema) } } }
@@ -46,6 +55,16 @@ export function openapiUi(options: OpenAPIUiOptions = {}) {
     const specPath = options.specPath ?? "/openapi.json"
     const title = options.title ?? "Nelysia API"
     app.get(path, ({ response }) => response(200, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><style>body{margin:0;font-family:system-ui,sans-serif}redoc{display:block}</style></head><body><redoc spec-url="${escapeHtml(specPath)}"></redoc><script src="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js"></script></body></html>`, { "content-type": "text/html; charset=utf-8" }))
+    return app
+  }
+}
+
+export function swaggerUi(options: SwaggerUiOptions = {}) {
+  return (app: Nelysia): Nelysia => {
+    const path = options.path ?? "/swagger"
+    const specPath = options.specPath ?? "/openapi.json"
+    const title = options.title ?? "Nelysia Swagger UI"
+    app.get(path, ({ response }) => response(200, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css" /></head><body><div id="swagger-ui"></div><script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>window.ui = SwaggerUIBundle({ url: '${escapeHtml(specPath)}', dom_id: '#swagger-ui', presets: [SwaggerUIBundle.presets.apis], layout: 'BaseLayout' });</script></body></html>`, { "content-type": "text/html; charset=utf-8" }))
     return app
   }
 }

@@ -56,6 +56,9 @@ export interface WebSocketHandlers {
 }
 
 export interface RouteOptions {
+  summary?: string
+  description?: string
+  tags?: string[]
   body?: import("./schema.ts").Schema | import("./schema.ts").StandardSchema
   params?: import("./schema.ts").Schema | import("./schema.ts").StandardSchema
   query?: import("./schema.ts").Schema | import("./schema.ts").StandardSchema
@@ -99,6 +102,7 @@ export interface Context {
   params: Record<string, string>
   query: ParsedQuery
   set: ResponseSetContext
+  store: Record<string, unknown>
   body: unknown
   headers: Headers
   cookies: Record<string, string>
@@ -124,6 +128,9 @@ export interface RouteRecord {
   wildcard?: boolean
   contextFree?: boolean
   staticValue?: unknown
+  summary?: string
+  description?: string
+  tags?: string[]
   bodySchema?: import("./schema.ts").Schema
   paramsSchema?: import("./schema.ts").Schema
   querySchema?: import("./schema.ts").Schema
