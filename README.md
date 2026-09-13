@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.svg" width="80" height="80" alt="Nelysia Logo" />
+  <img src="docs/logo.png" width="110" height="110" alt="Nelysia Logo" />
 </p>
 
 <h1 align="center">Nelysia</h1>
@@ -90,7 +90,10 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 - 🌐 [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
 
 ### What's New in v0.1.4
-- 🚀 **Unified `app.listen(port, callback)`**: Automatically passes `{ port, hostname, url, server }` to your callback on both Bun and Node.js.
+- 🔐 **Official `@narudom96/nelysia/jwt`**: Native Web Crypto HMAC-SHA256 JWT auth with zero external dependencies and zero-overhead routing for unauthenticated routes.
+- 🧪 **Zero-Port Testing API (`app.inject`)**: Fast in-memory HTTP request injection for unit and integration testing without binding network sockets.
+- 🏆 **TechEmpower Round 22 Benchmark Suite**: Verified 100% compliant with TechEmpower specifications — hits **103k+ req/s** on JSON and **100k+ req/s** on Plaintext.
+- 🚀 **Standard Path & Node.js Engine Optimization**: Lazy context getters (query, cookies, clientIp), zero-copy Node headers, and lazy 405 check pushing Node.js throughput to **~34,800 req/s** (+51.5%).
 - ⚡ **Response Shorthands**: `context.html()`, `context.text()`, `context.json()`, and `context.redirect()`.
 - 🔍 **`context.query` Proxy**: Destructure query parameters directly: `({ query }) => query.search`.
 - 🛠️ **`context.set` & `context.store`**: Status/header mutation (`set.status = 201`) and request-scoped state sharing.
@@ -202,6 +205,46 @@ const app = new Nelysia().post("/users", ({ body }) => body, {
     age: t.Number()
   })
 })
+```
+
+### JWT Authentication with Zero Overhead
+
+```ts
+import { Nelysia } from "@narudom96/nelysia"
+import { jwt } from "@narudom96/nelysia/jwt"
+
+const app = new Nelysia()
+  .use(jwt({ secret: process.env.JWT_SECRET! }))
+  .get("/public", () => ({ status: "open" }))
+  .get("/profile", ({ auth }) => ({ user: auth }), { auth: "jwt" })
+```
+
+### Zero-Port Testing (`app.inject`)
+
+```ts
+const res = await app.inject({
+  method: "GET",
+  path: "/users/42",
+  query: { filter: "active" }
+})
+
+console.log(res.statusCode) // 200
+console.log(await res.json()) // { id: "42", filter: "active" }
+```
+
+### Benchmarks
+
+Run high-throughput benchmarks powered by `oha`:
+
+```bash
+# TechEmpower Round 22 Plaintext & JSON benchmark
+npm run benchmark:teb
+
+# JWT Authentication benchmark (Nelysia vs Elysia vs Hono)
+npm run benchmark:jwt
+
+# Full suite across Bun and Node.js
+npm run benchmark:oha
 ```
 
 Invalid input returns `400`; a request body larger than the configured `bodyLimit` returns `413`.

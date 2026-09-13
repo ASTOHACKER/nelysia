@@ -406,6 +406,23 @@ app.use(myPlugin({ tag: "missing-tag" }))
 - Route ซ้ำ method+path ตอน mount จะ throw `Duplicate route`
 - ไม่มี deduplication — เรียก `use()` ซ้ำจะลงทะเบียนซ้ำ
 
+### การทดสอบแบบ Zero-Port ด้วย `app.inject()`
+
+Nelysia มีฟังก์ชัน `app.inject()` ในตัว สำหรับการเขียน Unit และ Integration Tests โดยตรงในหน่วยความจำ โดย**ไม่ต้องเปิด Network Port จริง**:
+
+```ts
+const res = await app.inject({
+  method: "GET",
+  path: "/users/42",
+  query: { filter: "active" }
+})
+
+console.log(res.statusCode) // 200
+console.log(await res.json()) // { id: "42", filter: "active" }
+console.log(await res.text()) // ข้อมูลในรูปแบบข้อความ
+console.log(await res.bytes()) // Uint8Array
+```
+
 ---
 
 ## 5. Request Context (`Context`)
@@ -1011,7 +1028,41 @@ npm run prisma:smoke      # push schema ลง SQLite + รัน smoke test จ
 
 ---
 
-## 14. การยืนยันตัวตนด้วย Better Auth
+## 14. ระบบยืนยันตัวตน (Authentication: JWT & Better Auth)
+
+### 14.1 โมดูล JWT ทางการ (`@narudom96/nelysia/jwt`)
+
+Nelysia มาพร้อมกับโมดูล JWT อย่างเป็นทางการที่พัฒนาด้วย **Native Web Crypto API (HMAC-SHA256)** โดยไม่มี External Dependency ภายนอก และยึดหลัก **Pay Only For What You Use**:
+- **0 Auth Overhead**: Route ทั่วไปที่ไม่ได้ประกาศ `{ auth: "jwt" }` จะไม่มีการแตะ `Authorization` header หรือเสีย CPU cycle ใดๆ เลย
+- **Fast-Verify Path**: Route ที่กำหนด `{ auth: "jwt" }` จะถูกตรวจสอบผ่าน pre-imported `CryptoKey` ในระดับความเร็วสูงทันทีก่อนส่งต่อไปยัง handler
+- **Auto 401 Rejection**: หากไม่มี Token, Token ผิดรูปแบบ หรือ Token หมดอายุ ระบบจะตอบกลับ `401 Unauthorized` ทันที
+
+```ts
+import { Nelysia } from "@narudom96/nelysia"
+import { jwt, signJwt, verifyJwt } from "@narudom96/nelysia/jwt"
+
+const app = new Nelysia()
+  .use(jwt({
+    secret: process.env.JWT_SECRET || "super-secret-key",
+    expiresIn: 3600 // หมดอายุใน 1 ชั่วโมง (วินาที)
+  }))
+  // 1. Public route: Zero overhead, ไม่มี auth hook มารบกวน
+  .get("/public", () => ({ status: "open" }))
+
+  // 2. Protected route: ดึง payload จาก context.auth
+  .get("/profile", ({ auth }) => ({
+    status: "authenticated",
+    user: auth
+  }), { auth: "jwt" })
+
+  // 3. Login endpoint: สร้าง token ด้วย signJwt
+  .post("/login", async ({ body }) => {
+    const token = await signJwt({ sub: "user-123", role: "admin" }, process.env.JWT_SECRET!, { expiresIn: 3600 })
+    return { token }
+  })
+```
+
+### 14.2 การยืนยันตัวตนด้วย Better Auth (`@narudom96/nelysia/better-auth`)
 
 `betterAuthPlugin` ต่อ Better Auth เข้ากับ Nelysia ผ่าน catch-all route (`app.all`) จึงรองรับทุก endpoint ของ Better Auth (`sign-in`, `sign-up`, `session`, ...) ภายใต้ prefix เดียว:
 
@@ -1254,17 +1305,19 @@ export const fetchHandler = createFetchHandler(app)
 ## 20. การทดสอบประสิทธิภาพและ Soak Testing
 
 ```bash
-# รันทดสอบ Benchmark บน Node.js
-npm run benchmark
+# TechEmpower Round 22 Benchmark Suite (Plaintext & JSON บนระดับ Concurrency 50-500)
+npm run benchmark:teb
 
-# รันทดสอบ Benchmark บน Bun (static /json)
-npm run benchmark:bun
+# ตรวจสอบความถูกต้องตามมาตรฐาน TechEmpower 100%
+npm run benchmark:teb:verify
 
-# รันทดสอบ Benchmark บน Bun (dynamic /users/:id)
-BENCH_CASE=dynamic npm run benchmark:bun
+# JWT Authentication Benchmark (Nelysia vs Elysia vs Hono)
+npm run benchmark:jwt
 
-# ปรับจำนวนรอบ/ระยะเวลา/concurrency (ค่าเริ่มต้น: repeats=3)
-BENCH_DURATION_MS=3000 BENCH_CONCURRENCY=10 BENCH_REPEATS=10 npm run benchmark:bun
+# Full Load Test ด้วย oha (Bun + Node.js)
+npm run benchmark:oha
+npm run benchmark:oha:bun
+npm run benchmark:oha:node
 
 # Router scale (ต้นทุน lookup ของ generic path เทียบกับขนาดตาราง route)
 node --experimental-strip-types benchmarks/router-scale.ts
@@ -1281,16 +1334,23 @@ SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak
 npm run release:check
 ```
 
-### ผลล่าสุด (10 รอบ, concurrency 10, failures 0)
+### ผล TechEmpower Specification Benchmark (วัดด้วย oha, Concurrency 50)
 
-ดูรายละเอียดเต็มที่ `docs/benchmark-10-rounds.md` และ `docs/benchmark-100-rounds.md`:
+| Workload | Nelysia (Compiled) | Raw Bun.serve | Elysia 2.0 | ส่วนต่างความเร็ว |
+| :--- | :---: | :---: | :---: | :---: |
+| **Plaintext (`/plaintext`)** | **100,471 req/s** | 85,837 req/s | 70,735 req/s | Nelysia เร็วกว่า Elysia **+42%** |
+| **JSON (`/json`)** | **99,103 req/s** | 87,460 req/s | 83,937 req/s | Nelysia เร็วกว่า Elysia **+18%** |
 
-| Workload (Bun) | Nelysia | Elysia | Raw Bun |
-| :--- | ---: | ---: | ---: |
-| Static `GET /json` | **30,618 req/s** (0.33 ms) | 28,615 req/s (0.35 ms) | 29,625 req/s |
-| Dynamic `GET /users/:id` | **28,991 req/s** (0.34 ms) | 28,125 req/s (0.35 ms) | 29,587 req/s |
+### ผล Node.js Engine Optimization (วัดด้วย oha, Concurrency 50)
 
-> เป็นผลการวัดบนเครื่อง local เท่านั้น ไม่ใช่ข้ออ้างประสิทธิภาพสากล — ควรวัดซ้ำบน hardware เป้าหมายก่อนตัดสินใจ deploy
+| Framework | Requests/sec | Latency (avg) | p95 Latency |
+| :--- | :---: | :---: | :---: |
+| **Node.js http (Raw Baseline)** | **47,812 req/s** | 1.04 ms | 1.75 ms |
+| **Fastify 5** | **38,990 req/s** | 1.28 ms | 1.84 ms |
+| **Nelysia (Node Adapter)** | **34,821 req/s** | 1.43 ms | 2.34 ms |
+| **Express 5** | **21,719 req/s** | 2.30 ms | 2.97 ms |
+
+> *หมายเหตุ*: ทดสอบบนเครื่อง AMD Ryzen 5 5600 6-Core / 12-Threads, Bun 1.4.0 / Node.js 26.8.1 โดยรายงานค่า Median ข้ามรอบทดสอบ
 
 ---
 

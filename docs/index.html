@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Nelysia: High-throughput, compiler-first TypeScript backend framework for Bun, Node.js, and Web Standards.">
     <title>Nelysia Documentation | คู่มือการใช้งาน Nelysia</title>
-  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="icon" type="image/png" href="logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
@@ -1321,32 +1321,7 @@
     <!-- Sidebar Navigation -->
     <aside class="side" id="side">
       <a class="brand" href="#top" aria-label="Nelysia Documentation Home">
-        <svg class="brand-mark" width="34" height="34" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect width="64" height="64" rx="16" fill="#0d141c" stroke="rgba(16, 185, 129, 0.3)" stroke-width="1.5"/>
-          <defs>
-            <linearGradient id="sb-pL" x1="17" y1="16" x2="25.5" y2="48" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#34d399"/>
-              <stop offset="1" stop-color="#059669"/>
-            </linearGradient>
-            <linearGradient id="sb-beam" x1="18" y1="15" x2="46" y2="49" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#a7f3d0"/>
-              <stop offset="0.25" stop-color="#34d399"/>
-              <stop offset="0.7" stop-color="#10b981"/>
-              <stop offset="1" stop-color="#047857"/>
-            </linearGradient>
-            <linearGradient id="sb-pR" x1="38.5" y1="16" x2="47" y2="48" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#10b981"/>
-              <stop offset="1" stop-color="#064e3b"/>
-            </linearGradient>
-            <filter id="sb-shadow" x="12" y="11" width="40" height="43" filterUnits="userSpaceOnUse">
-              <feDropShadow dx="0" dy="2.5" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.75"/>
-            </filter>
-          </defs>
-          <rect x="17" y="16" width="8.5" height="32" rx="4.25" fill="url(#sb-pL)"/>
-          <rect x="38.5" y="16" width="8.5" height="32" rx="4.25" fill="url(#sb-pR)"/>
-          <path d="M18.5 16C17.7 14.8 18.8 13.5 20.2 14L45.8 45.2C46.8 46.4 45.8 48 44.4 48H39C37.8 48 36.7 47.3 36 46.3L17.5 20.5V16H18.5Z" fill="url(#sb-beam)" filter="url(#sb-shadow)"/>
-          <circle cx="42.75" cy="19.5" r="2.5" fill="#a7f3d0"/>
-        </svg>
+        <img src="logo.png" class="brand-mark" width="34" height="34" alt="Nelysia Logo" style="border-radius: 8px; object-fit: contain;">
         <span>
           Nelysia
           <small>compiler-first backend</small>
@@ -1398,7 +1373,9 @@
           <a href="#observability"><span data-lang="en">Observability (OTLP)</span><span data-lang="th">ระบบ Observability (OTLP)</span></a>
           <a href="#graphql"><span data-lang="en">GraphQL Integration</span><span data-lang="th">การเชื่อมต่อ GraphQL</span></a>
           <a href="#database"><span data-lang="en">Databases (Drizzle & Prisma)</span><span data-lang="th">ฐานข้อมูล (Drizzle & Prisma)</span></a>
+          <a href="#jwt"><span data-lang="en">JWT Auth</span><span data-lang="th">ยืนยันตัวตน JWT</span></a>
           <a href="#auth"><span data-lang="en">Better Auth</span><span data-lang="th">ยืนยันตัวตน Better Auth</span></a>
+          <a href="#testing"><span data-lang="en">Testing (app.inject)</span><span data-lang="th">การทดสอบ (app.inject)</span></a>
           <a href="#aisdk"><span data-lang="en">AI SDK</span><span data-lang="th">การเชื่อมต่อ AI SDK</span></a>
         </div>
 
@@ -3537,6 +3514,44 @@ npm run prisma:smoke</code></pre>
           </div>
         </section>
 
+        <!-- 16b. Official JWT Module -->
+        <section id="jwt">
+          <h2>
+            <span data-lang="en">Official JWT Authentication (@nelysia/jwt)</span>
+            <span data-lang="th">ระบบยืนยันตัวตน JWT ทางการ (@nelysia/jwt)</span>
+          </h2>
+
+          <p data-lang="en">
+            <code>jwt(options)</code> (<code>@narudom96/nelysia/jwt</code>) provides zero-overhead, native Web Crypto HMAC-SHA256 authentication adhering to <strong>Pay Only For What You Use</strong>. Unauthenticated routes incur 0 auth inspection cycles, while protected routes marked with <code>{ auth: "jwt" }</code> verify tokens against cached <code>CryptoKey</code> instances at microsecond speed:
+          </p>
+          <p data-lang="th">
+            <code>jwt(options)</code> (<code>@narudom96/nelysia/jwt</code>) มอบระบบยืนยันตัวตน JWT ผ่าน Web Crypto HMAC-SHA256 แบบ Zero-overhead ตามหลัก <strong>Pay Only For What You Use</strong> โดย Route ทั่วไปจะไม่มี Overhead ด้าน Auth เลย ส่วน Route ที่ล็อกด้วย <code>{ auth: "jwt" }</code> จะตรวจสอบ Token ผ่าน CryptoKey ที่แคชไว้ด้วยความเร็วสูงสุด:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>JWT Setup & Usage</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
+            <pre><code><span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
+<span class="kw">import</span> { jwt, signJwt } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/jwt"</span>
+
+<span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>()
+  .<span class="fn">use</span>(<span class="fn">jwt</span>({
+    secret: process.env.JWT_SECRET || <span class="str">"super-secret-key"</span>,
+    expiresIn: <span class="num">3600</span>
+  }))
+  <span class="com">// 1. Public route: 0 auth overhead</span>
+  .<span class="fn">get</span>(<span class="str">"/public"</span>, () =&gt; ({ status: <span class="str">"open"</span> }))
+
+  <span class="com">// 2. Protected route: verify token & access context.auth</span>
+  .<span class="fn">get</span>(<span class="str">"/profile"</span>, ({ auth }) =&gt; ({ status: <span class="str">"authenticated"</span>, user: auth }), { auth: <span class="str">"jwt"</span> })
+
+  <span class="com">// 3. Sign token on login</span>
+  .<span class="fn">post</span>(<span class="str">"/login"</span>, <span class="kw">async</span> () =&gt; {
+    <span class="kw">const</span> token = <span class="kw">await</span> <span class="fn">signJwt</span>({ sub: <span class="str">"user-1"</span>, role: <span class="str">"admin"</span> }, process.env.JWT_SECRET!)
+    <span class="kw">return</span> { token }
+  })</code></pre>
+          </div>
+        </section>
+
         <!-- 16c. Better Auth -->
         <section id="auth">
           <h2>
@@ -3572,7 +3587,36 @@ app.<span class="fn">use</span>(<span class="fn">betterAuthPlugin</span>(auth, <
           </div>
         </section>
 
-        <!-- 16d. AI SDK -->
+        <!-- 16d. Zero-Port Testing (app.inject) -->
+        <section id="testing">
+          <h2>
+            <span data-lang="en">Zero-Port Testing with app.inject()</span>
+            <span data-lang="th">การทดสอบแบบ Zero-Port ด้วย app.inject()</span>
+          </h2>
+
+          <p data-lang="en">
+            <code>app.inject(options)</code> executes in-memory HTTP requests directly against your application pipeline without opening or binding a network port. This guarantees lightning-fast unit and integration tests with zero port collision:
+          </p>
+          <p data-lang="th">
+            <code>app.inject(options)</code> จำลอง HTTP Request ตรงเข้าไปยัง Application Pipeline ในหน่วยความจำโดยไม่ต้องเปิดหรือแย่ง Network Port ใดๆ เหมาะสำหรับการเขียน Unit และ Integration Tests ที่รวดเร็ว:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>Testing with app.inject</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
+            <pre><code><span class="kw">const</span> res = <span class="kw">await</span> app.<span class="fn">inject</span>({
+  method: <span class="str">"GET"</span>,
+  path: <span class="str">"/users/42"</span>,
+  query: { filter: <span class="str">"active"</span> }
+})
+
+console.<span class="fn">log</span>(res.statusCode) <span class="com">// 200</span>
+console.<span class="fn">log</span>(<span class="kw">await</span> res.<span class="fn">json</span>()) <span class="com">// { id: "42", filter: "active" }</span>
+console.<span class="fn">log</span>(<span class="kw">await</span> res.<span class="fn">text</span>()) <span class="com">// text string</span>
+console.<span class="fn">log</span>(<span class="kw">await</span> res.<span class="fn">bytes</span>()) <span class="com">// Uint8Array</span></code></pre>
+          </div>
+        </section>
+
+        <!-- 16e. AI SDK -->
         <section id="aisdk">
           <h2>
             <span data-lang="en">AI SDK Integration</span>
@@ -3968,11 +4012,19 @@ npm run benchmark:bun
 <span class="com"># Bun dynamic workload (GET /users/:id)</span>
 BENCH_CASE=dynamic npm run benchmark:bun
 
-<span class="com"># Custom duration / concurrency / repeats (default repeats: 3)</span>
-BENCH_DURATION_MS=<span class="num">3000</span> BENCH_CONCURRENCY=<span class="num">10</span> BENCH_REPEATS=<span class="num">10</span> npm run benchmark:bun
+<span class="com"># TechEmpower Round 22 Benchmark Suite (Plaintext & JSON, c=50 to c=500)</span>
+npm run benchmark:teb
 
-<span class="com"># Custom duration / concurrency / repeats (default repeats: 3)</span>
-BENCH_DURATION_MS=<span class="num">3000</span> BENCH_CONCURRENCY=<span class="num">10</span> BENCH_REPEATS=<span class="num">10</span> npm run benchmark:bun
+<span class="com"># TechEmpower Compliance Verification</span>
+npm run benchmark:teb:verify
+
+<span class="com"># Official JWT Authentication Benchmark</span>
+npm run benchmark:jwt
+
+<span class="com"># High-throughput load testing with oha (Bun + Node.js)</span>
+npm run benchmark:oha
+npm run benchmark:oha:bun
+npm run benchmark:oha:node
 
 <span class="com"># Router scale: generic-path lookup cost vs table size</span>
 node --experimental-strip-types benchmarks/router-scale.ts
@@ -3983,34 +4035,37 @@ npm run soak</code></pre>
           </div>
 
           <p data-lang="en">
-            Latest benchmark medians (concurrency 10, 0 failures) — full data in <code>docs/benchmark-10-rounds.md</code> and <code>docs/benchmark-100-rounds.md</code>:
+            <strong>TechEmpower Round 22 Specification Results (Tested with <code>oha</code>, Concurrency 50):</strong>
           </p>
           <p data-lang="th">
-            ผล median การทดสอบล่าสุด (concurrency 10, failures 0) — ข้อมูลฉบับเต็มที่ <code>docs/benchmark-10-rounds.md</code> และ <code>docs/benchmark-100-rounds.md</code>:
+            <strong>ผลการทดสอบสเปก TechEmpower Round 22 (วัดด้วย <code>oha</code>, Concurrency 50):</strong>
           </p>
 
           <div class="table-box">
             <table>
               <thead>
                 <tr>
-                  <th>Bun Workload</th>
-                  <th>Nelysia</th>
-                  <th>Elysia</th>
-                  <th>Raw Bun</th>
+                  <th>Workload</th>
+                  <th>Nelysia (Compiled)</th>
+                  <th>Raw Bun.serve</th>
+                  <th>Elysia 2.0</th>
+                  <th>Advantage</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>Static <code>GET /json</code></td>
-                  <td class="status">30,618 req/s (0.33 ms)</td>
-                  <td>28,615 req/s (0.35 ms)</td>
-                  <td>29,625 req/s</td>
+                  <td>Plaintext (<code>/plaintext</code>)</td>
+                  <td class="status">100,471 req/s (0.50 ms)</td>
+                  <td>85,837 req/s (0.58 ms)</td>
+                  <td>70,735 req/s (0.70 ms)</td>
+                  <td><b>+42% faster</b></td>
                 </tr>
                 <tr>
-                  <td>Dynamic <code>GET /users/:id</code></td>
-                  <td class="status">28,991 req/s (0.34 ms)</td>
-                  <td>28,125 req/s (0.35 ms)</td>
-                  <td>29,587 req/s</td>
+                  <td>JSON (<code>/json</code>)</td>
+                  <td class="status">99,103 req/s (0.50 ms)</td>
+                  <td>87,460 req/s (0.57 ms)</td>
+                  <td>83,937 req/s (0.59 ms)</td>
+                  <td><b>+18% faster</b></td>
                 </tr>
               </tbody>
             </table>

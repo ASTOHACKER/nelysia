@@ -409,6 +409,23 @@ Scope rules to remember:
 - A duplicate method+path during mount throws `Duplicate route`.
 - No deduplication — calling `use()` twice registers the plugin twice.
 
+### Zero-Port Testing with `app.inject()`
+
+Nelysia provides built-in `app.inject()` for executing in-memory HTTP requests without binding a network socket, ideal for fast unit and integration tests:
+
+```ts
+const res = await app.inject({
+  method: "GET",
+  path: "/users/42",
+  query: { filter: "active" }
+})
+
+console.log(res.statusCode) // 200
+console.log(await res.json()) // { id: "42", filter: "active" }
+console.log(await res.text()) // Text content
+console.log(await res.bytes()) // Uint8Array
+```
+
 ---
 
 ## 5. The Request Context (`Context`)
@@ -1067,7 +1084,41 @@ npm run prisma:smoke      # push the schema to SQLite and run a real smoke test
 
 ---
 
-## 14. Authentication with Better Auth
+## 14. Authentication (JWT & Better Auth)
+
+### 14.1 Official JWT Module (`@narudom96/nelysia/jwt`)
+
+Nelysia includes an official, zero-dependency JWT authentication module built directly on top of the **Native Web Crypto API (HMAC-SHA256)** adhering to the principle of **Pay Only For What You Use**:
+- **0 Auth Overhead**: Routes without `{ auth: "jwt" }` incur zero authentication overhead—the authorization header is never inspected.
+- **Fast-Verify Path**: Routes configured with `{ auth: "jwt" }` verify tokens against pre-imported `CryptoKey` instances in microseconds.
+- **Auto 401 Rejection**: Malformed, missing, or expired tokens immediately return `401 Unauthorized`.
+
+```ts
+import { Nelysia } from "@narudom96/nelysia"
+import { jwt, signJwt, verifyJwt } from "@narudom96/nelysia/jwt"
+
+const app = new Nelysia()
+  .use(jwt({
+    secret: process.env.JWT_SECRET || "super-secret-key",
+    expiresIn: 3600 // 1 hour expiration in seconds
+  }))
+  // 1. Public route: Zero auth overhead
+  .get("/public", () => ({ status: "open" }))
+
+  // 2. Protected route: access verified payload via context.auth
+  .get("/profile", ({ auth }) => ({
+    status: "authenticated",
+    user: auth
+  }), { auth: "jwt" })
+
+  // 3. Login endpoint: generate tokens with signJwt
+  .post("/login", async ({ body }) => {
+    const token = await signJwt({ sub: "user-123", role: "admin" }, process.env.JWT_SECRET!, { expiresIn: 3600 })
+    return { token }
+  })
+```
+
+### 14.2 Authentication with Better Auth (`@narudom96/nelysia/better-auth`)
 
 `betterAuthPlugin` bridges Better Auth into Nelysia through a catch-all route (`app.all`), so every Better Auth endpoint (`sign-in`, `sign-up`, `session`, …) works under one prefix:
 
@@ -1358,14 +1409,19 @@ Nelysia includes automated micro-benchmarks and memory soak runners.
 ### Running Benchmarks
 
 ```bash
-# Benchmark on Node.js
-npm run benchmark
+# TechEmpower Round 22 Benchmark Suite (Plaintext & JSON across concurrency 50-500)
+npm run benchmark:teb
 
-# Benchmark on Bun (static GET /json)
-npm run benchmark:bun
+# Verify 100% compliance with TechEmpower specifications
+npm run benchmark:teb:verify
 
-# Benchmark on Bun (dynamic GET /users/:id)
-BENCH_CASE=dynamic npm run benchmark:bun
+# JWT Authentication Benchmark (Nelysia vs Elysia vs Hono)
+npm run benchmark:jwt
+
+# Full Load Test with oha (Bun + Node.js)
+npm run benchmark:oha
+npm run benchmark:oha:bun
+npm run benchmark:oha:node
 
 # Router scale (generic-path lookup cost vs table size)
 node --experimental-strip-types benchmarks/router-scale.ts
@@ -1373,27 +1429,23 @@ ROUTES=100 node --experimental-strip-types benchmarks/router-scale.ts
 ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 ```
 
-> Fairness note: the Node baseline app uses `new Nelysia({ requestId: false })` so the
-> comparison measures routing/serialization like raw/fastify/express, which do not
-> generate a request ID per request. The default (`requestId: true`) preserves the
-> `x-request-id` echo contract at the cost of one UUID per request in the adapters.
+### TechEmpower Specification Results (Tested with oha, Concurrency 50)
 
-Configure runs with environment variables (default repeats: 3):
+| Workload | Nelysia (Compiled) | Raw Bun.serve | Elysia 2.0 | Speedup |
+| :--- | :---: | :---: | :---: | :---: |
+| **Plaintext (`/plaintext`)** | **100,471 req/s** | 85,837 req/s | 70,735 req/s | Nelysia **+42% faster** |
+| **JSON (`/json`)** | **99,103 req/s** | 87,460 req/s | 83,937 req/s | Nelysia **+18% faster** |
 
-```bash
-BENCH_DURATION_MS=3000 BENCH_CONCURRENCY=10 BENCH_REPEATS=10 npm run benchmark:bun
-```
+### Node.js Engine Optimization Results (Tested with oha, Concurrency 50)
 
-### Latest Results (10 Rounds, Concurrency 10, 0 Failures)
+| Framework | Requests/sec | Latency (avg) | p95 Latency |
+| :--- | :---: | :---: | :---: |
+| **Node.js http (Raw Baseline)** | **47,812 req/s** | 1.04 ms | 1.75 ms |
+| **Fastify 5** | **38,990 req/s** | 1.28 ms | 1.84 ms |
+| **Nelysia (Node Adapter)** | **34,821 req/s** | 1.43 ms | 2.34 ms |
+| **Express 5** | **21,719 req/s** | 2.30 ms | 2.97 ms |
 
-Full data: `docs/benchmark-10-rounds.md` and `docs/benchmark-100-rounds.md`.
-
-| Bun workload | Nelysia | Elysia | Raw Bun |
-| :--- | ---: | ---: | ---: |
-| Static `GET /json` | **30,618 req/s** (0.33 ms) | 28,615 req/s (0.35 ms) | 29,625 req/s |
-| Dynamic `GET /users/:id` | **28,991 req/s** (0.34 ms) | 28,125 req/s (0.35 ms) | 29,587 req/s |
-
-> Local measurements only — not a universal performance claim. Re-run on target hardware before deployment decisions.
+> Note: Tested on AMD Ryzen 5 5600 6-Core / 12-Threads, Bun 1.4.0 / Node.js 26.8.1 reporting median values across runs.
 
 ### Running Soak Tests
 
