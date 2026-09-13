@@ -3,7 +3,7 @@ import test from "node:test"
 import { gracefulShutdown, HttpError, Nelysia, t } from "../packages/core/src/index.ts"
 import { compile, createCompiledBunHandler, inspect } from "../packages/compiler/src/index.ts"
 import { generateClientTypes, generateOpenAPI, openapi, openapiUi } from "../packages/openapi/src/index.ts"
-import { compression, rateLimit, staticFile } from "../packages/plugins/src/index.ts"
+import { compression, rateLimit, staticDirectory, staticFile } from "../packages/plugins/src/index.ts"
 import { otlpHttpExporter } from "../packages/observability/src/index.ts"
 import { createFetchHandler } from "../packages/runtime-fetch/src/server.ts"
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from "graphql"
@@ -282,6 +282,24 @@ test("serves an explicit static file with MIME metadata and 404 fallback", async
   assert.match(result.headers.get("content-type") ?? "", /application\/json/)
   assert.match(new TextDecoder().decode(result.body as Uint8Array), /\"name\"/)
   assert.equal((await app.handle({ method: "GET", url: "/missing" })).status, 404)
+})
+
+test("serves directory files with staticDirectory plugin, index fallback, and traversal guard", async () => {
+  const app = new Nelysia().use(staticDirectory({
+    prefix: "/docs",
+    root: new URL("../docs", import.meta.url),
+    index: "index.html"
+  }))
+
+  const rootRes = await app.handle({ method: "GET", url: "/docs" })
+  assert.equal(rootRes.status, 200)
+  assert.match(rootRes.headers.get("content-type") ?? "", /text\/html/)
+
+  const missingRes = await app.handle({ method: "GET", url: "/docs/does-not-exist.txt" })
+  assert.equal(missingRes.status, 404)
+
+  const attackRes = await app.handle({ method: "GET", url: "/docs/../../package.json" })
+  assert.equal(attackRes.status, 404)
 })
 
 test("compresses negotiated response bodies and preserves decompressed content", async () => {
