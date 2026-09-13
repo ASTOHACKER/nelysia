@@ -826,7 +826,7 @@
 
       <div class="version-pill">
         <span class="version-dot"></span>
-        <span>v0.1.1 • Production Ready</span>
+        <span>v0.1.4 • Production Ready</span>
       </div>
 
       <nav class="nav" aria-label="Documentation navigation">
@@ -892,7 +892,7 @@
       </nav>
 
       <div class="side-foot">
-        <div>Nelysia v0.1.1</div>
+        <div>Nelysia v0.1.4</div>
         <div style="color: var(--muted); margin-top: 4px;">Simple by default.<br>Specialized to run.</div>
       </div>
     </aside>
@@ -970,8 +970,8 @@
             </div>
             <div class="hero-badge" style="margin-bottom: 0;">
               <span class="hero-badge-dot"></span>
-              <span data-lang="en">v0.1.1 Released • Compiler-First Architecture</span>
-              <span data-lang="th">v0.1.1 เปิดตัวแล้ว • สถาปัตยกรรม Compiler-First</span>
+              <span data-lang="en">v0.1.4 Released • Compiler-First Architecture</span>
+              <span data-lang="th">v0.1.4 เปิดตัวแล้ว • สถาปัตยกรรม Compiler-First</span>
             </div>
           </div>
           
@@ -992,16 +992,16 @@
             </a>
             <a href="https://github.com/ASTOHACKER/nelysia" target="_blank" rel="noreferrer" class="btn btn-secondary">
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path></svg>
-              <span>GitHub (v0.1.1)</span>
+              <span>GitHub (v0.1.4)</span>
             </a>
           </div>
 
           <div class="tags">
-            <span class="tag good">v0.1.1 Production Ready</span>
+            <span class="tag good">v0.1.4 Production Ready</span>
             <span class="tag">Node.js 22+ Zero-Build</span>
             <span class="tag">Bun 1.4+ (+7.0% Speed)</span>
             <span class="tag">Standard Schema v1</span>
-            <span class="tag">OpenAPI 3.1 & Redoc</span>
+            <span class="tag">OpenAPI 3.1 & Swagger</span>
             <span class="tag">Web Standards</span>
           </div>
         </header>
@@ -1368,14 +1368,14 @@ app.<span class="fn">post</span>(<span class="str">"/users"</span>, ({ body }) =
 npm install @narudom96/nelysia
 
 <span class="com"># …or from a GitHub Release tarball (no registry needed)</span>
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.1/narudom96-nelysia-0.1.1.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.4/narudom96-nelysia-0.1.4.tgz
 npm install ./nelysia.tgz</code></pre>
           </div>
 
           <div class="callout info">
             <b>Releases Page</b>
-            <span data-lang="en">Every release at <code>github.com/ASTOHACKER/nelysia/releases</code> ships a prebuilt tarball (<code>dist-package</code> inside) — replace <code>v0.1.1</code> with the latest version you see there. Full steps in the README.</span>
-            <span data-lang="th">ทุก release ที่ <code>github.com/ASTOHACKER/nelysia/releases</code> มี tarball พร้อมใช้ (<code>dist-package</code> อยู่ในนั้น) — เปลี่ยน <code>v0.1.1</code> เป็นเวอร์ชันล่าสุดที่เห็น ขั้นตอนเต็มอยู่ใน README</span>
+            <span data-lang="en">Every release at <code>github.com/ASTOHACKER/nelysia/releases</code> ships a prebuilt tarball (<code>dist-package</code> inside) — replace <code>v0.1.4</code> with the latest version you see there. Full steps in the README.</span>
+            <span data-lang="th">ทุก release ที่ <code>github.com/ASTOHACKER/nelysia/releases</code> มี tarball พร้อมใช้ (<code>dist-package</code> อยู่ในนั้น) — เปลี่ยน <code>v0.1.4</code> เป็นเวอร์ชันล่าสุดที่เห็น ขั้นตอนเต็มอยู่ใน README</span>
           </div>
         </section>
 
@@ -1398,14 +1398,17 @@ npm install ./nelysia.tgz</code></pre>
             <pre><code><span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
 
 <span class="kw">export const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>()
-  .<span class="fn">get</span>(<span class="str">"/"</span>, <span class="str">"Hello from Nelysia!"</span>)
-  .<span class="fn">get</span>(<span class="str">"/users/:id"</span>, ({ params }) =&gt; ({
+  .<span class="fn">get</span>(<span class="str">"/"</span>, ({ html }) =&gt; html(<span class="str">"&lt;h1&gt;Hello from Nelysia v0.1.4!&lt;/h1&gt;"</span>))
+  .<span class="fn">get</span>(<span class="str">"/users/:id"</span>, ({ params, query }) =&gt; ({
     id: params.id,
+    filter: query.filter ?? <span class="str">"default"</span>,
     timestamp: Date.<span class="fn">now</span>()
   }))
 
 <span class="kw">if</span> (import.meta.main || process.env.NODE_ENV !== <span class="str">"test"</span>) {
-  app.<span class="fn">listen</span>(<span class="num">3000</span>)
+  app.<span class="fn">listen</span>(<span class="num">3000</span>, ({ port, url }) =&gt; {
+    console.<span class="fn">log</span>(<span class="str">`🚀 Server running at ${url} on port ${port}`</span>)
+  })
 }</code></pre>
           </div>
 
@@ -1552,9 +1555,39 @@ app
                 <tr>
                   <td><code>429 + Retry-After</code></td>
                   <td><span data-lang="en">Only from the <code>rateLimit</code> plugin when the window budget is exhausted.</span><span data-lang="th">จากปลั๊กอิน <code>rateLimit</code> เมื่อใช้โควตาหมดเท่านั้น</span></td>
-                </tr>
-              </tbody>
-            </table>
+          <h3>
+            <span data-lang="en">Route Grouping (`group`) & Custom 404 (`notFound`)</span>
+            <span data-lang="th">การจัดกลุ่ม Route (`group`) และการตั้งค่าหน้า 404 (`notFound`)</span>
+          </h3>
+
+          <p data-lang="en">
+            Organize APIs hierarchically using <code>app.group(prefix, callback)</code> with isolated lifecycle hooks, or provide custom 404 fallback responses with <code>app.notFound(handler)</code>:
+          </p>
+          <p data-lang="th">
+            จัดโครงสร้าง API ย่อยด้วย <code>app.group(prefix, callback)</code> พร้อมสืบทอดและแยก Hook เฉพาะกลุ่ม หรือปรับแต่งผลลัพธ์ 404 เมื่อไม่พบเส้นทางด้วย <code>app.notFound(handler)</code>:
+          </p>
+
+          <div class="code">
+            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>Group & NotFound</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
+            <pre><code><span class="com">// Scoped route group with its own auth hook</span>
+app.<span class="fn">group</span>(<span class="str">"/api/v1"</span>, (api) =&gt; {
+  api.<span class="fn">onBeforeHandle</span>(({ headers, response }) =&gt; {
+    <span class="kw">if</span> (!headers.<span class="fn">get</span>(<span class="str">"authorization"</span>)) {
+      <span class="kw">return</span> <span class="fn">response</span>(<span class="num">401</span>, { error: <span class="str">"Unauthorized"</span> })
+    }
+  })
+  api.<span class="fn">get</span>(<span class="str">"/users"</span>, () =&gt; [{ id: <span class="str">"1"</span>, name: <span class="str">"Somchai"</span> }])
+})
+
+<span class="com">// Custom 404 fallback</span>
+app.<span class="fn">notFound</span>(({ html, request }) =&gt; {
+  <span class="kw">return</span> <span class="fn">html</span>(<span class="str">`&lt;h1&gt;404 Not Found: ${request.url}&lt;/h1&gt;`</span>, <span class="num">404</span>)
+})
+
+<span class="com">// Unified listen callback with ServerInfo</span>
+app.<span class="fn">listen</span>(<span class="num">3000</span>, ({ port, url }) =&gt; {
+  console.<span class="fn">log</span>(<span class="str">`🚀 Nelysia running at ${url} (port ${port})`</span>)
+})</code></pre>
           </div>
         </section>
 
@@ -1589,8 +1622,18 @@ app
                 </tr>
                 <tr>
                   <td><code>query</code></td>
-                  <td><code>URLSearchParams</code></td>
-                  <td><span data-lang="en">Parsed URL search queries (e.g. <code>?page=2</code>).</span><span data-lang="th">พารามิเตอร์ Query String ใน URL</span></td>
+                  <td><code>ParsedQuery (Proxy)</code></td>
+                  <td><span data-lang="en">URLSearchParams with direct property destructuring (e.g. <code>query.page</code>).</span><span data-lang="th">Query Parameters รองรับทั้ง <code>.get()</code> และ Destructuring ค่าโดยตรง</span></td>
+                </tr>
+                <tr>
+                  <td><code>set</code></td>
+                  <td><code>{ status?: number, headers }</code></td>
+                  <td><span data-lang="en">Mutable response status & headers without wrapping the return value.</span><span data-lang="th">ปรับแต่ง status code และ response headers ผ่านการกำหนดค่าโดยตรง</span></td>
+                </tr>
+                <tr>
+                  <td><code>store</code></td>
+                  <td><code>Record&lt;string, unknown&gt;</code></td>
+                  <td><span data-lang="en">Request-scoped state storage shared across hooks and handlers.</span><span data-lang="th">ที่เก็บ State ประจำ Request สำหรับแชร์ข้อมูลระหว่าง Hooks</span></td>
                 </tr>
                 <tr>
                   <td><code>body</code></td>
@@ -1623,8 +1666,40 @@ app
                   <td><span data-lang="en">Sets an outgoing response cookie with security attributes.</span><span data-lang="th">ฟังก์ชันสำหรับสั่งบันทึก Cookie</span></td>
                 </tr>
                 <tr>
+                  <td><code>deleteCookie()</code></td>
+                  <td><code>(name, opts?) =&gt; void</code></td>
+                  <td><span data-lang="en">Clears a cookie by expiring it immediately.</span><span data-lang="th">ฟังก์ชันสำหรับสั่งลบ Cookie</span></td>
+                </tr>
+                <tr>
+                  <td><code>html()</code></td>
+                  <td><code>(body, status?) =&gt; ResponseData</code></td>
+                  <td><span data-lang="en">Returns HTML response with text/html charset=utf-8.</span><span data-lang="th">ส่ง HTML Response พร้อม Content-Type อัตโนมัติ</span></td>
+                </tr>
+                <tr>
+                  <td><code>text()</code></td>
+                  <td><code>(body, status?) =&gt; ResponseData</code></td>
+                  <td><span data-lang="en">Returns plaintext response with text/plain charset=utf-8.</span><span data-lang="th">ส่ง Text Response พร้อม Content-Type อัตโนมัติ</span></td>
+                </tr>
+                <tr>
+                  <td><code>json()</code></td>
+                  <td><code>(body, status?) =&gt; ResponseData</code></td>
+                  <td><span data-lang="en">Returns JSON response with application/json charset=utf-8.</span><span data-lang="th">ส่ง JSON Response พร้อม Content-Type อัตโนมัติ</span></td>
+                </tr>
+                <tr>
+                  <td><code>redirect()</code></td>
+                  <td><code>(url, status?) =&gt; ResponseData</code></td>
+                  <td><span data-lang="en">Returns HTTP redirect (302/301) with Location header.</span><span data-lang="th">ส่ง Redirect Response พร้อม Location header</span></td>
+                </tr>
+                <tr>
+                  <td><code>header()</code></td>
+                  <td><code>(name, val) =&gt; this</code></td>
+                  <td><span data-lang="en">Chains an outgoing response header.</span><span data-lang="th">เพิ่ม Response Header แบบ Chainable</span></td>
+                </tr>
+                <tr>
                   <td><code>response()</code></td>
                   <td><code>(status, body, headers) =&gt; ResponseData</code></td>
+                  <td><span data-lang="en">Generates a response with custom status code and headers.</span><span data-lang="th">ฟังก์ชันสำหรับส่ง Status และ Header พิเศษกลับไป</span></td>
+                </tr>
                   <td><span data-lang="en">Generates a response with custom status code and headers.</span><span data-lang="th">ฟังก์ชันสำหรับส่ง Status และ Header พิเศษกลับไป</span></td>
                 </tr>
               </tbody>
@@ -2427,6 +2502,21 @@ docker run --rm -p <span class="num">3000</span>:<span class="num">3000</span> n
 
           <div class="grid">
             <div class="tile">
+              <b>CORS SECURITY</b>
+              <p data-lang="en">Configurable cross-origin resource sharing with automatic <code>204 No Content</code> preflight OPTIONS resolution.</p>
+              <p data-lang="th">ระบบ CORS ปรับแต่งได้ตามต้องการ จัดการคำขอ preflight <code>OPTIONS</code> ตอบ <code>204</code> อัตโนมัติ</p>
+            </div>
+            <div class="tile">
+              <b>SECURITY HEADERS</b>
+              <p data-lang="en">OWASP-recommended security headers (HSTS, nosniff, SAMEORIGIN, COOP, CORP) injected into every response.</p>
+              <p data-lang="th">HTTP Security Headers มาตรฐาน OWASP เสริมความปลอดภัยให้เว็บทุก response</p>
+            </div>
+            <div class="tile">
+              <b>STATIC DIRECTORY</b>
+              <p data-lang="en">Serve entire folder trees with MIME detection, index fallback, and path traversal defense.</p>
+              <p data-lang="th">เสิร์ฟทั้งโฟลเดอร์ไฟล์ Static พร้อมตรวจ MIME, รองรับ index.html และกัน path traversal</p>
+            </div>
+            <div class="tile">
               <b>RATE LIMITING</b>
               <p data-lang="en">Fixed-window in-memory limiter. <code>429 Too Many Requests</code> + <code>Retry-After</code> when over <code>limit</code> per <code>windowMs</code>. Custom <code>key(ctx)</code> supported.</p>
               <p data-lang="th">จำกัดคำขอแบบ fixed-window ตอบ <code>429</code> + <code>Retry-After</code> เมื่อเกิน <code>limit</code> ต่อ <code>windowMs</code> กำหนด <code>key(ctx)</code> เองได้</p>
@@ -2444,19 +2534,14 @@ docker run --rm -p <span class="num">3000</span>:<span class="num">3000</span> n
           </div>
 
           <div class="code">
-            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>Using & Authoring Plugins</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
-            <pre><code><span class="kw">import</span> { rateLimit, staticFile, compression } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/plugins"</span>
+            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>Using Built-in Plugins</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
+            <pre><code><span class="kw">import</span> { cors, securityHeaders, staticDirectory, rateLimit } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/plugins"</span>
 
 app
-  .<span class="fn">use</span>(<span class="fn">rateLimit</span>({ limit: <span class="num">100</span>, windowMs: <span class="num">60000</span>, key: (ctx) =&gt; ctx.clientIp ?? <span class="str">"anonymous"</span> }))
-  .<span class="fn">use</span>(<span class="fn">staticFile</span>(<span class="str">"/favicon.ico"</span>, <span class="str">"./public/favicon.ico"</span>))
-  .<span class="fn">use</span>(<span class="fn">compression</span>({ threshold: <span class="num">1024</span> }))
-
-<span class="com">// Authoring: a plugin is a config factory returning (app) =&gt; app</span>
-<span class="kw">const</span> <span class="fn">myPlugin</span> = (opts: { tag: string }) =&gt; (app: Nelysia) =&gt;
-  app.<span class="fn">onBeforeHandle</span>(({ headers, response }) =&gt; {
-    <span class="kw">if</span> (!headers.<span class="fn">has</span>(<span class="str">"x-tag"</span>)) <span class="kw">return</span> <span class="fn">response</span>(<span class="num">401</span>, { error: opts.tag })
-  })</code></pre>
+  .<span class="fn">use</span>(<span class="fn">cors</span>({ origin: <span class="str">"*"</span>, credentials: <span class="kw">true</span> }))
+  .<span class="fn">use</span>(<span class="fn">securityHeaders</span>())
+  .<span class="fn">use</span>(<span class="fn">staticDirectory</span>({ prefix: <span class="str">"/public"</span>, root: <span class="str">"./assets"</span> }))
+  .<span class="fn">use</span>(<span class="fn">rateLimit</span>({ limit: <span class="num">100</span>, windowMs: <span class="num">60000</span> }))</code></pre>
           </div>
 
           <div class="table-box">
@@ -2485,36 +2570,39 @@ app
           </div>
 
           <div class="callout info">
-            <b>Scope Note</b>
-            <span data-lang="en">Unlike Elysia's <code>local/scoped/global</code> scopes, Nelysia hooks are app-wide by registration order: a hook added to the parent also backfills onto the parent's existing routes, while mounted child routes are unaffected. There is no per-route <code>guard</code>, no <code>decorate/state</code> context extension, and no plugin deduplication — identical <code>use()</code> calls register twice.</span>
-            <span data-lang="th">ต่างจาก scope <code>local/scoped/global</code> ของ Elysia: hook ของ Nelysia มีผลทั้งแอปตามลำดับการลงทะเบียน — hook ที่เพิ่มทีหลังจะย้อนไปติด route เดิมของ parent แต่ไม่กระทบ route ที่ mount มาจากลูก ไม่มี <code>guard</code> ราย route, ไม่มี <code>decorate/state</code> ต่อ Context และไม่มี dedup — เรียก <code>use()</code> ซ้ำจะลงทะเบียนซ้ำ</span>
+            <b>Scope & Composition Note</b>
+            <span data-lang="en">In addition to <code>app.mount()</code>, Nelysia supports <code>app.group(prefix, callback)</code> for grouping routes with localized hook inheritance that doesn't leak into sibling routes.</span>
+            <span data-lang="th">นอกเหนือจาก <code>app.mount()</code> Nelysia รองรับ <code>app.group(prefix, callback)</code> สำหรับจัดกลุ่ม Route ย่อย พร้อมแยก Hook เฉพาะกลุ่มไม่ให้รั่วไหลไป Route ข้างเคียง</span>
           </div>
         </section>
 
-        <!-- 14. OpenAPI 3.1 & Redoc -->
+        <!-- 14. OpenAPI 3.1 & Documentation UIs -->
         <section id="openapi">
           <h2>
-            <span data-lang="en">OpenAPI 3.1 & Redoc UI</span>
-            <span data-lang="th">OpenAPI 3.1 และเอกสาร Redoc UI</span>
+            <span data-lang="en">OpenAPI 3.1, Redoc & Swagger UI</span>
+            <span data-lang="th">OpenAPI 3.1 เอกสาร Redoc และ Swagger UI</span>
           </h2>
 
           <p data-lang="en">
-            Generate living OpenAPI 3.1 specifications from your route graphs and schemas, and serve an interactive Redoc UI at <code>/docs</code>:
+            Generate living OpenAPI 3.1 specifications from your route graphs, metadata, and schemas, and serve interactive UIs:
           </p>
           <p data-lang="th">
-            สร้างเอกสาร API ตามมาตรฐาน OpenAPI 3.1 อัตโนมัติจาก Schema และเปิดหน้าเว็บ Redoc UI ที่ <code>/docs</code>:
+            สร้างเอกสาร API ตามมาตรฐาน OpenAPI 3.1 อัตโนมัติจาก Schema และ Metadata ของ Route พร้อมหน้าเว็บ Redoc และ Swagger UI:
           </p>
 
           <div class="code">
-            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>OpenAPI Integration</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
-            <pre><code><span class="kw">import</span> { openapi, openapiUi, generateClientTypes } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/openapi"</span>
+            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>OpenAPI & Swagger</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
+            <pre><code><span class="kw">import</span> { openapi, openapiUi, swaggerUi } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/openapi"</span>
 
 app
-  .<span class="fn">use</span>(<span class="fn">openapi</span>({ title: <span class="str">"User Management API"</span>, version: <span class="str">"1.0.0"</span> }))
-  .<span class="fn">use</span>(<span class="fn">openapiUi</span>({ path: <span class="str">"/docs"</span>, specPath: <span class="str">"/openapi.json"</span> }))
-
-<span class="com">// Generate client TypeScript interface definitions</span>
-<span class="kw">const</span> clientTypes = <span class="fn">generateClientTypes</span>(app)</code></pre>
+  .<span class="fn">get</span>(<span class="str">"/users"</span>, () =&gt; [{ id: <span class="str">"1"</span> }], {
+    summary: <span class="str">"List users"</span>,
+    description: <span class="str">"Returns all active user records"</span>,
+    tags: [<span class="str">"Users"</span>]
+  })
+  .<span class="fn">use</span>(<span class="fn">openapi</span>({ title: <span class="str">"Production API"</span>, version: <span class="str">"1.0.0"</span> }))
+  .<span class="fn">use</span>(<span class="fn">openapiUi</span>({ path: <span class="str">"/docs"</span> }))     <span class="com">// Redoc UI</span>
+  .<span class="fn">use</span>(<span class="fn">swaggerUi</span>({ path: <span class="str">"/swagger"</span> })) <span class="com">// Interactive Swagger UI</span></code></pre>
           </div>
 
           <div class="table-box">
@@ -2529,13 +2617,18 @@ app
               <tbody>
                 <tr>
                   <td><code>openapi({ title, version, path })</code></td>
-                  <td><code>"Nelysia API" / "0.1.0" / "/openapi.json"</code></td>
+                  <td><code>"Nelysia API" / "0.1.4" / "/openapi.json"</code></td>
                   <td><span data-lang="en">Serves OpenAPI 3.1; only routes with schemas contribute parameters/bodies.</span><span data-lang="th">เสิร์ฟ OpenAPI 3.1 เฉพาะ route ที่มี schema จึงจะมี parameters/bodies</span></td>
                 </tr>
                 <tr>
                   <td><code>openapiUi({ path, specPath, title })</code></td>
                   <td><code>"/docs" / "/openapi.json" / "Nelysia API"</code></td>
                   <td><span data-lang="en">Redoc UI; loads Redoc from a CDN, so the docs page needs internet access.</span><span data-lang="th">หน้า Redoc UI โหลด Redoc จาก CDN หน้า docs จึงต้องต่อเน็ต</span></td>
+                </tr>
+                <tr>
+                  <td><code>swaggerUi({ path, specPath, title })</code></td>
+                  <td><code>"/swagger" / "/openapi.json" / "Nelysia Swagger UI"</code></td>
+                  <td><span data-lang="en">Interactive Swagger UI; live sandbox to test API endpoints in browser.</span><span data-lang="th">หน้าเว็บ Swagger UI สำหรับทดสอบยิง API ได้สดๆ จากเว็บเบราว์เซอร์</span></td>
                 </tr>
               </tbody>
             </table>

@@ -1,6 +1,6 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 0.1.0 (MVP Complete)  
+> **เวอร์ชัน:** 0.1.4 (Latest Release)  
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
 
@@ -14,10 +14,18 @@
 4. [แกนหลักของแอปพลิเคชัน (`Nelysia`)](#4-แกนหลักของแอปพลิเคชัน-nelysia)
    - [การตั้งค่า Option ต่างๆ](#การตั้งค่า-option-ต่างๆ)
    - [เมธอดสำหรับ Routing](#เมธอดสำหรับ-routing)
+   - [การจัดกลุ่ม Route ด้วย `group`](#การจัดกลุ่ม-route-ด้วย-group)
+   - [การปรับแต่งหน้า 404 ด้วย `notFound`](#การปรับแต่งหน้า-404-ด้วย-notfound)
    - [การรวม Sub-App ด้วย `mount`](#การรวม-sub-app-ด้วย-mount)
+   - [การเปิดเซิร์ฟเวอร์ด้วย `listen`](#การเปิดเซิร์ฟเวอร์ด้วย-listen)
+   - [กลไก Plugin (`use`) และขอบเขต Lifecycle](#กลไก-plugin-use-และขอบเขต-lifecycle)
 5. [Request Context (`Context`)](#5-request-context-context)
    - [ข้อมูลใน Context](#ข้อมูลใน-context)
-   - [การจัดการ Cookies](#การจัดการ-cookies)
+   - [การอ่าน Query ด้วย Proxy Destructuring](#การอ่าน-query-ด้วย-proxy-destructuring)
+   - [การตั้งค่า Status และ Headers ด้วย `context.set`](#การตั้งค่า-status-และ-headers-ด้วย-contextset)
+   - [การแชร์ข้อมูลภายใน Request ด้วย `context.store`](#การแชร์ข้อมูลภายใน-request-ด้วย-contextstore)
+   - [ฟังก์ชันอำนวยความสะดวกสำหรับ Response Shorthands](#ฟังก์ชันอำนวยความสะดวกสำหรับ-response-shorthands)
+   - [การจัดการ Cookies และ `deleteCookie`](#การจัดการ-cookies)
    - [การส่ง Response กลับในรูปแบบต่างๆ](#การส่ง-response-กลับในรูปแบบต่างๆ)
 6. [การตรวจสอบข้อมูลและ Schema Validation](#6-การตรวจสอบข้อมูลและ-schema-validation)
    - [เครื่องมือสร้าง Schema ในตัว (`t`)](#เครื่องมือสร้าง-schema-ในตัว-t)
@@ -31,12 +39,16 @@
    - [การปิดเซิร์ฟเวอร์อย่างปลอดภัย (`gracefulShutdown`)](#การปิดเซิร์ฟเวอร์อย่างปลอดภัย-gracefulshutdown)
 8. [การใช้งาน WebSockets](#8-การใช้งาน-websockets)
 9. [ระบบปลั๊กอิน (Plugins Ecosystem)](#9-ระบบปลั๊กอิน-plugins-ecosystem)
+   - [ระบบความปลอดภัย CORS (`cors`)](#ระบบความปลอดภัย-cors-cors)
+   - [HTTP Security Headers (`securityHeaders`)](#http-security-headers-securityheaders)
+   - [การให้บริการโฟลเดอร์ไฟล์ Static (`staticDirectory`)](#การให้บริการโฟลเดอร์ไฟล์-static-staticdirectory)
    - [การจำกัดจำนวน Request (`rateLimit`)](#การจำกัดจำนวน-request-ratelimit)
-   - [การให้บริการไฟล์ Static (`staticFile`)](#การให้บริการไฟล์-static-staticfiles)
+   - [การให้บริการไฟล์ Static เดี่ยว (`staticFile`)](#การให้บริการไฟล์-static-staticfiles)
    - [การบีบอัดข้อมูล Gzip (`compression`)](#การบีบอัดข้อมูล-gzip-compression)
-10. [OpenAPI 3.1 และหน้าเอกสาร Redoc UI](#10-openapi-31-และหน้าเอกสาร-redoc-ui)
-    - [สร้างเอกสาร OpenAPI อัตโนมัติ](#สร้างเอกสาร-openapi-อัตโนมัติ)
+10. [OpenAPI 3.1 และหน้าเอกสาร Redoc / Swagger UI](#10-openapi-31-และหน้าเอกสาร-redoc--swagger-ui)
+    - [สร้างเอกสาร OpenAPI อัตโนมัติและ Route Metadata](#สร้างเอกสาร-openapi-อัตโนมัติและ-route-metadata)
     - [เปิดหน้าเว็บ Redoc UI (`openapiUi`)](#เปิดหน้าเว็บ-redoc-ui-openapiui)
+    - [เปิดหน้าเว็บ Swagger UI (`swaggerUi`)](#เปิดหน้าเว็บ-swagger-ui-swaggerui)
     - [สร้าง TypeScript Interface สำหรับ Client](#สร้าง-typescript-interface-สำหรับ-client)
 11. [ระบบ Observability & OpenTelemetry Tracing](#11-ระบบ-observability--opentelemetry-tracing)
 12. [การเชื่อมต่อกับ GraphQL](#12-การเชื่อมต่อกับ-graphql)
@@ -119,15 +131,18 @@
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", () => "สวัสดีจาก Nelysia!")
-  .get("/users/:id", ({ params }) => ({
+  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v0.1.4!</h1>"))
+  .get("/users/:id", ({ params, query }) => ({
     id: params.id,
+    filter: query.filter ?? "default",
     timestamp: Date.now()
   }))
 
-// สั่งเปิดเซิร์ฟเวอร์หากรันไฟล์นี้โดยตรง
+// สั่งเปิดเซิร์ฟเวอร์พร้อม Callback แสดง URL
 if (import.meta.main || process.env.NODE_ENV !== "test") {
-  app.listen(3000)
+  app.listen(3000, ({ port, url }) => {
+    console.log(`🚀 Nelysia กำลังทำงานที่ ${url} (port ${port})`)
+  })
 }
 ```
 
@@ -145,10 +160,10 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# ผลลัพธ์: สวัสดีจาก Nelysia!
+# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v0.1.4!</h1>
 
-curl http://localhost:3000/users/42
-# ผลลัพธ์: {"id":"42","timestamp":1726180000000}
+curl "http://localhost:3000/users/42?filter=active"
+# ผลลัพธ์: {"id":"42","filter":"active","timestamp":1726180000000}
 ```
 
 ---
@@ -238,9 +253,50 @@ app.get("/files/*", ({ params }) => {
 
 > ข้อสังเกต: Wildcard ต้องอยู่ตำแหน่งสุดท้ายของ path เท่านั้น และ Route แบบนี้จะไม่ถูกจัดเป็น `COMPILED` (ตกเป็น `GENERIC` และใช้ generic runtime เสมอ)
 
+### การจัดกลุ่ม Route ด้วย `group`
+
+ในเวอร์ชัน v0.1.3+ Nelysia รองรับการจัดกลุ่ม Route ย่อยด้วย `app.group(prefix, callback)` ช่วยให้คุณแบ่งโครงสร้างของ API ได้เป็นสัดส่วน พร้อมทั้งสืบทอดและแยก Lifecycle Hooks (เช่น Authentication หรือ Middleware เฉพาะกลุ่ม) ออกจาก Route อื่นๆ โดยไม่รั่วไหล:
+
+```ts
+app.group("/api/v1", (api) => {
+  // Hook นี้จะมีผลเฉพาะเส้นทางภายใต้ /api/v1 เท่านั้น
+  api.onBeforeHandle(({ headers, response }) => {
+    if (!headers.get("authorization")) {
+      return response(401, { error: "กรุณาระบุ Token สำหรับ API v1" })
+    }
+  })
+
+  api.get("/users", () => [{ id: "1", name: "สมชาย" }])
+  api.get("/posts", () => [{ id: "101", title: "แนะนำ Nelysia" }])
+})
+
+// เส้นทางนี้อยู่นอกกลุ่ม จะไม่ถูกตรวจสอบ Authorization
+app.get("/public", () => ({ status: "ok" }))
+```
+
+### การปรับแต่งหน้า 404 ด้วย `notFound`
+
+ในเวอร์ชัน v0.1.3+ คุณสามารถกำหนด Fallback Handler สำหรับคำขอที่ไม่ตรงกับเส้นทางใดๆ ในระบบด้วย `app.notFound(handler)`:
+
+```ts
+app.notFound(({ request, response }) => {
+  return response(404, {
+    error: "Not Found",
+    message: `ไม่พบเส้นทาง ${request.method} ${request.url}`,
+    timestamp: Date.now()
+  })
+})
+```
+
+หรือจะใช้ร่วมกับ `context.html()` เพื่อส่งหน้า 404 แบบ HTML ที่สวยงาม:
+
+```ts
+app.notFound(({ html }) => html("<h1>404 - ไม่พบหน้าที่คุณต้องการ</h1>", 404))
+```
+
 ### การรวม Sub-App ด้วย `mount`
 
-คุณสามารถแยกโมดูลของแอปพลิเคชันออกเป็นส่วนย่อย แล้วนำมารวมกันผ่าน Path Prefix:
+คุณสามารถแยกโมดูลของแอปพลิเคชันออกเป็น Instance ย่อย (`new Nelysia()`) แล้วนำมารวมกันผ่าน Path Prefix:
 
 ```ts
 const usersApp = new Nelysia()
@@ -255,9 +311,36 @@ const app = new Nelysia()
 // GET /api/users/:id
 ```
 
+### การเปิดเซิร์ฟเวอร์ด้วย `listen`
+
+ในเวอร์ชัน v0.1.4+ เมธอด `app.listen()` ได้รับการปรับปรุงให้ทำงานเป็นหนึ่งเดียวทั้งบน Bun และ Node.js โดยรองรับ Callback ที่ส่งอ็อบเจกต์ `ServerInfo` กลับมา:
+
+```ts
+interface ServerInfo {
+  port: number        // หมายเลข Port ที่เปิดรับจริง
+  hostname: string    // Hostname เช่น "localhost"
+  url: string         // URL สมบูรณ์ เช่น "http://localhost:3000"
+  server: unknown     // Native Server instance ของ Bun หรือ Node.js http.Server
+}
+```
+
+ตัวอย่างการเรียกใช้งาน:
+
+```ts
+// 1. ระบุเฉพาะ Port
+app.listen(3000, ({ port, url }) => {
+  console.log(`🚀 เซิร์ฟเวอร์เริ่มทำงานแล้วที่ ${url} (port ${port})`)
+})
+
+// 2. หรือระบุทั้ง Port และ Hostname
+app.listen({ port: 8080, hostname: "0.0.0.0" }, ({ url }) => {
+  console.log(`🌐 พร้อมรับการเชื่อมต่อจากทุก Network Interface: ${url}`)
+})
+```
+
 ### กลไก Plugin (`use`) และขอบเขต Lifecycle
 
-`use()` รับได้เฉพาะฟังก์ชัน `(app) => app | void` — ไม่มี instance-as-plugin, ไม่มี `decorate`/`state`, ไม่มี `guard`/`group` แบบ Elysia:
+`use()` รับได้เฉพาะฟังก์ชัน `(app) => app | void`:
 
 ```ts
 // Plugin = factory รับ config แล้วคืน (app) => app
@@ -271,7 +354,7 @@ app.use(myPlugin({ tag: "missing-tag" }))
 
 กฎขอบเขตที่ต้องจำ:
 - Hook ที่เพิ่มเข้า parent (ก่อนหรือหลัง `mount`) มีผลกับ route ของ parent เองทั้งหมด — รวมถึง route ที่ลงทะเบียนไว้ก่อนแล้ว (backfill)
-- Route ที่ `mount` มาจากลูกเก็บ lifecycle `before/after/error` ของลูกติดตัวมา ไม่รั่วไป route ข้างเคียง และ hook ของ parent ที่เพิ่มทีหลังไม่ย้อนมาติด
+- Route ที่ `mount` หรือสร้างผ่าน `group` เก็บ lifecycle `before/after/error` ของตัวเองไว้ ไม่รั่วไป route ข้างเคียง และ hook ของ parent ที่เพิ่มทีหลังไม่ย้อนมาติด
 - Route ซ้ำ method+path ตอน mount จะ throw `Duplicate route`
 - ไม่มี deduplication — เรียก `use()` ซ้ำจะลงทะเบียนซ้ำ
 
@@ -279,29 +362,113 @@ app.use(myPlugin({ tag: "missing-tag" }))
 
 ## 5. Request Context (`Context`)
 
-Handler ทุกตัวจะได้รับอ็อบเจกต์ `Context` ที่ถูกแยกออกเป็นอิสระสำหรับแต่ละ Request:
+Handler ทุกตัวจะได้รับอ็อบเจกต์ `Context` ที่ถูกสร้างขึ้นแยกอิสระสำหรับแต่ละ Request โดยในเวอร์ชัน v0.1.4+ ได้รับการขยายความสามารถให้รองรับการเขียนที่กระชับและยืดหยุ่นยิ่งขึ้น:
 
 ```ts
 interface Context {
   request: RequestData                     // ข้อมูล Request ดิบ
   requestId: string                        // รหัสอ้างอิง Request แบบสุ่มหรือมาจาก Header
-  clientIp?: string                        // IP ของเครื่องผู้เรียก
+  clientIp?: string                        // IP ของเครื่องผู้เรียก (รองรับ trustedProxy)
   params: Record<string, string>           // พารามิเตอร์ใน URL (เช่น :id)
-  query: URLSearchParams                   // Query parameters (?key=value)
+  query: ParsedQuery                       // Proxy รองรับทั้ง .get() และ Object Destructuring
+  set: ResponseSetContext                  // ปรับแต่ง status และ headers ผ่าน Mutation
+  store: Record<string, unknown>           // ที่เก็บ State ประจำ Request แชร์ระหว่าง Hooks
   body: unknown                            // Body ที่ถูก Parse เป็น JSON หรือข้อความ
   headers: Headers                         // Web Standard Headers
   cookies: Record<string, string>          // Cookies ที่ถูก Parse เข้ามา
   setCookie(name: string, value: string, options?: CookieOptions): void
+  deleteCookie(name: string, options?: CookieOptions): void
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
+  html(body: string, status?: number): ResponseData
+  text(body: string, status?: number): ResponseData
+  json(body: unknown, status?: number): ResponseData
+  redirect(url: string, status?: number): ResponseData
+  header(name: string, value: string): this
 }
+```
+
+### การอ่าน Query ด้วย Proxy Destructuring
+
+ในเวอร์ชัน v0.1.2+ `context.query` เป็น Proxy อัจฉริยะที่สามารถใช้งานได้ 2 รูปแบบพร้อมกัน:
+
+1. **เข้าถึงค่าแบบ Object Property หรือ Destructure ได้โดยตรง:**
+   ```ts
+   app.get("/search", ({ query }) => {
+     const { keyword, page = "1", limit = "20" } = query
+     return { keyword, page: Number(page), limit: Number(limit) }
+   })
+   ```
+2. **ใช้งานตามมาตรฐาน `URLSearchParams`:**
+   ```ts
+   app.get("/filter", ({ query }) => {
+     if (query.has("tag")) {
+       return { tag: query.get("tag") }
+     }
+     return { tag: null }
+   })
+   ```
+3. **รองรับ Array Query Parameters อัตโนมัติ:**
+   เมื่อมีการส่ง Query ชื่อซ้ำกัน เช่น `?role=admin&role=editor` พร็อพเพอร์ตี้ `query.role` จะคืนค่าเป็น Array `["admin", "editor"]` โดยอัตโนมัติ
+
+### การตั้งค่า Status และ Headers ด้วย `context.set`
+
+คุณสามารถกำหนด HTTP Status Code หรือเพิ่ม Response Header ได้โดยตรงผ่านการกำหนดค่าใน `context.set` โดยที่ Handler ยังคงสามารถ return ข้อมูลเป็น Object หรือ Primitive ได้ตามปกติ:
+
+```ts
+app.post("/users", ({ body, set }) => {
+  set.status = 201 // กำหนด HTTP 201 Created
+  set.headers["x-powered-by"] = "Nelysia"
+  set.headers["x-resource-id"] = "user_99"
+
+  return { success: true, data: body }
+})
+```
+
+### การแชร์ข้อมูลภายใน Request ด้วย `context.store`
+
+ในเวอร์ชัน v0.1.3+ `context.store` เป็น Dictionary เปล่าระดับ Request สำหรับส่งผ่านข้อมูลระหว่าง Lifecycle Hooks (`onBeforeHandle`, Route Handler, `onAfterHandle`):
+
+```ts
+// ตรวจสอบ JWT ใน onBeforeHandle แล้วเก็บ User ไว้ใน store
+app.onBeforeHandle(({ headers, store, response }) => {
+  const authHeader = headers.get("authorization")
+  if (!authHeader) return response(401, { error: "กรุณาเข้าสู่ระบบ" })
+
+  store.currentUser = { id: "user_123", role: "admin" }
+})
+
+// Route Handler ดึงข้อมูล currentUser ออกจาก store มาใช้ได้ทันที
+app.get("/me", ({ store }) => {
+  return { profile: store.currentUser }
+})
+```
+
+### ฟังก์ชันอำนวยความสะดวกสำหรับ Response Shorthands
+
+ในเวอร์ชัน v0.1.4+ Nelysia เพิ่มฟังก์ชัน Shorthand ให้สร้าง Response พร้อม Content-Type และ Status Code ที่ถูกต้องได้ในบรรทัดเดียว:
+
+- `html(body, status = 200)`: ส่ง HTML string กลับไปพร้อม `Content-Type: text/html; charset=utf-8`
+- `text(body, status = 200)`: ส่งข้อความตัวอักษรธรรมดา พร้อม `Content-Type: text/plain; charset=utf-8`
+- `json(body, status = 200)`: แปลงข้อมูลเป็น JSON พร้อม `Content-Type: application/json; charset=utf-8`
+- `redirect(url, status = 302)`: สั่งเปลี่ยนเส้นทาง (Redirect) ด้วย Header `Location: url` (ปรับ status เป็น 301 หรือ 307 ได้)
+- `header(name, value)`: เมธอดสำหรับเพิ่ม Response Header แบบ Chainable
+
+```ts
+app
+  .get("/welcome", ({ html }) => html("<h1>ยินดีต้อนรับสู่ Nelysia</h1>"))
+  .get("/robots.txt", ({ text }) => text("User-agent: *\nDisallow: /admin"))
+  .get("/old-dashboard", ({ redirect }) => redirect("/new-dashboard", 301))
+  .get("/custom-header", (ctx) => {
+    return ctx.header("x-app-name", "my-app").json({ ok: true })
+  })
 ```
 
 ### การจัดการ Cookies
 
-```ts
-app.get("/login", ({ cookies, setCookie }) => {
-  const oldSession = cookies.sessionToken
+Nelysia รองรับทั้งการอ่านคุกกี้ (`cookies`), การบันทึกคุกกี้ (`setCookie`) และการลบคุกกี้ (`deleteCookie`):
 
+```ts
+app.get("/auth/login", ({ cookies, setCookie }) => {
   setCookie("sessionToken", "secret_token_123", {
     httpOnly: true,
     secure: true,
@@ -310,16 +477,23 @@ app.get("/login", ({ cookies, setCookie }) => {
     maxAge: 86400 // 1 วัน
   })
 
-  return { message: "เข้าสู่ระบบสำเร็จ", oldSession: oldSession ?? null }
+  return { message: "เข้าสู่ระบบสำเร็จ" }
+})
+
+app.post("/auth/logout", ({ deleteCookie }) => {
+  // ลบ Cookie โดยตั้งค่า Max-Age เป็น 0 และระบุ Path ให้ตรงกัน
+  deleteCookie("sessionToken", { path: "/" })
+  return { message: "ออกจากระบบแล้ว" }
 })
 ```
 
 ### การส่ง Response กลับในรูปแบบต่างๆ
 
-1. **คืนค่า Plain Object หรือ String**: ระบบจะแปลงเป็น JSON หรือ Text และตอบกลับด้วย `Status 200` อัตโนมัติ
-2. **ใช้ `context.response(status, body, headers)`**: กำหนด HTTP Status Code และ Custom Headers ได้อย่างอิสระ
-3. **คืนค่า Web Standard `Response`**: คืนอ็อบเจกต์ `Response` ดั้งเดิม
-4. **คืนค่า `ReadableStream`**: สำหรับการทำ Streaming ข้อมูลขนาดใหญ่หรือ Server-Sent Events
+1. **คืนค่า Plain Object หรือ String**: ระบบจะแปลงเป็น JSON หรือ Text และตอบกลับด้วย `Status 200` อัตโนมัติ (หรือตามค่าที่ตั้งใน `set.status`)
+2. **ใช้ Response Shorthands**: เช่น `context.html()`, `context.text()`, `context.json()`, `context.redirect()`
+3. **ใช้ `context.response(status, body, headers)`**: กำหนด HTTP Status Code และ Custom Headers ได้อย่างอิสระ
+4. **คืนค่า Web Standard `Response`**: คืนอ็อบเจกต์ `Response` ดั้งเดิม
+5. **คืนค่า `ReadableStream`**: สำหรับการทำ Streaming ข้อมูลขนาดใหญ่หรือ Server-Sent Events
 
 ```ts
 app.get("/custom", ({ response }) => {
@@ -537,6 +711,63 @@ app.websocket("/ws/chat", {
 
 ## 9. ระบบปลั๊กอิน (Plugins Ecosystem)
 
+### ระบบความปลอดภัย CORS (`cors`)
+
+ในเวอร์ชัน v0.1.3+ Nelysia มีปลั๊กอิน `cors()` ในตัว รองรับการควบคุมการเข้าถึงข้ามโดเมนอย่างสมบูรณ์แบบ จัดการคำขอ Preflight `OPTIONS` อัตโนมัติด้วย HTTP 204:
+
+```ts
+import { cors } from "@narudom96/nelysia/plugins"
+
+app.use(cors({
+  // กำหนด Origin ที่อนุญาต: string, array, boolean, หรือ callback
+  origin: ["http://localhost:3000", "https://myfrontend.com"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"],
+  exposedHeaders: ["x-request-id"],
+  credentials: true,
+  maxAge: 86400 // Cache ผลการ Preflight 24 ชั่วโมง
+}))
+```
+
+- **Preflight `OPTIONS` อัตโนมัติ**: เมื่อมีคำขอ `OPTIONS` เข้ามา `cors()` จะดักและตอบกลับด้วยสถานะ `204 No Content` พร้อม Headers ที่ถูกต้องทันทีโดยไม่หลุดไปถึง Handler
+- **Origin Validation**: หากส่งฟังก์ชัน `origin: (reqOrigin, context) => boolean | string` จะสามารถตรวจสอบโดเมนแบบ Dynamic ได้อย่างแม่นยำ
+
+### HTTP Security Headers (`securityHeaders`)
+
+ในเวอร์ชัน v0.1.3+ ปลั๊กอิน `securityHeaders()` ช่วยเสริมความปลอดภัยให้เซิร์ฟเวอร์ตามแนวทางปฏิบัติที่ดีที่สุดของ OWASP โดยการเพิ่ม Headers ป้องกันการโจมตีทางเว็บ:
+
+```ts
+import { securityHeaders } from "@narudom96/nelysia/plugins"
+
+app.use(securityHeaders({
+  xContentTypeOptions: true,                                      // X-Content-Type-Options: nosniff
+  xFrameOptions: "SAMEORIGIN",                                    // ป้องกัน Clickjacking (หรือ "DENY")
+  xXSSProtection: true,                                           // X-XSS-Protection: 0 (มาตรฐานใหม่)
+  referrerPolicy: "no-referrer",                                  // Referrer-Policy
+  strictTransportSecurity: "max-age=15552000; includeSubDomains", // HSTS
+  crossOriginOpenerPolicy: "same-origin",                         // COOP
+  crossOriginResourcePolicy: "same-origin"                        // CORP
+}))
+```
+
+### การให้บริการโฟลเดอร์ไฟล์ Static (`staticDirectory`)
+
+ในเวอร์ชัน v0.1.2+ ให้บริการไฟล์ Static ทั้งโฟลเดอร์ (CSS, JS, รูปภาพ, ฟอนต์, HTML) ได้อย่างง่ายดาย พร้อมระบบตรวจจับ MIME Type และการป้องกัน Path Traversal ในตัว:
+
+```ts
+import { staticDirectory } from "@narudom96/nelysia/plugins"
+
+// ให้บริการไฟล์จากโฟลเดอร์ public เช่น /public/style.css -> /assets/style.css
+app.use(staticDirectory({
+  prefix: "/assets",       // Path Prefix ที่ต้องการให้บริการ (ค่าเริ่มต้น: "")
+  root: "./public",         // โฟลเดอร์ต้นทาง
+  index: "index.html"      // ไฟล์ดัชนีเมื่อเรียกเข้าโฟลเดอร์ย่อย
+}))
+```
+
+- **ความปลอดภัยสูง**: มีการตรวจสอบและตัด `..` ป้องกันไม่ให้ Client เข้าถึงไฟล์นอกโฟลเดอร์ที่กำหนด
+- **รองรับ MIME Types ครอบคลุม**: `html`, `css`, `js`, `json`, `svg`, `png`, `jpg`, `webp`, `woff2`, `wasm` ฯลฯ
+
 ### การจำกัดจำนวน Request (`rateLimit`)
 
 จำกัดปริมาณคำขอตามช่วงเวลาเพื่อป้องกันการยิงสแปม (ป้องกัน DDoS/Brute Force):
@@ -552,7 +783,7 @@ app.use(rateLimit({
 ```
 เมื่อคำขอเกินกำหนด ระบบจะตอบกลับด้วย `HTTP 429 Too Many Requests` พร้อม Header `Retry-After` อัตโนมัติ
 
-### การให้บริการไฟล์ Static (`staticFile`)
+### การให้บริการไฟล์ Static เดี่ยว (`staticFile`)
 
 ```ts
 import { staticFile } from "@narudom96/nelysia/plugins"
@@ -575,30 +806,60 @@ app.use(compression({
 
 ---
 
-## 10. OpenAPI 3.1 และหน้าเอกสาร Redoc UI
+## 10. OpenAPI 3.1 และหน้าเอกสาร Redoc / Swagger UI
 
-สร้างเอกสารอ้างอิง API ตามมาตรฐาน OpenAPI 3.1 จาก Route Schemas ที่ระบุไว้โดยอัตโนมัติ
+สร้างเอกสารอ้างอิง API ตามมาตรฐาน OpenAPI 3.1 จาก Route Schemas ที่ระบุไว้โดยอัตโนมัติ พร้อมรองรับ Metadata รายละเอียดเส้นทาง:
+
+### สร้างเอกสาร OpenAPI อัตโนมัติและ Route Metadata
+
+ในเวอร์ชัน v0.1.3+ คุณสามารถใส่ `summary`, `description` และ `tags` ใน Route Options เพื่อให้ปรากฏในสเปก OpenAPI ได้ทันที:
 
 ```ts
-import { openapi, openapiUi } from "@narudom96/nelysia/openapi"
+import { Nelysia, t } from "@narudom96/nelysia"
+import { openapi, openapiUi, swaggerUi } from "@narudom96/nelysia/openapi"
 
-app
-  // ให้บริการ JSON Specification ที่ /openapi.json
+const app = new Nelysia()
+  .get("/users", () => [{ id: "1", name: "สมชาย" }], {
+    summary: "ดึงรายชื่อผู้ใช้ทั้งหมด",
+    description: "คืนค่ารายการผู้ใช้งานในระบบ พร้อมรองรับการกรองตามสถานะ",
+    tags: ["Users"],
+    response: t.Array(t.Object({ id: t.String(), name: t.String() }))
+  })
   .use(openapi({
     title: "ระบบ API ตัวอย่าง",
     version: "1.0.0",
     path: "/openapi.json"
   }))
-
-  // แสดงหน้าเว็บเอกสารแบบ Interactive (Redoc) ที่ /docs
-  .use(openapiUi({
-    path: "/docs",
-    specPath: "/openapi.json",
-    title: "คู่มือการเรียกใช้ API"
-  }))
 ```
 
-เมื่อเปิดเว็บเบราว์เซอร์ไปที่ `http://localhost:3000/docs` จะพบหน้าต่างเอกสาร API ที่สวยงามพร้อมรายละเอียด Request/Response ทั้งหมด
+### เปิดหน้าเว็บ Redoc UI (`openapiUi`)
+
+แสดงหน้าเว็บเอกสารแบบ Redoc ที่อ่านง่ายและสวยงาม:
+
+```ts
+app.use(openapiUi({
+  path: "/docs",
+  specPath: "/openapi.json",
+  title: "คู่มือการเรียกใช้ API (Redoc)"
+}))
+```
+
+### เปิดหน้าเว็บ Swagger UI (`swaggerUi`)
+
+ในเวอร์ชัน v0.1.3+ เพิ่มการรองรับ Swagger UI แบบ Interactive ที่ให้คุณสามารถทดสอบยิง Request จากเบราว์เซอร์ได้ทันที:
+
+```ts
+app.use(swaggerUi({
+  path: "/swagger",
+  specPath: "/openapi.json",
+  title: "API Explorer (Swagger UI)"
+}))
+```
+
+เมื่อเปิดเว็บเบราว์เซอร์ไปที่ `http://localhost:3000/swagger` หรือ `/docs` จะพบหน้าต่างเอกสาร API ที่สวยงามพร้อมรายละเอียดและตัวอย่างข้อมูลทั้งหมด
+
+### การสกัด Schema จาก Standard Schema (Zod / Valibot)
+Nelysia สกัด Schema ที่นิยามด้วยมาตรฐาน Standard Schema v1 (เช่น Zod, Valibot, ArkType) ออกมาเป็น OpenAPI Schema Object ให้อัตโนมัติ ทำให้ไม่ต้องนิยาม Schema ซ้ำสองรอบ
 
 ---
 

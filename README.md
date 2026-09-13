@@ -15,7 +15,7 @@
 > **Until then, do THIS instead** (2 commands, same result):
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.1/narudom96-nelysia-0.1.1.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.4/narudom96-nelysia-0.1.4.tgz
 npm install ./nelysia.tgz
 ```
 
@@ -23,7 +23,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (works once v0.1.1 is published — replaces the 2 lines above)
+# registry install (works once v0.1.4 is published — replaces the 2 lines above)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -41,7 +41,7 @@ Use this while the package is not yet (or whenever it is not) on the npm registr
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.1/narudom96-nelysia-0.1.1.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.4/narudom96-nelysia-0.1.4.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -50,20 +50,30 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.1/narudom96-nelysia-0.1.1.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.4/narudom96-nelysia-0.1.4.tgz
 ```
 
-Replace `v0.1.1` / the filename with the latest release you see on the releases page.
+Replace `v0.1.4` / the filename with the latest release you see on the releases page.
 
 ```ts
 // app.ts
 import { Nelysia } from "@narudom96/nelysia"
+import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
-  .get("/", () => "Hello from Nelysia!")
-  .get("/users/:id", ({ params }) => ({ id: params.id }))
+  .use(cors())
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.1.4!</h1>"))
+  .get("/users/:id", ({ params, query }) => ({
+    id: params.id,
+    filter: query.filter ?? "all"
+  }))
+  .group("/api/v1", (api) => {
+    api.get("/status", () => ({ status: "operational", uptime: process.uptime() }))
+  })
 
-app.listen(3000)
+app.listen(3000, ({ port, url }) => {
+  console.log(`🚀 Nelysia server running at ${url} on port ${port}`)
+})
 ```
 
 ```bash
@@ -77,6 +87,17 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 - 🏛️ [System Architecture Blueprint (โครงสร้างสถาปัตยกรรม)](./docs/ARCHITECTURE.md)
 - 🇬🇧 [Comprehensive Documentation (English)](./docs/DOCUMENTATION_EN.md)
 - 🇹🇭 [คู่มือการใช้งานอย่างละเอียด (ภาษาไทย)](./docs/DOCUMENTATION_TH.md)
+- 🌐 [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
+
+### What's New in v0.1.4
+- 🚀 **Unified `app.listen(port, callback)`**: Automatically passes `{ port, hostname, url, server }` to your callback on both Bun and Node.js.
+- ⚡ **Response Shorthands**: `context.html()`, `context.text()`, `context.json()`, and `context.redirect()`.
+- 🔍 **`context.query` Proxy**: Destructure query parameters directly: `({ query }) => query.search`.
+- 🛠️ **`context.set` & `context.store`**: Status/header mutation (`set.status = 201`) and request-scoped state sharing.
+- 🛡️ **Built-in Plugins**: `cors()`, `securityHeaders()`, and `staticDirectory()`.
+- 📂 **Route Grouping**: `app.group(prefix, callback)` with nested hook inheritance.
+- 🚫 **Custom 404 Handler**: `app.notFound(({ path }) => ...)` for tailored fallback responses.
+- 📖 **OpenAPI & Swagger UI**: `swaggerUi()` interactive documentation and route metadata (`summary`, `description`, `tags`).
 
 This repository currently contains the first vertical slice:
 

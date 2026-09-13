@@ -1,6 +1,6 @@
 # Nelysia: Comprehensive Technical Documentation
 
-> **Version:** 0.1.0 (MVP Complete)  
+> **Version:** 0.1.4 (Latest Release)  
 > **Target Runtimes:** Bun 1.4+, Node.js 22+, and Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **Language:** TypeScript / JavaScript (ESM)
 
@@ -14,12 +14,18 @@
 4. [Core Application (`Nelysia`)](#4-core-application-nelysia)
    - [Configuration Options](#configuration-options)
    - [HTTP Routing Methods](#http-routing-methods)
-   - [Route Options & Schemas](#route-options--schemas)
+   - [Route Grouping (`group`)](#route-grouping-group)
+   - [Custom 404 Handler (`notFound`)](#custom-404-handler-notfound)
    - [Sub-App Mounting (`mount`)](#sub-app-mounting-mount)
+   - [Unified Server Listener (`listen`)](#unified-server-listener-listen)
+   - [Plugin Mechanics (`use`) and Lifecycle Scope](#plugin-mechanics-use-and-lifecycle-scope)
 5. [The Request Context (`Context`)](#5-the-request-context-context)
-   - [Context Properties](#context-properties)
-   - [Request IDs & IP Resolution](#request-ids--ip-resolution)
-   - [Cookies Management](#cookies-management)
+   - [Context Properties & Interface](#context-properties--interface)
+   - [Query Parameters via Proxy Destructuring](#query-parameters-via-proxy-destructuring)
+   - [Response Mutation with `context.set`](#response-mutation-with-contextset)
+   - [Request State Sharing with `context.store`](#request-state-sharing-with-contextstore)
+   - [Response Shorthands (`html`, `text`, `json`, `redirect`)](#response-shorthands)
+   - [Cookies Management & `deleteCookie`](#cookies-management)
    - [Returning Custom Responses](#returning-custom-responses)
 6. [Schema Validation & Type Safety](#6-schema-validation--type-safety)
    - [Built-in Schema Builder (`t`)](#built-in-schema-builder-t)
@@ -35,14 +41,17 @@
    - [Handler Contract](#handler-contract)
    - [Bun and Node Implementations](#bun-and-node-implementations)
 9. [Plugins Ecosystem](#9-plugins-ecosystem)
-   - [Plugin Structure (`use`)](#plugin-structure-use)
+   - [CORS Security (`cors`)](#cors-security-cors)
+   - [OWASP Security Headers (`securityHeaders`)](#owasp-security-headers-securityheaders)
+   - [Static Directory Serving (`staticDirectory`)](#static-directory-serving-staticdirectory)
    - [Rate Limiting (`rateLimit`)](#rate-limiting-ratelimit)
    - [Static File Serving (`staticFile`)](#static-file-serving-staticfile)
    - [HTTP Compression (`compression`)](#http-compression-compression)
-10. [OpenAPI 3.1 & Redoc UI](#10-openapi-31--redoc-ui)
-    - [Generating OpenAPI Specification](#generating-openapi-specification)
+10. [OpenAPI 3.1 & Redoc / Swagger UI](#10-openapi-31--redoc--swagger-ui)
+    - [Generating OpenAPI Specification & Route Metadata](#generating-openapi-specification--route-metadata)
     - [Serving OpenAPI JSON Endpoint](#serving-openapi-json-endpoint)
-    - [Interactive Documentation UI (`openapiUi`)](#interactive-documentation-ui-openapiui)
+    - [Interactive Documentation UIs (`openapiUi` & `swaggerUi`)](#interactive-documentation-uis-openapiui--swaggerui)
+    - [Standard Schema Extraction](#standard-schema-extraction)
     - [Client Type Generation (`generateClientTypes`)](#client-type-generation-generateclienttypes)
 11. [Observability & OpenTelemetry](#11-observability--opentelemetry)
     - [Telemetry Callbacks](#telemetry-callbacks)
@@ -129,15 +138,18 @@ Always export the `app` instance so the compiler and CLI can inspect and build y
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", () => "Hello from Nelysia!")
-  .get("/users/:id", ({ params }) => ({
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.1.4!</h1>"))
+  .get("/users/:id", ({ params, query }) => ({
     id: params.id,
+    filter: query.filter ?? "default",
     timestamp: Date.now()
   }))
 
-// Listen directly if running as standalone
+// Listen directly with server info callback
 if (import.meta.main || process.env.NODE_ENV !== "test") {
-  app.listen(3000)
+  app.listen(3000, ({ port, url }) => {
+    console.log(`🚀 Nelysia server running at ${url} (port ${port})`)
+  })
 }
 ```
 
@@ -155,10 +167,10 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# Output: Hello from Nelysia!
+# Output: <h1>Hello from Nelysia v0.1.4!</h1>
 
-curl http://localhost:3000/users/42
-# Output: {"id":"42","timestamp":1726180000000}
+curl "http://localhost:3000/users/42?filter=active"
+# Output: {"id":"42","filter":"active","timestamp":1726180000000}
 ```
 
 ---
@@ -249,9 +261,51 @@ app.get("/files/*", ({ params }) => {
 
 > Wildcards are only allowed as the final path segment. Wildcard routes are always classified `GENERIC` and served through the generic runtime.
 
+### Route Grouping (`group`)
+
+In v0.1.3+, Nelysia introduces `app.group(prefix, callback)` for structuring routes into logical hierarchies. Groups automatically inherit global configuration while isolating group-specific lifecycle hooks (such as authentication or validation) so they never leak into sibling routes:
+
+```ts
+app.group("/api/v1", (api) => {
+  // Scoped hook: runs only for routes within /api/v1
+  api.onBeforeHandle(({ headers, response }) => {
+    if (!headers.get("authorization")) {
+      return response(401, { error: "Missing authorization token for API v1" })
+    }
+  })
+
+  api.get("/users", () => [{ id: "1", name: "Alice" }])
+  api.get("/posts", () => [{ id: "101", title: "Announcing Nelysia" }])
+})
+
+// Public route: outside the group, no authorization hook applied
+app.get("/health", () => ({ status: "ok" }))
+```
+
+### Custom 404 Handler (`notFound`)
+
+In v0.1.3+, you can define a custom fallback handler for requests that match no registered route using `app.notFound(handler)`:
+
+```ts
+app.notFound(({ request, response }) => {
+  return response(404, {
+    error: "Not Found",
+    path: request.url,
+    method: request.method,
+    timestamp: Date.now()
+  })
+})
+```
+
+Or combine it with `context.html()` for custom error pages:
+
+```ts
+app.notFound(({ html }) => html("<h1>404 - Page Not Found</h1>", 404))
+```
+
 ### Sub-App Mounting (`mount`)
 
-Encapsulate modular route groups and mount them under distinct URL prefixes:
+Encapsulate modular route groups into separate `Nelysia` instances and mount them under distinct URL prefixes:
 
 ```ts
 const apiV1 = new Nelysia()
@@ -266,9 +320,36 @@ const app = new Nelysia()
 // GET /api/v1/users
 ```
 
+### Unified Server Listener (`listen`)
+
+In v0.1.4+, `app.listen()` provides a uniform API across both Bun and Node.js runtimes. When passed a callback, it receives a normalized `ServerInfo` object:
+
+```ts
+interface ServerInfo {
+  port: number        // Actually bound listening port
+  hostname: string    // Bound hostname (e.g. "localhost")
+  url: string         // Full accessible base URL (e.g. "http://localhost:3000")
+  server: unknown     // Native server handle (Bun.serve or Node.js http.Server)
+}
+```
+
+Usage examples:
+
+```ts
+// 1. Simple port listening with callback
+app.listen(3000, ({ port, url }) => {
+  console.log(`🚀 Server listening on ${url} (port ${port})`)
+})
+
+// 2. Specific host and port binding
+app.listen({ port: 8080, hostname: "0.0.0.0" }, ({ url }) => {
+  console.log(`🌐 Server bound to all network interfaces at ${url}`)
+})
+```
+
 ### Plugin Mechanics (`use`) and Lifecycle Scope
 
-`use()` accepts only a function `(app) => app | void` — there is no instance-as-plugin, no `decorate`/`state`, and no `guard`/`group` as in Elysia:
+`use()` accepts only a function `(app) => app | void`:
 
 ```ts
 // A plugin is a config factory returning (app) => app
@@ -281,56 +362,122 @@ app.use(myPlugin({ tag: "missing-tag" }))
 ```
 
 Scope rules to remember:
-- Hooks added to the parent (before or after `mount`) apply to all of the parent's own routes — including routes registered earlier (backfill)
-- Mounted child routes carry the child's own `before/after/error` lifecycle with them: no leaking to siblings, and later parent hooks never backfill onto them
-- A duplicate method+path during mount throws `Duplicate route`
-- No deduplication — calling `use()` twice registers twice
+- Hooks added to the parent (before or after `mount` or `group`) apply to all of the parent's own routes — including routes registered earlier (backfill).
+- Child routes registered via `mount` or `group` carry their own `before/after/error` lifecycle with them: no leaking to siblings, and parent hooks added later do not retroactively apply to them.
+- A duplicate method+path during mount throws `Duplicate route`.
+- No deduplication — calling `use()` twice registers the plugin twice.
 
 ---
 
 ## 5. The Request Context (`Context`)
 
-Every route handler receives an isolated, request-scoped `Context` object:
+Every route handler receives an isolated, request-scoped `Context` object. In v0.1.4+, the Context API offers full ergonomic parity with modern backend frameworks while maintaining zero overhead on optimized paths:
 
 ```ts
 interface Context {
   request: RequestData                     // Low-level request details
   requestId: string                        // Unique UUID / X-Request-ID
-  clientIp?: string                        // Remote socket IP or X-Forwarded-For
-  params: Record<string, string>           // Decoded route params
-  query: URLSearchParams                   // Parsed query parameters
-  body: unknown                            // Parsed JSON body or raw string
+  clientIp?: string                        // Remote socket IP or X-Forwarded-For (with trustedProxy)
+  params: Record<string, string>           // Decoded route parameters (:id)
+  query: ParsedQuery                       // Proxy object supporting both .get() and direct destructuring
+  set: ResponseSetContext                  // Mutable response status and header overrides
+  store: Record<string, unknown>           // Request-scoped state storage shared across hooks
+  body: unknown                            // Parsed JSON body or raw payload
   headers: Headers                         // Web Standard Request Headers
   cookies: Record<string, string>          // Parsed incoming cookies
   setCookie(name: string, value: string, options?: CookieOptions): void
+  deleteCookie(name: string, options?: CookieOptions): void
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
+  html(body: string, status?: number): ResponseData
+  text(body: string, status?: number): ResponseData
+  json(body: unknown, status?: number): ResponseData
+  redirect(url: string, status?: number): ResponseData
+  header(name: string, value: string): this
 }
 ```
 
-### Context Properties
+### Query Parameters via Proxy Destructuring
+
+In v0.1.2+, `context.query` is wrapped in a high-performance Proxy that supports two paradigms simultaneously:
+
+1. **Direct Object Property & Destructuring Access:**
+   ```ts
+   app.get("/search", ({ query }) => {
+     const { q, page = "1", limit = "20" } = query
+     return { results: [], query: q, page: Number(page), limit: Number(limit) }
+   })
+   ```
+2. **Standard `URLSearchParams` Methods:**
+   ```ts
+   app.get("/filter", ({ query }) => {
+     if (query.has("tag")) {
+       return { tag: query.get("tag") }
+     }
+     return { tag: null }
+   })
+   ```
+3. **Repeated Query Keys as Arrays:**
+   When queries repeat (e.g. `?category=electronics&category=audio`), `query.category` cleanly returns `["electronics", "audio"]`.
+
+### Response Mutation with `context.set`
+
+Handlers can mutate the HTTP status code and response headers directly using `context.set`, without having to wrap the return payload in a helper function:
 
 ```ts
-app.get("/search/:category", ({ params, query, headers, clientIp, requestId }) => {
-  const category = params.category // e.g. "books"
-  const term = query.get("q")      // e.g. "typescript"
-  const userAgent = headers.get("user-agent")
+app.post("/users", ({ body, set }) => {
+  set.status = 201 // Sets HTTP 201 Created
+  set.headers["x-created-by"] = "nelysia"
+  set.headers["x-version"] = "1.0.0"
 
-  return {
-    requestId,
-    clientIp,
-    category,
-    term,
-    userAgent
-  }
+  return { success: true, user: body }
 })
 ```
 
-### Cookies Management
+### Request State Sharing with `context.store`
 
-Read and write HTTP cookies with standard attributes:
+In v0.1.3+, `context.store` provides a per-request dictionary for sharing state across lifecycle hooks (`onBeforeHandle`, handler, `onAfterHandle`):
 
 ```ts
-app.get("/auth/login", ({ cookies, setCookie, response }) => {
+// Verify bearer token and attach user to store
+app.onBeforeHandle(({ headers, store, response }) => {
+  const token = headers.get("authorization")
+  if (!token) return response(401, { error: "Missing authorization token" })
+
+  store.currentUser = { id: "u123", role: "admin" }
+})
+
+// Retrieve currentUser from store in downstream handler
+app.get("/me", ({ store }) => {
+  return { user: store.currentUser }
+})
+```
+
+### Response Shorthands
+
+In v0.1.4+, Nelysia provides dedicated shorthands to return strongly typed responses with preconfigured `Content-Type` headers:
+
+- `html(body, status = 200)`: Returns HTML with `Content-Type: text/html; charset=utf-8`
+- `text(body, status = 200)`: Returns plaintext with `Content-Type: text/plain; charset=utf-8`
+- `json(body, status = 200)`: Returns serialized JSON with `Content-Type: application/json; charset=utf-8`
+- `redirect(url, status = 302)`: Returns an HTTP redirect with the `Location` header (status can be 301, 302, 307, etc.)
+- `header(name, value)`: Chainable helper for appending headers to the response
+
+```ts
+app
+  .get("/landing", ({ html }) => html("<h1>Welcome to Nelysia v0.1.4</h1>"))
+  .get("/robots.txt", ({ text }) => text("User-agent: *\nDisallow: /private"))
+  .get("/old-path", ({ redirect }) => redirect("/new-path", 301))
+  .get("/api/ping", (ctx) => {
+    return ctx.header("x-server", "nelysia").json({ pong: true })
+  })
+```
+
+### Cookies Management & `deleteCookie`
+
+Read, write, and invalidate HTTP cookies with security-compliant options:
+
+```ts
+app.get("/auth/login", ({ cookies, setCookie }) => {
   const currentSession = cookies.sessionId
 
   // Set response cookie
@@ -344,15 +491,22 @@ app.get("/auth/login", ({ cookies, setCookie, response }) => {
 
   return { message: "Authenticated", priorSession: currentSession ?? null }
 })
+
+app.post("/auth/logout", ({ deleteCookie }) => {
+  // Clear cookie by expiring immediately
+  deleteCookie("sessionId", { path: "/" })
+  return { message: "Logged out successfully" }
+})
 ```
 
 ### Returning Custom Responses
 
 Handlers can return:
-1. **Plain objects / primitives**: Automatically formatted as JSON or text with `200 OK`.
-2. **`context.response(status, body, headers)`**: Explicit status code and additional headers.
-3. **Native `Response`**: Complete control over Web API `Response`.
-4. **`ReadableStream`**: Direct chunked streaming.
+1. **Plain objects / primitives**: Automatically formatted as JSON or text with `200 OK` (or `set.status`).
+2. **Response Shorthands**: `context.html()`, `context.text()`, `context.json()`, `context.redirect()`.
+3. **`context.response(status, body, headers)`**: Explicit status code and additional headers.
+4. **Native `Response`**: Complete control over Web API `Response`.
+5. **`ReadableStream`**: Direct chunked streaming.
 
 ```ts
 app.get("/custom", ({ response }) => {
@@ -582,6 +736,63 @@ app.websocket("/ws/chat", {
 
 Plugins in Nelysia are composable functions that accept the `app` instance.
 
+### CORS Security (`cors`)
+
+In v0.1.3+, Nelysia includes a native, high-performance CORS plugin that automatically handles preflight `OPTIONS` requests with HTTP 204:
+
+```ts
+import { cors } from "@narudom96/nelysia/plugins"
+
+app.use(cors({
+  // Allowed origins: string, string[], boolean, or custom callback
+  origin: ["http://localhost:3000", "https://frontend.example.com"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["x-request-id"],
+  credentials: true,
+  maxAge: 86400 // Cache preflight response for 24 hours
+}))
+```
+
+- **Zero-Handler Preflight**: Preflight `OPTIONS` requests are intercepted immediately and respond with `204 No Content` and appropriate CORS headers without reaching your route handlers.
+- **Dynamic Origin Resolution**: When using `origin: (origin, context) => boolean | string`, you can validate origins dynamically against database allowlists or tenant configs.
+
+### OWASP Security Headers (`securityHeaders`)
+
+In v0.1.3+, the `securityHeaders()` plugin hardens your application against common web attacks following OWASP guidelines:
+
+```ts
+import { securityHeaders } from "@narudom96/nelysia/plugins"
+
+app.use(securityHeaders({
+  xContentTypeOptions: true,                                      // X-Content-Type-Options: nosniff
+  xFrameOptions: "SAMEORIGIN",                                    // Prevent Clickjacking (or "DENY")
+  xXSSProtection: true,                                           // X-XSS-Protection: 0 (modern standard)
+  referrerPolicy: "no-referrer",                                  // Referrer-Policy
+  strictTransportSecurity: "max-age=15552000; includeSubDomains", // HSTS
+  crossOriginOpenerPolicy: "same-origin",                         // COOP
+  crossOriginResourcePolicy: "same-origin"                        // CORP
+}))
+```
+
+### Static Directory Serving (`staticDirectory`)
+
+In v0.1.2+, serve an entire directory of static assets with built-in MIME type resolution and directory traversal protections:
+
+```ts
+import { staticDirectory } from "@narudom96/nelysia/plugins"
+
+// Serves all files from ./public under the /static/* URL path
+app.use(staticDirectory({
+  prefix: "/static",       // URL prefix (defaults to "")
+  root: "./public",         // Root filesystem directory
+  index: "index.html"      // Directory index file fallback
+}))
+```
+
+- **Traversal Defense**: Automatically rejects attempts to traverse out of the root directory (`..`).
+- **Comprehensive MIME Mapping**: Supports `html`, `css`, `js`, `json`, `svg`, `png`, `jpg`, `webp`, `woff2`, `wasm`, and more.
+
 ### Rate Limiting (`rateLimit`)
 
 In-memory sliding/fixed window rate limiting with standard `Retry-After` headers and `429 Too Many Requests`:
@@ -598,7 +809,7 @@ app.use(rateLimit({
 
 ### Static File Serving (`staticFile`)
 
-Efficiently serve local static assets with automatic MIME detection:
+Efficiently serve individual local static assets with automatic MIME detection:
 
 ```ts
 import { staticFile } from "@narudom96/nelysia/plugins"
@@ -621,29 +832,57 @@ app.use(compression({
 
 ---
 
-## 10. OpenAPI 3.1 & Redoc UI
+## 10. OpenAPI 3.1 & Redoc / Swagger UI
 
-Nelysia inspects route schemas and builds fully compliant OpenAPI 3.1 specifications automatically.
+Nelysia inspects route schemas and builds fully compliant OpenAPI 3.1 specifications automatically, complete with rich route metadata.
 
-### Enabling OpenAPI & Interactive Documentation
+### Generating OpenAPI Specification & Route Metadata
+
+In v0.1.3+, attach descriptive `summary`, `description`, and `tags` to route options. The OpenAPI generator embeds these into the generated specification:
 
 ```ts
-import { openapi, openapiUi } from "@narudom96/nelysia/openapi"
+import { Nelysia, t } from "@narudom96/nelysia"
+import { openapi, openapiUi, swaggerUi } from "@narudom96/nelysia/openapi"
 
-app
-  // Serves JSON spec at /openapi.json
+const app = new Nelysia()
+  .get("/users", () => [{ id: "1", name: "Alice" }], {
+    summary: "List all users",
+    description: "Returns active accounts with pagination parameters",
+    tags: ["Users"],
+    response: t.Array(t.Object({ id: t.String(), name: t.String() }))
+  })
   .use(openapi({
-    title: "E-Commerce Service API",
+    title: "Production E-Commerce API",
     version: "1.0.0",
     path: "/openapi.json"
   }))
-  
-  // Serves interactive Redoc documentation at /docs
-  .use(openapiUi({
-    path: "/docs",
-    specPath: "/openapi.json",
-    title: "API Reference"
-  }))
+```
+
+### Interactive Documentation UIs (`openapiUi` & `swaggerUi`)
+
+Serve your preferred interactive UI documentation with zero external build step:
+
+```ts
+// 1. Redoc UI: Clean, modern documentation reading experience
+app.use(openapiUi({
+  path: "/docs",
+  specPath: "/openapi.json",
+  title: "API Reference (Redoc)"
+}))
+
+// 2. Swagger UI: Interactive sandbox for testing endpoints live in the browser
+app.use(swaggerUi({
+  path: "/swagger",
+  specPath: "/openapi.json",
+  title: "API Explorer (Swagger UI)"
+}))
+```
+
+Visiting `http://localhost:3000/swagger` opens Swagger UI, while `http://localhost:3000/docs` displays Redoc.
+
+### Standard Schema Extraction
+
+When route inputs/outputs are defined using Standard Schema v1 (e.g. Zod, Valibot, ArkType), Nelysia automatically extracts these schema definitions into the OpenAPI components dictionary without duplicating validation code.
 ```
 
 Visit `http://localhost:3000/docs` to view documentation in browser.
