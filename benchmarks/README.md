@@ -46,6 +46,12 @@ npm run benchmark:oha:bun
 
 # Run Node suite only
 npm run benchmark:oha:node
+
+# Run JWT suite
+npm run benchmark:jwt
+
+# Run TechEmpower suite
+npm run benchmark:teb
 ```
 
 Environment variables to customize:
@@ -53,5 +59,18 @@ Environment variables to customize:
 ```bash
 BENCH_DURATION_SEC=10 BENCH_CONCURRENCY=50 BENCH_ROUNDS=3 npm run benchmark:oha
 ```
+
+Router scale benchmark (generic path, single `app.handle()` lookup cost as the table grows):
+
+```bash
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=100 node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
+```
+
+Fairness note: the Node baseline app uses `new Nelysia({ requestId: false })` so the
+comparison measures routing/serialization like raw/fastify/express, which do not
+generate a request ID per request. The default (`requestId: true`) preserves the
+`x-request-id` echo contract and costs one UUID per request in the Node/Bun adapters.
 
 This is a smoke benchmark, not a framework claim. Record Node version, CPU, OS, dependency versions, and whether other workloads are running before comparing results. Use a dedicated load generator and multiple repetitions before publishing numbers.

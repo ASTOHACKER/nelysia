@@ -41,8 +41,20 @@ export const t = {
 }
 
 export function fromStandardSchema<T>(schema: StandardSchema<T>): Schema<T> {
+  let definition: Record<string, unknown> | undefined
+  const raw = schema as unknown as Record<string, unknown>
+  const shape = raw.shape ?? (typeof (raw._def as Record<string, unknown>)?.shape === "function" ? (raw._def as { shape: () => unknown }).shape() : (raw._def as Record<string, unknown>)?.shape)
+  if (typeof shape === "object" && shape !== null) {
+    const properties: Record<string, unknown> = {}
+    for (const [key, val] of Object.entries(shape as Record<string, unknown>)) {
+      properties[key] = { type: inferPropertyType(val) }
+    }
+    definition = { type: "object", properties, required: Object.keys(properties) }
+  }
+
   return {
     kind: "standard",
+    definition,
     async validate(value, path = "body") {
       const result = await schema["~standard"].validate(value)
       if (typeof result === "object" && result !== null && "issues" in result) {
@@ -53,4 +65,16 @@ export function fromStandardSchema<T>(schema: StandardSchema<T>): Schema<T> {
       return result as T
     }
   }
+}
+
+function inferPropertyType(field: unknown): string {
+  if (typeof field === "object" && field !== null) {
+    const f = field as Record<string, unknown>
+    if (typeof f.type === "string") return f.type
+    if (typeof f._def === "object" && f._def !== null) {
+      const typeName = (f._def as Record<string, unknown>).typeName
+      if (typeof typeName === "string") return typeName.replace(/^Zod/, "").toLowerCase()
+    }
+  }
+  return "string"
 }

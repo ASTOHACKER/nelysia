@@ -1,6 +1,6 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 0.1.0 (MVP Complete)  
+> **เวอร์ชัน:** 0.1.4 (Latest Release)  
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
 
@@ -14,10 +14,18 @@
 4. [แกนหลักของแอปพลิเคชัน (`Nelysia`)](#4-แกนหลักของแอปพลิเคชัน-nelysia)
    - [การตั้งค่า Option ต่างๆ](#การตั้งค่า-option-ต่างๆ)
    - [เมธอดสำหรับ Routing](#เมธอดสำหรับ-routing)
+   - [การจัดกลุ่ม Route ด้วย `group`](#การจัดกลุ่ม-route-ด้วย-group)
+   - [การปรับแต่งหน้า 404 ด้วย `notFound`](#การปรับแต่งหน้า-404-ด้วย-notfound)
    - [การรวม Sub-App ด้วย `mount`](#การรวม-sub-app-ด้วย-mount)
+   - [การเปิดเซิร์ฟเวอร์ด้วย `listen`](#การเปิดเซิร์ฟเวอร์ด้วย-listen)
+   - [กลไก Plugin (`use`) และขอบเขต Lifecycle](#กลไก-plugin-use-และขอบเขต-lifecycle)
 5. [Request Context (`Context`)](#5-request-context-context)
    - [ข้อมูลใน Context](#ข้อมูลใน-context)
-   - [การจัดการ Cookies](#การจัดการ-cookies)
+   - [การอ่าน Query ด้วย Proxy Destructuring](#การอ่าน-query-ด้วย-proxy-destructuring)
+   - [การตั้งค่า Status และ Headers ด้วย `context.set`](#การตั้งค่า-status-และ-headers-ด้วย-contextset)
+   - [การแชร์ข้อมูลภายใน Request ด้วย `context.store`](#การแชร์ข้อมูลภายใน-request-ด้วย-contextstore)
+   - [ฟังก์ชันอำนวยความสะดวกสำหรับ Response Shorthands](#ฟังก์ชันอำนวยความสะดวกสำหรับ-response-shorthands)
+   - [การจัดการ Cookies และ `deleteCookie`](#การจัดการ-cookies)
    - [การส่ง Response กลับในรูปแบบต่างๆ](#การส่ง-response-กลับในรูปแบบต่างๆ)
 6. [การตรวจสอบข้อมูลและ Schema Validation](#6-การตรวจสอบข้อมูลและ-schema-validation)
    - [เครื่องมือสร้าง Schema ในตัว (`t`)](#เครื่องมือสร้าง-schema-ในตัว-t)
@@ -31,12 +39,16 @@
    - [การปิดเซิร์ฟเวอร์อย่างปลอดภัย (`gracefulShutdown`)](#การปิดเซิร์ฟเวอร์อย่างปลอดภัย-gracefulshutdown)
 8. [การใช้งาน WebSockets](#8-การใช้งาน-websockets)
 9. [ระบบปลั๊กอิน (Plugins Ecosystem)](#9-ระบบปลั๊กอิน-plugins-ecosystem)
+   - [ระบบความปลอดภัย CORS (`cors`)](#ระบบความปลอดภัย-cors-cors)
+   - [HTTP Security Headers (`securityHeaders`)](#http-security-headers-securityheaders)
+   - [การให้บริการโฟลเดอร์ไฟล์ Static (`staticDirectory`)](#การให้บริการโฟลเดอร์ไฟล์-static-staticdirectory)
    - [การจำกัดจำนวน Request (`rateLimit`)](#การจำกัดจำนวน-request-ratelimit)
-   - [การให้บริการไฟล์ Static (`staticFile`)](#การให้บริการไฟล์-static-staticfiles)
+   - [การให้บริการไฟล์ Static เดี่ยว (`staticFile`)](#การให้บริการไฟล์-static-staticfiles)
    - [การบีบอัดข้อมูล Gzip (`compression`)](#การบีบอัดข้อมูล-gzip-compression)
-10. [OpenAPI 3.1 และหน้าเอกสาร Redoc UI](#10-openapi-31-และหน้าเอกสาร-redoc-ui)
-    - [สร้างเอกสาร OpenAPI อัตโนมัติ](#สร้างเอกสาร-openapi-อัตโนมัติ)
+10. [OpenAPI 3.1 และหน้าเอกสาร Redoc / Swagger UI](#10-openapi-31-และหน้าเอกสาร-redoc--swagger-ui)
+    - [สร้างเอกสาร OpenAPI อัตโนมัติและ Route Metadata](#สร้างเอกสาร-openapi-อัตโนมัติและ-route-metadata)
     - [เปิดหน้าเว็บ Redoc UI (`openapiUi`)](#เปิดหน้าเว็บ-redoc-ui-openapiui)
+    - [เปิดหน้าเว็บ Swagger UI (`swaggerUi`)](#เปิดหน้าเว็บ-swagger-ui-swaggerui)
     - [สร้าง TypeScript Interface สำหรับ Client](#สร้าง-typescript-interface-สำหรับ-client)
 11. [ระบบ Observability & OpenTelemetry Tracing](#11-ระบบ-observability--opentelemetry-tracing)
 12. [การเชื่อมต่อกับ GraphQL](#12-การเชื่อมต่อกับ-graphql)
@@ -58,18 +70,69 @@
     - [TanStack Start](#tanstack-start)
 20. [การทดสอบประสิทธิภาพและ Soak Testing (Benchmark)](#20-การทดสอบประสิทธิภาพและ-soak-testing)
 21. [คู่มือการย้ายโค้ด (Migration Guide)](#21-คู่มือการย้ายโค้ด-migration-guide)
+22. [คู่มือปรับประสิทธิภาพ (Performance Tuning)](#22-คู่มือปรับประสิทธิภาพ-performance-tuning)
+23. [เช็กลิสต์ Deploy ขึ้น Production](#23-เช็กลิสต์-deploy-ขึ้น-production)
+24. [แก้ปัญหาและ FAQ (Troubleshooting)](#24-แก้ปัญหาและ-faq-troubleshooting)
 
 ---
 
 ## 1. บทนำและสถาปัตยกรรม
 
-**Nelysia** คือ TypeScript Backend Framework รุ่นใหม่ที่ออกแบบภายใต้แนวคิด **Compiler-First** สำหรับรันไทม์ยุคใหม่อย่าง Bun และ Node.js (รวมถึง Cloudflare Workers, Vercel Edge, และ Deno) โดยมีจุดเด่นคือ:
-
-1. **Compiler-First Specialization**: Nelysia วิเคราะห์ Route กราฟล่วงหน้าตั้งแต่ตอนคอมไพล์ เส้นทางใดที่เป็นค่าคงที่ (Static) จะถูกคอมไพล์ให้ตอบสนองทันทีโดยไม่ต้องสร้าง Context Object ใหม่ (`compiled`), เส้นทางที่ต้องการแค่ Parameter จะตัดขั้นตอนอ่าน Cookie/Query ออก (`specialized`), และเส้นทางที่มี Middleware ซับซ้อนจะรันผ่าน Generic Pipeline ตามปกติ (`generic`)
-2. **Deterministic Route Resolution**: การค้นหา Route แบบ Static ใช้ Hash Map ซึ่งทำงานได้ที่ความเร็ว $O(1)$ ส่วน Dynamic Parameter ถูก Match อย่างแม่นยำ พร้อมระบบตอบกลับ `405 Method Not Allowed` และ `Allow Header` อัตโนมัติเมื่อใช้ Method ผิด ตลอดจนการรองรับ `OPTIONS` และ `HEAD` ในตัว
-3. **Web Standards Compatibility**: อิงตามมาตรฐานสากล เช่น `Request`, `Response`, `Headers`, และ `ReadableStream` ทำให้ทำงานได้ข้ามระบบอย่างสมบูรณ์แบบ
+**Nelysia** คือ TypeScript Backend Framework รุ่นใหม่ที่ออกแบบภายใต้แนวคิด **Compiler-First** สำหรับรันไทม์ยุคใหม่อย่าง Bun และ Node.js (รวมถึง Cloudflare Workers, Vercel Edge, และ Deno) โดยมีหัวใจหลักคือความเร็วสูงสุด ความเรียบง่ายในการพัฒนา (Ergonomic DX) และการรักษาความเสถียรของหน่วยความจำในระดับฮาร์ดแวร์
 
 ---
+
+### 🌟 รวม 10 สุดยอดสรรพคุณและจุดเด่นระดับเทพของ Nelysia (Why Nelysia?)
+
+#### 1. 🧬 คอมไพเลอร์แยก 3 เลน (AOT 3-Lane)
+Nelysia วิเคราะห์ Route ทั้งหมดล่วงหน้าตั้งแต่เปิดเซิร์ฟเวอร์ แล้วแยกออกเป็น 3 เลนตามความซับซ้อน:
+- **เลน 1 (COMPILED)**: รูทคงที่ — ตอบกลับทันทีจาก Raw Buffer ไม่สร้าง Object ใดๆ ไม่มี Overhead ใดๆ
+- **เลน 2 (SPECIALIZED)**: รูทมี param เช่น `/users/:id` — ดึงค่าตรงจาก URL ข้ามการ Parse Cookie/Query ที่ไม่ได้ใช้
+- **เลน 3 (GENERIC)**: รูทซับซ้อนที่มี Middleware, Validation, Body Parsing ทำงานเต็ม Pipeline
+
+ผลลัพธ์: แต่ละ Request ใช้พลังงานพอดีกับสิ่งที่ต้องการ ไม่เปลือง ไม่เสียเวลา
+
+#### 2. 🏎️ 30,618 req/s — เร็วกว่า Raw Bun
+ทดสอบจริง 100 รอบต่อเนื่อง ไม่มี Error แม้แต่ครั้งเดียว: **30,618 req/s** บน Bun, Latency เพียง **0.33 ms**, เร็วกว่า Elysia **+7%**, และเร็วกว่า Raw Bun ตัวเปล่า พร้อมขยะหน่วยความจำ (GC) เป็น **0%** บน static route — ไม่มีขยะ ไม่สะดุด ไม่แปลกใจ
+
+#### 3. 🎯 V8 ไม่เบรก ไม่สะดุด (Monomorphic IC)
+Framework อื่นมักยัดข้อมูลลง Context ด้วย `.decorate()` ซึ่งเปลี่ยน Shape ของ Object ทำให้ V8 ต้องออกจากโหมดเร็วไปโหมดช้า (De-opt)
+
+Nelysia ใช้ `context.store` แทน — Shape คงที่ตลอด V8 Cache ทำงานเต็มสปีด JIT ไม่เบรกหนีแม้แต่ครั้งเดียว
+
+#### 4. 🌐 Node.js + Bun แท้ ไม่ต้องลง Polyfill
+- **Node.js 22+**: ใช้ `node:http` แท้ รัน TypeScript ได้เลยโดยไม่ต้อง build ผ่าน `--experimental-strip-types`
+- **Bun 1.4+**: ใช้ `Bun.serve` ตรง ดึงพลัง SIMD และ Zero-Copy I/O ได้เต็มสูบ
+
+ไม่มี Polyfill กวนใจ ไม่มี Adapter ซ้อน ทั้งสองรันไทม์เป็น First-Class Citizen
+
+#### 5. 🚀 Multi-Core ในตัว ไม่ต้องลง PM2
+เรียก `serveClustered(app, { instances: 'max' })` ปุ๊บ ทุก CPU Core ของเครื่องมาช่วยกันรับโหลดทันที พร้อม Graceful Drain — request ที่ค้างอยู่จะเสร็จก่อน แล้วค่อยปิด Process ไม่มี connection ขาดกลางอากาศ
+
+#### 6. 🛡️ Zod, Valibot, ArkType — เสียบใช้ได้เลย
+มี Schema Builder น้ำหนักเบา `t` ในตัวโดยไม่มี dependency. หรือจะใช้ **Zod**, **Valibot**, หรือ **ArkType** ที่คุ้นเคยก็ได้ — ผ่าน Standard Schema v1 เสียบแล้วรัน ไม่ต้องมีปลั๊กอินแปลง ไม่มี Overhead เสริม
+
+#### 7. 📖 หน้า API Docs สวยๆ ที่ `/docs` สร้างเอง
+Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โดยอัตโนมัติ พร้อมหน้าเว็บ **Redoc** และ **Swagger UI** ให้เลือกใช้ที่ `/docs` — เปิดแล้วทดสอบ API ในเบราว์เซอร์ได้ทันที ไม่ต้องตั้งค่าเพิ่มเลย
+
+#### 8. 🔌 Frontend พิมพ์ผิดไม่ได้แล้ว (Type-Safe Client SDK)
+`@narudom96/nelysia/client` ส่ง Type ทุก Route, Param, Body, Query, และ Response จาก Server ไปยัง Frontend ครบ 100% — กด Tab มี Autocomplete เด้งทันทีใน VS Code ไม่พิมพ์ Endpoint ผิดอีก
+
+#### 9. 🧰 เกราะป้องกัน Production ครบในกล่อง
+ทุกอย่างอยู่ในตัว ไม่ต้องหาปลั๊กอินเพิ่ม:
+- `cors()`: จัดการ CORS Preflight อัตโนมัติ
+- `securityHeaders()`: ใส่ OWASP Security Headers ในคำสั่งเดียว
+- `rateLimit()`: ป้องกันการยิงถล่ม ด้วย Sliding-Window
+- `staticDirectory()`: เสิร์ฟไฟล์ Static พร้อมการ์ดป้องกัน Path Traversal
+- `compression()`: บีบอัดข้อมูล Gzip/Deflate อัตโนมัติ
+
+#### 10. 🤖 AI Streaming + Cloud ยุคใหม่ พร้อมเดี๋ยวนี้
+- **Vercel AI SDK**: สตรีมคำตอบ LLM แบบ Realtime ไม่ต้องเขียน Adapter เพิ่ม
+- **Database & Auth**: เชื่อม **Drizzle ORM**, **Prisma**, และ **Better Auth** ได้เลยตามเอกสาร
+- **Edge Deployment**: Deploy บน Cloudflare Workers, Vercel Edge, และ Deno ในขั้นตอนเดียว
+
+---
+
 
 ## 2. ข้อกำหนดและการติดตั้ง
 
@@ -116,15 +179,18 @@
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", () => "สวัสดีจาก Nelysia!")
-  .get("/users/:id", ({ params }) => ({
+  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v0.1.4!</h1>"))
+  .get("/users/:id", ({ params, query }) => ({
     id: params.id,
+    filter: query.filter ?? "default",
     timestamp: Date.now()
   }))
 
-// สั่งเปิดเซิร์ฟเวอร์หากรันไฟล์นี้โดยตรง
+// สั่งเปิดเซิร์ฟเวอร์พร้อม Callback แสดง URL
 if (import.meta.main || process.env.NODE_ENV !== "test") {
-  app.listen(3000)
+  app.listen(3000, ({ port, url }) => {
+    console.log(`🚀 Nelysia กำลังทำงานที่ ${url} (port ${port})`)
+  })
 }
 ```
 
@@ -142,10 +208,10 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# ผลลัพธ์: สวัสดีจาก Nelysia!
+# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v0.1.4!</h1>
 
-curl http://localhost:3000/users/42
-# ผลลัพธ์: {"id":"42","timestamp":1726180000000}
+curl "http://localhost:3000/users/42?filter=active"
+# ผลลัพธ์: {"id":"42","filter":"active","timestamp":1726180000000}
 ```
 
 ---
@@ -168,6 +234,12 @@ const app = new Nelysia({
 
   // บังคับให้ Cookie ทุกตัวติด Flag 'Secure' โดยอัตโนมัติ
   secureCookies: true,
+
+  // การจัดการ Request ID (ค่าเริ่มต้น: true) ถ้าเป็น true จะหา request ID จาก
+  // `requestId`, header `x-request-id` หรือค่าพื้นฐาน แล้วส่งกลับใน response header
+  // `x-request-id` ตั้งเป็น false เพื่อข้ามการสร้าง request ID ทั้งหมด (เร็วแบบ Elysia
+  // แนะนำสำหรับ benchmark และ service ที่ไม่ต้องการ ID)
+  requestId: false,
 
   // การตรวจจับ Telemetry ระดับ Global
   telemetry: {
@@ -192,6 +264,11 @@ Nelysia รองรับ Method ต่างๆ ในรูปแบบ Chain
 - `app.options(path, handler, options?)`
 - `app.all(path, handler, options?)` — ลงทะเบียน Route เดียวกันสำหรับทุก HTTP Method (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
 - `app.route(method, path, handler, options?)`
+
+> **พฤติกรรมของ OPTIONS:** request แบบ `OPTIONS` จะไม่วิ่งเข้า handler ใดๆ ถ้ามี route
+> ตรงกับ path จะตอบ `204` พร้อม header `Allow` ที่ลิสต์ method ที่ลงทะเบียนไว้ (บวก `HEAD`
+> สำหรับ route `GET`) ถ้าไม่ตรงเลยจะตอบ `404` การลงทะเบียน `app.options(path, handler)`
+> ทำได้แต่ handler จะไม่ถูกเรียก
 
 ```ts
 app
@@ -224,9 +301,50 @@ app.get("/files/*", ({ params }) => {
 
 > ข้อสังเกต: Wildcard ต้องอยู่ตำแหน่งสุดท้ายของ path เท่านั้น และ Route แบบนี้จะไม่ถูกจัดเป็น `COMPILED` (ตกเป็น `GENERIC` และใช้ generic runtime เสมอ)
 
+### การจัดกลุ่ม Route ด้วย `group`
+
+ในเวอร์ชัน v0.1.3+ Nelysia รองรับการจัดกลุ่ม Route ย่อยด้วย `app.group(prefix, callback)` ช่วยให้คุณแบ่งโครงสร้างของ API ได้เป็นสัดส่วน พร้อมทั้งสืบทอดและแยก Lifecycle Hooks (เช่น Authentication หรือ Middleware เฉพาะกลุ่ม) ออกจาก Route อื่นๆ โดยไม่รั่วไหล:
+
+```ts
+app.group("/api/v1", (api) => {
+  // Hook นี้จะมีผลเฉพาะเส้นทางภายใต้ /api/v1 เท่านั้น
+  api.onBeforeHandle(({ headers, response }) => {
+    if (!headers.get("authorization")) {
+      return response(401, { error: "กรุณาระบุ Token สำหรับ API v1" })
+    }
+  })
+
+  api.get("/users", () => [{ id: "1", name: "สมชาย" }])
+  api.get("/posts", () => [{ id: "101", title: "แนะนำ Nelysia" }])
+})
+
+// เส้นทางนี้อยู่นอกกลุ่ม จะไม่ถูกตรวจสอบ Authorization
+app.get("/public", () => ({ status: "ok" }))
+```
+
+### การปรับแต่งหน้า 404 ด้วย `notFound`
+
+ในเวอร์ชัน v0.1.3+ คุณสามารถกำหนด Fallback Handler สำหรับคำขอที่ไม่ตรงกับเส้นทางใดๆ ในระบบด้วย `app.notFound(handler)`:
+
+```ts
+app.notFound(({ request, response }) => {
+  return response(404, {
+    error: "Not Found",
+    message: `ไม่พบเส้นทาง ${request.method} ${request.url}`,
+    timestamp: Date.now()
+  })
+})
+```
+
+หรือจะใช้ร่วมกับ `context.html()` เพื่อส่งหน้า 404 แบบ HTML ที่สวยงาม:
+
+```ts
+app.notFound(({ html }) => html("<h1>404 - ไม่พบหน้าที่คุณต้องการ</h1>", 404))
+```
+
 ### การรวม Sub-App ด้วย `mount`
 
-คุณสามารถแยกโมดูลของแอปพลิเคชันออกเป็นส่วนย่อย แล้วนำมารวมกันผ่าน Path Prefix:
+คุณสามารถแยกโมดูลของแอปพลิเคชันออกเป็น Instance ย่อย (`new Nelysia()`) แล้วนำมารวมกันผ่าน Path Prefix:
 
 ```ts
 const usersApp = new Nelysia()
@@ -241,9 +359,36 @@ const app = new Nelysia()
 // GET /api/users/:id
 ```
 
+### การเปิดเซิร์ฟเวอร์ด้วย `listen`
+
+ในเวอร์ชัน v0.1.4+ เมธอด `app.listen()` ได้รับการปรับปรุงให้ทำงานเป็นหนึ่งเดียวทั้งบน Bun และ Node.js โดยรองรับ Callback ที่ส่งอ็อบเจกต์ `ServerInfo` กลับมา:
+
+```ts
+interface ServerInfo {
+  port: number        // หมายเลข Port ที่เปิดรับจริง
+  hostname: string    // Hostname เช่น "localhost"
+  url: string         // URL สมบูรณ์ เช่น "http://localhost:3000"
+  server: unknown     // Native Server instance ของ Bun หรือ Node.js http.Server
+}
+```
+
+ตัวอย่างการเรียกใช้งาน:
+
+```ts
+// 1. ระบุเฉพาะ Port
+app.listen(3000, ({ port, url }) => {
+  console.log(`🚀 เซิร์ฟเวอร์เริ่มทำงานแล้วที่ ${url} (port ${port})`)
+})
+
+// 2. หรือระบุทั้ง Port และ Hostname
+app.listen({ port: 8080, hostname: "0.0.0.0" }, ({ url }) => {
+  console.log(`🌐 พร้อมรับการเชื่อมต่อจากทุก Network Interface: ${url}`)
+})
+```
+
 ### กลไก Plugin (`use`) และขอบเขต Lifecycle
 
-`use()` รับได้เฉพาะฟังก์ชัน `(app) => app | void` — ไม่มี instance-as-plugin, ไม่มี `decorate`/`state`, ไม่มี `guard`/`group` แบบ Elysia:
+`use()` รับได้เฉพาะฟังก์ชัน `(app) => app | void`:
 
 ```ts
 // Plugin = factory รับ config แล้วคืน (app) => app
@@ -257,7 +402,7 @@ app.use(myPlugin({ tag: "missing-tag" }))
 
 กฎขอบเขตที่ต้องจำ:
 - Hook ที่เพิ่มเข้า parent (ก่อนหรือหลัง `mount`) มีผลกับ route ของ parent เองทั้งหมด — รวมถึง route ที่ลงทะเบียนไว้ก่อนแล้ว (backfill)
-- Route ที่ `mount` มาจากลูกเก็บ lifecycle `before/after/error` ของลูกติดตัวมา ไม่รั่วไป route ข้างเคียง และ hook ของ parent ที่เพิ่มทีหลังไม่ย้อนมาติด
+- Route ที่ `mount` หรือสร้างผ่าน `group` เก็บ lifecycle `before/after/error` ของตัวเองไว้ ไม่รั่วไป route ข้างเคียง และ hook ของ parent ที่เพิ่มทีหลังไม่ย้อนมาติด
 - Route ซ้ำ method+path ตอน mount จะ throw `Duplicate route`
 - ไม่มี deduplication — เรียก `use()` ซ้ำจะลงทะเบียนซ้ำ
 
@@ -265,29 +410,113 @@ app.use(myPlugin({ tag: "missing-tag" }))
 
 ## 5. Request Context (`Context`)
 
-Handler ทุกตัวจะได้รับอ็อบเจกต์ `Context` ที่ถูกแยกออกเป็นอิสระสำหรับแต่ละ Request:
+Handler ทุกตัวจะได้รับอ็อบเจกต์ `Context` ที่ถูกสร้างขึ้นแยกอิสระสำหรับแต่ละ Request โดยในเวอร์ชัน v0.1.4+ ได้รับการขยายความสามารถให้รองรับการเขียนที่กระชับและยืดหยุ่นยิ่งขึ้น:
 
 ```ts
 interface Context {
   request: RequestData                     // ข้อมูล Request ดิบ
   requestId: string                        // รหัสอ้างอิง Request แบบสุ่มหรือมาจาก Header
-  clientIp?: string                        // IP ของเครื่องผู้เรียก
+  clientIp?: string                        // IP ของเครื่องผู้เรียก (รองรับ trustedProxy)
   params: Record<string, string>           // พารามิเตอร์ใน URL (เช่น :id)
-  query: URLSearchParams                   // Query parameters (?key=value)
+  query: ParsedQuery                       // Proxy รองรับทั้ง .get() และ Object Destructuring
+  set: ResponseSetContext                  // ปรับแต่ง status และ headers ผ่าน Mutation
+  store: Record<string, unknown>           // ที่เก็บ State ประจำ Request แชร์ระหว่าง Hooks
   body: unknown                            // Body ที่ถูก Parse เป็น JSON หรือข้อความ
   headers: Headers                         // Web Standard Headers
   cookies: Record<string, string>          // Cookies ที่ถูก Parse เข้ามา
   setCookie(name: string, value: string, options?: CookieOptions): void
+  deleteCookie(name: string, options?: CookieOptions): void
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
+  html(body: string, status?: number): ResponseData
+  text(body: string, status?: number): ResponseData
+  json(body: unknown, status?: number): ResponseData
+  redirect(url: string, status?: number): ResponseData
+  header(name: string, value: string): this
 }
+```
+
+### การอ่าน Query ด้วย Proxy Destructuring
+
+ในเวอร์ชัน v0.1.2+ `context.query` เป็น Proxy อัจฉริยะที่สามารถใช้งานได้ 2 รูปแบบพร้อมกัน:
+
+1. **เข้าถึงค่าแบบ Object Property หรือ Destructure ได้โดยตรง:**
+   ```ts
+   app.get("/search", ({ query }) => {
+     const { keyword, page = "1", limit = "20" } = query
+     return { keyword, page: Number(page), limit: Number(limit) }
+   })
+   ```
+2. **ใช้งานตามมาตรฐาน `URLSearchParams`:**
+   ```ts
+   app.get("/filter", ({ query }) => {
+     if (query.has("tag")) {
+       return { tag: query.get("tag") }
+     }
+     return { tag: null }
+   })
+   ```
+3. **รองรับ Array Query Parameters อัตโนมัติ:**
+   เมื่อมีการส่ง Query ชื่อซ้ำกัน เช่น `?role=admin&role=editor` พร็อพเพอร์ตี้ `query.role` จะคืนค่าเป็น Array `["admin", "editor"]` โดยอัตโนมัติ
+
+### การตั้งค่า Status และ Headers ด้วย `context.set`
+
+คุณสามารถกำหนด HTTP Status Code หรือเพิ่ม Response Header ได้โดยตรงผ่านการกำหนดค่าใน `context.set` โดยที่ Handler ยังคงสามารถ return ข้อมูลเป็น Object หรือ Primitive ได้ตามปกติ:
+
+```ts
+app.post("/users", ({ body, set }) => {
+  set.status = 201 // กำหนด HTTP 201 Created
+  set.headers["x-powered-by"] = "Nelysia"
+  set.headers["x-resource-id"] = "user_99"
+
+  return { success: true, data: body }
+})
+```
+
+### การแชร์ข้อมูลภายใน Request ด้วย `context.store`
+
+ในเวอร์ชัน v0.1.3+ `context.store` เป็น Dictionary เปล่าระดับ Request สำหรับส่งผ่านข้อมูลระหว่าง Lifecycle Hooks (`onBeforeHandle`, Route Handler, `onAfterHandle`):
+
+```ts
+// ตรวจสอบ JWT ใน onBeforeHandle แล้วเก็บ User ไว้ใน store
+app.onBeforeHandle(({ headers, store, response }) => {
+  const authHeader = headers.get("authorization")
+  if (!authHeader) return response(401, { error: "กรุณาเข้าสู่ระบบ" })
+
+  store.currentUser = { id: "user_123", role: "admin" }
+})
+
+// Route Handler ดึงข้อมูล currentUser ออกจาก store มาใช้ได้ทันที
+app.get("/me", ({ store }) => {
+  return { profile: store.currentUser }
+})
+```
+
+### ฟังก์ชันอำนวยความสะดวกสำหรับ Response Shorthands
+
+ในเวอร์ชัน v0.1.4+ Nelysia เพิ่มฟังก์ชัน Shorthand ให้สร้าง Response พร้อม Content-Type และ Status Code ที่ถูกต้องได้ในบรรทัดเดียว:
+
+- `html(body, status = 200)`: ส่ง HTML string กลับไปพร้อม `Content-Type: text/html; charset=utf-8`
+- `text(body, status = 200)`: ส่งข้อความตัวอักษรธรรมดา พร้อม `Content-Type: text/plain; charset=utf-8`
+- `json(body, status = 200)`: แปลงข้อมูลเป็น JSON พร้อม `Content-Type: application/json; charset=utf-8`
+- `redirect(url, status = 302)`: สั่งเปลี่ยนเส้นทาง (Redirect) ด้วย Header `Location: url` (ปรับ status เป็น 301 หรือ 307 ได้)
+- `header(name, value)`: เมธอดสำหรับเพิ่ม Response Header แบบ Chainable
+
+```ts
+app
+  .get("/welcome", ({ html }) => html("<h1>ยินดีต้อนรับสู่ Nelysia</h1>"))
+  .get("/robots.txt", ({ text }) => text("User-agent: *\nDisallow: /admin"))
+  .get("/old-dashboard", ({ redirect }) => redirect("/new-dashboard", 301))
+  .get("/custom-header", (ctx) => {
+    return ctx.header("x-app-name", "my-app").json({ ok: true })
+  })
 ```
 
 ### การจัดการ Cookies
 
-```ts
-app.get("/login", ({ cookies, setCookie }) => {
-  const oldSession = cookies.sessionToken
+Nelysia รองรับทั้งการอ่านคุกกี้ (`cookies`), การบันทึกคุกกี้ (`setCookie`) และการลบคุกกี้ (`deleteCookie`):
 
+```ts
+app.get("/auth/login", ({ cookies, setCookie }) => {
   setCookie("sessionToken", "secret_token_123", {
     httpOnly: true,
     secure: true,
@@ -296,16 +525,23 @@ app.get("/login", ({ cookies, setCookie }) => {
     maxAge: 86400 // 1 วัน
   })
 
-  return { message: "เข้าสู่ระบบสำเร็จ", oldSession: oldSession ?? null }
+  return { message: "เข้าสู่ระบบสำเร็จ" }
+})
+
+app.post("/auth/logout", ({ deleteCookie }) => {
+  // ลบ Cookie โดยตั้งค่า Max-Age เป็น 0 และระบุ Path ให้ตรงกัน
+  deleteCookie("sessionToken", { path: "/" })
+  return { message: "ออกจากระบบแล้ว" }
 })
 ```
 
 ### การส่ง Response กลับในรูปแบบต่างๆ
 
-1. **คืนค่า Plain Object หรือ String**: ระบบจะแปลงเป็น JSON หรือ Text และตอบกลับด้วย `Status 200` อัตโนมัติ
-2. **ใช้ `context.response(status, body, headers)`**: กำหนด HTTP Status Code และ Custom Headers ได้อย่างอิสระ
-3. **คืนค่า Web Standard `Response`**: คืนอ็อบเจกต์ `Response` ดั้งเดิม
-4. **คืนค่า `ReadableStream`**: สำหรับการทำ Streaming ข้อมูลขนาดใหญ่หรือ Server-Sent Events
+1. **คืนค่า Plain Object หรือ String**: ระบบจะแปลงเป็น JSON หรือ Text และตอบกลับด้วย `Status 200` อัตโนมัติ (หรือตามค่าที่ตั้งใน `set.status`)
+2. **ใช้ Response Shorthands**: เช่น `context.html()`, `context.text()`, `context.json()`, `context.redirect()`
+3. **ใช้ `context.response(status, body, headers)`**: กำหนด HTTP Status Code และ Custom Headers ได้อย่างอิสระ
+4. **คืนค่า Web Standard `Response`**: คืนอ็อบเจกต์ `Response` ดั้งเดิม
+5. **คืนค่า `ReadableStream`**: สำหรับการทำ Streaming ข้อมูลขนาดใหญ่หรือ Server-Sent Events
 
 ```ts
 app.get("/custom", ({ response }) => {
@@ -476,6 +712,24 @@ process.on("SIGINT", async () => {
 })
 ```
 
+### รันหลาย Process (`serveClustered`, Node.js)
+
+ขยายข้าม core ด้วยการ fork worker ตามจำนวน CPU แต่ละ worker สร้าง app ของตัวเอง
+(พร้อม compiled dispatcher ของตัวเอง) ผ่าน factory:
+
+```ts
+import { serveClustered } from "@narudom96/nelysia/runtime-node-cluster"
+import { Nelysia } from "@narudom96/nelysia"
+
+serveClustered(() => new Nelysia({ requestId: false }).get("/json", () => ({ ok: true })), {
+  port: 3000,     // worker ทุกตัว share port เดียวกันผ่าน OS
+  workers: 4,     // ค่าเริ่มต้นเท่าจำนวน CPU
+  respawn: true,  // worker ตายให้ fork ตัวใหม่ (ค่าเริ่มต้น)
+})
+```
+
+คืน `Server` ของ worker หรือ `undefined` ใน primary process ดูตัวอย่างที่ `examples/cluster/server.ts`
+
 ---
 
 ## 8. การใช้งาน WebSockets
@@ -505,6 +759,63 @@ app.websocket("/ws/chat", {
 
 ## 9. ระบบปลั๊กอิน (Plugins Ecosystem)
 
+### ระบบความปลอดภัย CORS (`cors`)
+
+ในเวอร์ชัน v0.1.3+ Nelysia มีปลั๊กอิน `cors()` ในตัว รองรับการควบคุมการเข้าถึงข้ามโดเมนอย่างสมบูรณ์แบบ จัดการคำขอ Preflight `OPTIONS` อัตโนมัติด้วย HTTP 204:
+
+```ts
+import { cors } from "@narudom96/nelysia/plugins"
+
+app.use(cors({
+  // กำหนด Origin ที่อนุญาต: string, array, boolean, หรือ callback
+  origin: ["http://localhost:3000", "https://myfrontend.com"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"],
+  exposedHeaders: ["x-request-id"],
+  credentials: true,
+  maxAge: 86400 // Cache ผลการ Preflight 24 ชั่วโมง
+}))
+```
+
+- **Preflight `OPTIONS` อัตโนมัติ**: เมื่อมีคำขอ `OPTIONS` เข้ามา `cors()` จะดักและตอบกลับด้วยสถานะ `204 No Content` พร้อม Headers ที่ถูกต้องทันทีโดยไม่หลุดไปถึง Handler
+- **Origin Validation**: หากส่งฟังก์ชัน `origin: (reqOrigin, context) => boolean | string` จะสามารถตรวจสอบโดเมนแบบ Dynamic ได้อย่างแม่นยำ
+
+### HTTP Security Headers (`securityHeaders`)
+
+ในเวอร์ชัน v0.1.3+ ปลั๊กอิน `securityHeaders()` ช่วยเสริมความปลอดภัยให้เซิร์ฟเวอร์ตามแนวทางปฏิบัติที่ดีที่สุดของ OWASP โดยการเพิ่ม Headers ป้องกันการโจมตีทางเว็บ:
+
+```ts
+import { securityHeaders } from "@narudom96/nelysia/plugins"
+
+app.use(securityHeaders({
+  xContentTypeOptions: true,                                      // X-Content-Type-Options: nosniff
+  xFrameOptions: "SAMEORIGIN",                                    // ป้องกัน Clickjacking (หรือ "DENY")
+  xXSSProtection: true,                                           // X-XSS-Protection: 0 (มาตรฐานใหม่)
+  referrerPolicy: "no-referrer",                                  // Referrer-Policy
+  strictTransportSecurity: "max-age=15552000; includeSubDomains", // HSTS
+  crossOriginOpenerPolicy: "same-origin",                         // COOP
+  crossOriginResourcePolicy: "same-origin"                        // CORP
+}))
+```
+
+### การให้บริการโฟลเดอร์ไฟล์ Static (`staticDirectory`)
+
+ในเวอร์ชัน v0.1.2+ ให้บริการไฟล์ Static ทั้งโฟลเดอร์ (CSS, JS, รูปภาพ, ฟอนต์, HTML) ได้อย่างง่ายดาย พร้อมระบบตรวจจับ MIME Type และการป้องกัน Path Traversal ในตัว:
+
+```ts
+import { staticDirectory } from "@narudom96/nelysia/plugins"
+
+// ให้บริการไฟล์จากโฟลเดอร์ public เช่น /public/style.css -> /assets/style.css
+app.use(staticDirectory({
+  prefix: "/assets",       // Path Prefix ที่ต้องการให้บริการ (ค่าเริ่มต้น: "")
+  root: "./public",         // โฟลเดอร์ต้นทาง
+  index: "index.html"      // ไฟล์ดัชนีเมื่อเรียกเข้าโฟลเดอร์ย่อย
+}))
+```
+
+- **ความปลอดภัยสูง**: มีการตรวจสอบและตัด `..` ป้องกันไม่ให้ Client เข้าถึงไฟล์นอกโฟลเดอร์ที่กำหนด
+- **รองรับ MIME Types ครอบคลุม**: `html`, `css`, `js`, `json`, `svg`, `png`, `jpg`, `webp`, `woff2`, `wasm` ฯลฯ
+
 ### การจำกัดจำนวน Request (`rateLimit`)
 
 จำกัดปริมาณคำขอตามช่วงเวลาเพื่อป้องกันการยิงสแปม (ป้องกัน DDoS/Brute Force):
@@ -520,7 +831,7 @@ app.use(rateLimit({
 ```
 เมื่อคำขอเกินกำหนด ระบบจะตอบกลับด้วย `HTTP 429 Too Many Requests` พร้อม Header `Retry-After` อัตโนมัติ
 
-### การให้บริการไฟล์ Static (`staticFile`)
+### การให้บริการไฟล์ Static เดี่ยว (`staticFile`)
 
 ```ts
 import { staticFile } from "@narudom96/nelysia/plugins"
@@ -543,30 +854,60 @@ app.use(compression({
 
 ---
 
-## 10. OpenAPI 3.1 และหน้าเอกสาร Redoc UI
+## 10. OpenAPI 3.1 และหน้าเอกสาร Redoc / Swagger UI
 
-สร้างเอกสารอ้างอิง API ตามมาตรฐาน OpenAPI 3.1 จาก Route Schemas ที่ระบุไว้โดยอัตโนมัติ
+สร้างเอกสารอ้างอิง API ตามมาตรฐาน OpenAPI 3.1 จาก Route Schemas ที่ระบุไว้โดยอัตโนมัติ พร้อมรองรับ Metadata รายละเอียดเส้นทาง:
+
+### สร้างเอกสาร OpenAPI อัตโนมัติและ Route Metadata
+
+ในเวอร์ชัน v0.1.3+ คุณสามารถใส่ `summary`, `description` และ `tags` ใน Route Options เพื่อให้ปรากฏในสเปก OpenAPI ได้ทันที:
 
 ```ts
-import { openapi, openapiUi } from "@narudom96/nelysia/openapi"
+import { Nelysia, t } from "@narudom96/nelysia"
+import { openapi, openapiUi, swaggerUi } from "@narudom96/nelysia/openapi"
 
-app
-  // ให้บริการ JSON Specification ที่ /openapi.json
+const app = new Nelysia()
+  .get("/users", () => [{ id: "1", name: "สมชาย" }], {
+    summary: "ดึงรายชื่อผู้ใช้ทั้งหมด",
+    description: "คืนค่ารายการผู้ใช้งานในระบบ พร้อมรองรับการกรองตามสถานะ",
+    tags: ["Users"],
+    response: t.Array(t.Object({ id: t.String(), name: t.String() }))
+  })
   .use(openapi({
     title: "ระบบ API ตัวอย่าง",
     version: "1.0.0",
     path: "/openapi.json"
   }))
-
-  // แสดงหน้าเว็บเอกสารแบบ Interactive (Redoc) ที่ /docs
-  .use(openapiUi({
-    path: "/docs",
-    specPath: "/openapi.json",
-    title: "คู่มือการเรียกใช้ API"
-  }))
 ```
 
-เมื่อเปิดเว็บเบราว์เซอร์ไปที่ `http://localhost:3000/docs` จะพบหน้าต่างเอกสาร API ที่สวยงามพร้อมรายละเอียด Request/Response ทั้งหมด
+### เปิดหน้าเว็บ Redoc UI (`openapiUi`)
+
+แสดงหน้าเว็บเอกสารแบบ Redoc ที่อ่านง่ายและสวยงาม:
+
+```ts
+app.use(openapiUi({
+  path: "/docs",
+  specPath: "/openapi.json",
+  title: "คู่มือการเรียกใช้ API (Redoc)"
+}))
+```
+
+### เปิดหน้าเว็บ Swagger UI (`swaggerUi`)
+
+ในเวอร์ชัน v0.1.3+ เพิ่มการรองรับ Swagger UI แบบ Interactive ที่ให้คุณสามารถทดสอบยิง Request จากเบราว์เซอร์ได้ทันที:
+
+```ts
+app.use(swaggerUi({
+  path: "/swagger",
+  specPath: "/openapi.json",
+  title: "API Explorer (Swagger UI)"
+}))
+```
+
+เมื่อเปิดเว็บเบราว์เซอร์ไปที่ `http://localhost:3000/swagger` หรือ `/docs` จะพบหน้าต่างเอกสาร API ที่สวยงามพร้อมรายละเอียดและตัวอย่างข้อมูลทั้งหมด
+
+### การสกัด Schema จาก Standard Schema (Zod / Valibot)
+Nelysia สกัด Schema ที่นิยามด้วยมาตรฐาน Standard Schema v1 (เช่น Zod, Valibot, ArkType) ออกมาเป็น OpenAPI Schema Object ให้อัตโนมัติ ทำให้ไม่ต้องนิยาม Schema ซ้ำสองรอบ
 
 ---
 
@@ -765,6 +1106,10 @@ await api.post("/users", { name: "กรรณิการ์", age: 25 })
 
 > ข้อจำกัดที่ตั้งใจไว้: arbitrary source-to-source (แปลง TypeScript ทุกรูปแบบ) ยังไม่รองรับ — ดู `docs/release-status.md`
 
+### Adapter Dispatcher (Fast Path ค่าเริ่มต้น)
+
+แม้ไม่ build แบบ standalone adapter ของ Node, Bun และ Fetch ก็ serve `GET` ที่ไม่มี hook ผ่าน compiled dispatcher ตัวกลาง (`packages/compiler/src/dispatcher.ts`): static hit แบบ O(1) ด้วย payload ที่ serialize ล่วงหน้า, dynamic lookup แยกตาม method ที่ split pathname ครั้งเดียว และ prefix matching สำหรับ route แบบ `/users/:id` ส่วน hooks/schemas/method อื่น/telemetry ตกไป generic router manifest บันทึกด้วย `dispatcher: true` และ diagnostic `NELY003` ระดับ info ที่รายงาน coverage ของ fast path
+
 ### คำสั่ง CLI
 ```bash
 # ตรวจสอบการวิเคราะห์ Route ทั้งหมด
@@ -780,8 +1125,17 @@ npm run build -- ./src/app.ts --target node
 ผลลัพธ์จากการสั่ง Build จะถูกบันทึกไว้ในโฟลเดอร์ `dist/`:
 - `dist/server.bun.ts` (หรือ `dist/server.node.ts`): โค้ดเซิร์ฟเวอร์ที่ปรับแต่งประสิทธิภาพแล้ว
 - `dist/server.bun.ts.map` (หรือ `dist/server.node.ts.map`): source map ของ artifact
-- `dist/manifest.json`: สรุป target, artifact, route analyses, diagnostics (`NELY001`/`NELY002`), `generation` (`standalone`|`adapter`), `reproducible: true` และ content-addressed `cacheKey`
+- `dist/manifest.json`: สรุป target, artifact, route analyses, diagnostics (`NELY001`/`NELY002`/`NELY003`), `generation` (`standalone`|`adapter`), `dispatcher` (flag บอก fast-path coverage), `reproducible: true` และ content-addressed `cacheKey`
 - `.nelysia-cache/<cacheKey>.json`: แคช manifest ตาม hash ของเนื้อหา
+
+### Deploy ด้วย Docker
+
+`Dockerfile` สำหรับ production อยู่ที่ root ของ repo (Node 22-slim, dependencies เฉพาะ production, prebuild `dist/server.node.ts`, มี `HEALTHCHECK` ที่ `/`, รันเป็น non-root user):
+
+```bash
+docker build -t nelysia:local .
+docker run --rm -p 3000:3000 -e PORT=3000 nelysia:local
+```
 
 ### สร้าง Type สำหรับ Client (`generateClientTypes`)
 
@@ -912,8 +1266,16 @@ BENCH_CASE=dynamic npm run benchmark:bun
 # ปรับจำนวนรอบ/ระยะเวลา/concurrency (ค่าเริ่มต้น: repeats=3)
 BENCH_DURATION_MS=3000 BENCH_CONCURRENCY=10 BENCH_REPEATS=10 npm run benchmark:bun
 
-# รันทดสอบความเสถียรของหน่วยความจำ (Soak Test)
+# Router scale (ต้นทุน lookup ของ generic path เทียบกับขนาดตาราง route)
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=100 node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
+
+# รันทดสอบความเสถียรของหน่วยความจำ (Soak Test: static + dynamic, รายงาน heap/RSS)
 npm run soak
+
+# Soak ยาว (เช่น 1M requests บนตาราง 200 routes)
+SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak
 
 # รัน gate รวมทั้งหมด (typecheck + tests + soak + deno + audit)
 npm run release:check
@@ -921,7 +1283,7 @@ npm run release:check
 
 ### ผลล่าสุด (10 รอบ, concurrency 10, failures 0)
 
-ดูรายละเอียดเต็มที่ `docs/benchmark-10-rounds.md`:
+ดูรายละเอียดเต็มที่ `docs/benchmark-10-rounds.md` และ `docs/benchmark-100-rounds.md`:
 
 | Workload (Bun) | Nelysia | Elysia | Raw Bun |
 | :--- | ---: | ---: | ---: |
@@ -936,11 +1298,154 @@ npm run release:check
 
 ### จาก Express
 - ใน Express ต้องเรียก `res.json(data)` หรือ `res.send(text)`
-- ใน Nelysia เพียงแค่ `return data` หรือส่งกลับเป็น Object ได้โดยตรง
+- ใน Nelysia เพียงแค่ `return data` หรือส่งกลับเป็น Object ได้โดยตรง โดย Nelysia จะ serialize และตั้งค่า Header ให้อัตโนมัติ
+
+```ts
+// Express
+app.get("/users/:id", (req, res) => res.json({ id: req.params.id }))
+
+// Nelysia
+app.get("/users/:id", ({ params }) => ({ id: params.id }))
+```
 
 ### จาก Fastify
 - Schema ใน Fastify สามารถแมปเข้ามาใช้ใน Options `{ body, params, query }` ของ Nelysia ได้ทันที
 - Validation จะทำงานก่อนที่ Handler จะถูกเรียกใช้เสมอ
 
+```ts
+// Fastify
+fastify.post("/users", { schema: { body: userSchema } }, async (req) => req.body)
+
+// Nelysia
+app.post("/users", ({ body }) => body, { body: userSchema })
+```
+
 ### จาก Elysia
-- Nelysia ใช้สไตล์การเขียน Method Chaining ที่คุ้นเคยของ Elysia เช่น `.get()`, `.post()`, `.use()`, `.onBeforeHandle()` ทำให้เรียนรู้และใช้งานต่อได้ทันที
+
+Nelysia ได้รับแรงบันดาลใจจาก Developer Experience (DX) ที่ยอดเยี่ยมและ Method Chaining ของ Elysia แต่มีความแตกต่างด้านสถาปัตยกรรมภายในและไวยากรณ์บางจุด เพื่อความเร็วสูงสุดระดับ AOT, การรักษา V8 Monomorphic shape และความเข้ากันได้กับ Node.js 22+ แบบ Zero-polyfill
+
+#### ตารางเปรียบเทียบไวยากรณ์และฟีเจอร์ (Elysia vs Nelysia)
+
+| ฟีเจอร์ / รูปแบบ | ElysiaJS | Nelysia | เหตุผลและจุดต่างของ Nelysia |
+| :--- | :--- | :--- | :--- |
+| **State & Decorator** | `app.state('k', v)`<br>`app.decorate('db', db)`<br>→ รับผ่าน `({ db, store }) => ...` | `context.store`<br>→ รับผ่าน `({ store }) => { store.db = ... }` | Elysia แทรก property เข้าไปใน context object ทำให้ V8 Hidden Class เปลี่ยนรูป (de-opt) ส่วน Nelysia ยึด object shape เดิมเพื่อรักษา V8 Inline Cache ให้เร็วคงที่ |
+| **การต่อ Sub-App** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Nelysia แยกหน้าที่ชัดเจน: `.use()` ใช้สำหรับ Plugin Function `(app) => void` เท่านั้น, ส่วนซับแอพแยกไฟล์ใช้ `.mount()` |
+| **การจัดกลุ่ม Route** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | ไวยากรณ์เหมือนกัน โดย group ใน Nelysia จะสืบทอด Lifecycle Hooks (`onBeforeHandle`) จากกลุ่มแม่โดยตรง |
+| **Guards & Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Nelysia ใช้ Hook ปกติผ่าน group เพื่อให้ AOT Dispatch Compiler วิเคราะห์เส้นทางและคอมไพล์ได้เร็วแม่นยำ |
+| **Route ค่าคงที่ (Static)** | รันผ่าน dynamic handler ปกติ `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` หรือส่ง static data | **AOT Tier 1 (COMPILED)**: คอมไพล์เป็น Bytes เตรียมไว้ล่วงหน้า ตอบกลับทันทีโดยไม่สร้าง context object (เร็วกว่า ~1.8 เท่า) |
+| **รันบน Node.js** | เน้น Bun; บน Node.js ต้องใช้ `@bogeychan/elysia-polyfill` | รองรับทั้ง **Node.js 22+** (`node:http`) และ **Bun 1.4+** เป็น First-class | ทำงานบน Node.js ได้เนทีฟ 100% ไม่ต้องลง polyfill หรือ adapter เสริม |
+| **Multi-Core Scaling** | ต้องใช้ Cluster ภายนอก (เช่น PM2) | `serveClustered(app, { port, instances: 'max' })` | มีตัวจัดการ Node.js Cluster Fork ในตัว พร้อมจัดการ Graceful Shutdown |
+| **Schema Validation** | TypeBox (`t`) เป็นหลัก | Built-in `t` + **Standard Schema v1** | รองรับทั้ง `t` ในตัว และใช้ Zod, Valibot, ArkType ได้ทันทีโดยไม่ต้องลงปลั๊กอินแปลง |
+| **Cookies** | `({ cookie: { session } }) => ...` (Proxy) | `({ cookies, setCookie, deleteCookie }) => ...` | ฟังก์ชันจัดการ Cookie ตรงไปตรงมา ชัดเจน ไร้ความซับซ้อนของ Proxy |
+
+#### ตัวอย่างการแปลงโค้ดจาก Elysia มาเป็น Nelysia
+
+##### 1. การ Mount ซับแอพ (Sub-Apps)
+
+```ts
+// ❌ Elysia: นำ sub-app มาใส่ใน .use()
+import { Elysia } from 'elysia'
+const userRoutes = new Elysia({ prefix: '/users' }).get('/', () => ['Alice', 'Bob'])
+const app = new Elysia().use(userRoutes)
+
+// ✅ Nelysia: แยก .mount() สำหรับ sub-app และ .use() สำหรับ plugin
+import { Nelysia } from '@narudom96/nelysia'
+const userRoutes = new Nelysia().get('/', () => ['Alice', 'Bob'])
+const app = new Nelysia()
+  .mount('/users', userRoutes) // mount ไปที่ path /users
+```
+
+##### 2. การใช้งาน State และ Database (Context Store)
+
+```ts
+// ❌ Elysia: decorate ค่าลงไปใน Context โดยตรง
+const app = new Elysia()
+  .decorate('db', database)
+  .get('/items', ({ db }) => db.findAll())
+
+// ✅ Nelysia: ใช้ context.store เพื่อให้ V8 Monomorphic คงประสิทธิภาพสูงสุด
+const app = new Nelysia()
+  .onBeforeHandle(({ store }) => {
+    store.db = database
+  })
+  .get('/items', ({ store }) => store.db.findAll())
+```
+
+##### 3. การป้องกัน Route ด้วย Group (Route Guarding)
+
+```ts
+// Elysia
+app.group('/admin', (app) =>
+  app.guard({ beforeHandle: checkAuth }, (app) =>
+    app.get('/dashboard', () => ({ secret: true }))
+  )
+)
+
+// Nelysia
+app.group('/admin', (admin) => {
+  admin.onBeforeHandle(checkAuth)
+  admin.get('/dashboard', () => ({ secret: true }))
+})
+```
+
+##### 4. การปรับ Route ค่าคงที่ให้ได้ความเร็วระดับสูงสุด (Static Route Optimization)
+
+```ts
+// Elysia: ผ่านกระบวนการ Handler ปกติ
+app.get('/health', () => ({ status: 'ok' }))
+
+// Nelysia: ใช้ AOT Tier 1 (COMPILED) ไร้ Overhead
+app.getStatic('/health', { status: 'ok' })
+```
+
+
+---
+
+## 22. คู่มือปรับประสิทธิภาพ (Performance Tuning)
+
+อยากให้ route ร้อนวิ่งบน fast path ทำตามนี้:
+
+1. **ใช้ `getStatic()` สำหรับ response คงที่** — body ถูก serialize ครั้งเดียวตอน startup แล้ว serve เป็น bytes สำเร็จรูป
+2. **handler ของ route ร้อนขอแค่ params** — `({ params }) => …` จะข้ามการ parse query/cookie/header ทันทีที่ destructure `query`/`headers`/`cookies` จะตกไป generic path (ถูก แต่ช้ากว่า)
+3. **อย่าใส่ hooks/schema บน route ร้อน** — hook หรือ schema ใดๆ จะคัด route นั้นออกจาก dispatcher
+4. **อ่านข้อมูลที่ใช้ GET** — มีแค่ route `GET` เท่านั้นที่ถูก compile (`HEAD` ใช้ route `GET` ผ่าน generic path)
+5. **ปิดสิ่งที่ไม่ใช้** — `new Nelysia({ requestId: false })` ข้ามการสร้าง UUID และ header `x-request-id`; ไม่ใส่ `telemetry` ก็ไม่เสียค่า `performance.now()`
+
+ตรวจสอบด้วย inspector และ router-scale:
+
+```bash
+npm run inspect -- ./src/app.ts
+node --experimental-strip-types benchmarks/router-scale.ts
+ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
+```
+
+ต้นทุนต่อ request จากมากไปน้อย: parse JSON body → schema validation → UUID request ID → parse cookie → parse query → dynamic lookup → static lookup วัดบนเครื่องตัวเองด้วย `benchmarks/router-scale.ts` — ตัวเลขบนเครื่อง dev ใช้ดูทิศทางเท่านั้น
+
+---
+
+## 23. เช็กลิสต์ Deploy ขึ้น Production
+
+- [ ] `npm run release:check` ผ่าน (typecheck + tests Node/Bun + soak + Deno check + audit)
+- [ ] ดู coverage ของ dispatcher: build แล้วอ่าน `NELY003` ใน `dist/manifest.json` — route ร้อนควรอยู่บน fast path
+- [ ] ตั้ง `bodyLimit` ให้พอดี payload ใหญ่สุด; `trustedProxy: false` ไว้ trừคุม proxy เอง
+- [ ] มี endpoint `/health` และต่อ `gracefulShutdown(server, timeout)` กับ `SIGTERM`
+- [ ] ขยายด้วย `serveClustered()` (Node) หรือ autoscaling ของ platform; ยืนยันการ wiring `PORT` env
+- [ ] Deploy ผ่าน `Dockerfile` ที่มีให้ (`docker build -t nelysia:local .`) หรือ release tarball
+- [ ] รัน soak ยาว (`SOAK_ITERATIONS=1000000`) และ benchmark 10 รอบบน hardware ใกล้เคียง production ก่อนประกาศตัวเลข
+
+---
+
+## 24. แก้ปัญหาและ FAQ (Troubleshooting)
+
+| อาการ | สาเหตุ | วิธีแก้ |
+| :--- | :--- | :--- |
+| `400 Malformed JSON body` | body ไม่ใช่ JSON ที่ถูกต้อง | แก้ payload ฝั่ง client หรือรับเป็น text |
+| `400 <path> must be …` | ไม่ผ่าน schema validation | ดู field ที่ระบุใน message |
+| `413 Request body is too large` | body เกิน `bodyLimit` (ค่าเริ่มต้น 1 MB) | เพิ่ม `bodyLimit` หรือ reject ตั้งแต่ต้นทาง |
+| `404 Not Found` | ไม่มี route ตรง path | ดูผล `npm run inspect` |
+| `405 Method Not Allowed` | มี path แต่ไม่มี method นี้ | อ่าน header `Allow` ว่าวิธีไหนใช้ได้ |
+| handler `OPTIONS` ไม่ทำงาน | ตั้งใจ: `OPTIONS` ตอบ `204` + `Allow` เสมอ | อย่าพึ่ง `.options()` handler |
+| `EADDRINUSE` ตอน `listen` | port ถูกใช้แล้ว (เช่น dev server ตัวอื่น) | ตั้ง `PORT` env หรือปิดตัวที่ใช้อยู่ |
+| WebSocket upgrade ล้มเหลว | ไม่มี route `websocket()` สำหรับ path หรือขาด header `upgrade` | ลงทะเบียน `app.websocket(path, …)` ก่อน |
+| ตัวเลข benchmark แกว่ง | noise บนเครื่อง dev | ใช้เครื่อง Linux นิ่งๆ + load generator แยก + median 10 รอบ |
+| ช้าเมื่อ route เยอะ | เวอร์ชันเก่า scan ทุก route ต่อ request | อัปเกรด: เวอร์ชันปัจจุบัน lookup รอบเดียวแยกตาม method |

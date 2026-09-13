@@ -3,47 +3,125 @@ import { randomUUID } from "node:crypto"
 import { WebSocketServer, type WebSocket } from "ws"
 import { HttpError, type Nelysia } from "../../core/src/app.ts"
 import type { RequestData, ResponseData } from "../../core/src/types.ts"
+import { responseMarker } from "../../core/src/types.ts"
+import { compileDispatcher, lookupCompiled, type CompiledDispatcher, type CompiledRoute } from "../../compiler/src/dispatcher.ts"
+
+interface PrebuiltStatic {
+  contentType: string
+  bytes: Buffer
+}
 
 export function createNodeServer(app: Nelysia) {
+  const hasWebSocket = app.websocketRoutes.length > 0
+  const websocketRoutes = new Map(app.websocketRoutes.map((route) => [route.path, route.handlers]))
+  // Auto-use the compiled dispatcher for hook-free GET routes. Anything else
+  // (misses, non-GET, schemas, hooks, telemetry) flows through app.handle().
+  const dispatcher = app.telemetry !== undefined ? undefined : compileDispatcher(app)
+  const prebuilt = new Map<CompiledRoute, PrebuiltStatic>()
+  if (dispatcher !== undefined) {
+    for (const entry of dispatcher.routes) {
+      const serialized = entry.serialized
+      if (entry.route.static && serialized !== undefined) {
+        const bytes = serialized.text !== undefined ? Buffer.from(serialized.text) : Buffer.from(serialized.bytes!)
+        prebuilt.set(entry, { contentType: serialized.contentType, bytes })
+      }
+    }
+  }
   const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
-      const rawHeaders = request.headers
-      const contentLength = Number(rawHeaders["content-length"] ?? 0)
-      const contentType = (rawHeaders["content-type"] as string | undefined) ?? null
-      const isPostOrPut = request.method !== "GET" && request.method !== "HEAD"
-      const body = isPostOrPut && (contentLength > 0 || rawHeaders["transfer-encoding"] !== undefined)
-        ? await readBody(request, contentLength, app.bodyLimit, contentType)
+      const method = request.method ?? "GET"
+      if (dispatcher !== undefined && method === "GET" && await tryCompiledGet(dispatcher, prebuilt, request, response)) return
+      // Fast path: GET/HEAD without body headers never touch the request stream.
+      const needsBody = method !== "GET" && method !== "HEAD" && (request.headers["content-length"] !== undefined || request.headers["transfer-encoding"] !== undefined)
+      const headers = new Headers(request.headers as Record<string, string>)
+      const body = needsBody
+        ? await readBody(request, Number(headers.get("content-length") ?? 0), app.bodyLimit, headers.get("content-type"))
         : undefined
-
-      const data: RequestData = {
-        method: request.method ?? "GET",
-        url: request.url ?? "/",
-        remoteAddress: request.socket.remoteAddress,
-        headers: rawHeaders as unknown as Headers,
-        body
-      }
+      const requestId = app.requestIdEnabled ? randomUUID() : undefined
+       const data: RequestData = { method, url: request.url ?? "/", requestId, remoteAddress: request.socket.remoteAddress, headers, body }
       const result = await app.handle(data)
-      await writeResponse(response, result, request.method === "HEAD")
+      await writeResponse(response, result, method === "HEAD")
     } catch (error) {
       const status = error instanceof HttpError ? error.status : 500
       const message = status === 500 ? "Internal Server Error" : error instanceof Error ? error.message : "Bad Request"
       await writeResponse(response, { status, headers: new Headers(), body: { error: message } }, request.method === "HEAD")
     }
   })
+  if (!hasWebSocket) return server
   const websocketServer = new WebSocketServer({ noServer: true })
   server.on("upgrade", (request, socket, head) => {
     if (request.headers.upgrade?.toLowerCase() !== "websocket") return
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname
-    const route = app.websocketRoutes.find((candidate) => candidate.path === pathname)
-    if (!route) {
+    const handlers = websocketRoutes.get(pathname)
+    if (!handlers) {
       socket.destroy()
       return
     }
     websocketServer.handleUpgrade(request, socket, head, (websocket) => {
-      attachWebSocketHandlers(websocket, route.handlers)
+      attachWebSocketHandlers(websocket, handlers)
     })
   })
   return server
+}
+
+/** Compiled GET fast path. Returns true when the response was sent; false means
+ * the caller must run the generic app.handle() flow (miss, generic route, or a
+ * handler result the fast path cannot represent, e.g. a native Response). */
+async function tryCompiledGet(dispatcher: CompiledDispatcher, prebuilt: Map<CompiledRoute, PrebuiltStatic>, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
+  const url = request.url ?? "/"
+  const query = url.indexOf("?")
+  const pathname = (query === -1 ? url : url.slice(0, query)) || "/"
+  const found = lookupCompiled(dispatcher, pathname)
+  if (found === undefined || found.kind === "generic") return false
+  const requestId = dispatcher.needsRequestId ? randomUUID() : undefined
+  if (found.kind === "static-prebuilt") {
+    const staticResponse = prebuilt.get(found.entry)!
+    const headers: Record<string, string | number> = {
+      "content-type": staticResponse.contentType,
+      "content-length": staticResponse.bytes.length,
+    }
+    if (requestId !== undefined) headers["x-request-id"] = requestId
+    response.writeHead(200, headers)
+    response.end(staticResponse.bytes)
+    return true
+  }
+  // static-sync / params: invoke the handler with a minimal context. Anything
+  // unexpected (throw, Response, unserializable value) falls back to generic.
+  let result: unknown
+  try {
+    result = found.kind === "static-sync"
+      ? (found.entry.route.handler as () => unknown)()
+      : found.entry.route.handler({ params: found.params } as never)
+    if (result instanceof Promise) result = await result.catch(() => FALLBACK)
+  } catch {
+    return false
+  }
+  if (result === FALLBACK || result instanceof Response || isResponseData(result)) return false
+  const serialized = serializeHandlerResult(result)
+  if (serialized === undefined) return false
+  const headers: Record<string, string | number> = { "content-length": serialized.bytes.length }
+  if (serialized.contentType !== undefined) headers["content-type"] = serialized.contentType
+  if (requestId !== undefined) headers["x-request-id"] = requestId
+  response.writeHead(200, headers)
+  response.end(serialized.bytes)
+  return true
+}
+
+const FALLBACK = Symbol("nelysia.compiled-fallback")
+
+function isResponseData(value: unknown): value is { status: number; headers: Headers; body: unknown } {
+  return typeof value === "object" && value !== null && (value as { [key: symbol]: unknown })[responseMarker] === true
+}
+
+function serializeHandlerResult(result: unknown): { bytes: Buffer; contentType?: string } | undefined {
+  if (result === undefined || result === null) return { bytes: Buffer.alloc(0) }
+  if (typeof result === "string") return { bytes: Buffer.from(result), contentType: "text/plain; charset=utf-8" }
+  if (result instanceof Uint8Array) return { bytes: Buffer.from(result), contentType: "text/plain; charset=utf-8" }
+  try {
+    return { bytes: Buffer.from(JSON.stringify(result)), contentType: "application/json; charset=utf-8" }
+  } catch {
+    return undefined
+  }
 }
 
 function attachWebSocketHandlers(websocket: WebSocket, handlers: { open?(socket: WebSocket): unknown; message?(socket: WebSocket, message: string | Uint8Array): unknown; close?(socket: WebSocket, code: number, reason: string): unknown; error?(socket: WebSocket, error: unknown): unknown }): void {
@@ -59,22 +137,11 @@ function attachWebSocketHandlers(websocket: WebSocket, handlers: { open?(socket:
 async function writeResponse(response: ServerResponse, result: ResponseData, head = false): Promise<void> {
   const headers = result.headers
   const getSetCookie = (headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
-
-  const writeHeaders = (extraType?: string) => {
-    if (extraType && !headers.has("content-type")) {
-      headers.set("content-type", extraType)
-    }
-    const values: Record<string, string | string[]> = {}
-    for (const [key, value] of headers.entries()) {
-      values[key] = value
-    }
-    if (getSetCookie) {
-      const cookies = getSetCookie.call(headers)
-      if (cookies && cookies.length > 0) values["set-cookie"] = cookies
-    }
+  const writeHeaders = () => {
+    const values = Object.fromEntries(headers.entries()) as Record<string, string | string[]>
+    if (getSetCookie) values["set-cookie"] = getSetCookie.call(headers)
     response.writeHead(result.status, values)
   }
-
   if (result.body instanceof Response) {
     for (const [key, value] of result.body.headers) headers.set(key, value)
     writeHeaders()
@@ -90,7 +157,8 @@ async function writeResponse(response: ServerResponse, result: ResponseData, hea
     return
   }
   if (typeof result.body === "string" || result.body instanceof Uint8Array) {
-    writeHeaders("text/plain; charset=utf-8")
+    if (!headers.has("content-type")) headers.set("content-type", "text/plain; charset=utf-8")
+    writeHeaders()
     if (!head) response.end(result.body)
     else response.end()
     return
@@ -103,7 +171,8 @@ async function writeResponse(response: ServerResponse, result: ResponseData, hea
     }
     return pipeWebBody(response, result.body)
   }
-  writeHeaders("application/json; charset=utf-8")
+  if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8")
+  writeHeaders()
   if (!head) response.end(JSON.stringify(result.body))
   else response.end()
 }

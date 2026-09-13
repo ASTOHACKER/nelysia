@@ -6,52 +6,54 @@ This is a prioritised roadmap based on Elysia's public documentation. Nelysia sh
 
 | Area | Nelysia status | Priority |
 | --- | --- | --- |
-| Chainable routes | Partial | P0 |
-| Static response handlers | `getStatic()` only | P0 |
-| `listen()` ergonomic API | Missing | P0 |
-| Params/query/body context | Partial | P0 |
-| HEAD/OPTIONS/405 semantics | Implemented | P0 |
-| Lifecycle hooks | Before/after/error hooks | P0 |
-| Error handling | `onError()` plus adapter fallback | P0 |
-| Cookies | Basic parse/set-cookie support | P1 |
-| WebSocket | Missing | P1 |
-| Streaming | Native Response and ReadableStream support | P1 |
+| Chainable routes | Implemented (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD, ALL) | P0 |
+| Static response handlers | Implemented (`getStatic()`, zero-context optimization) | P0 |
+| `listen()` ergonomic API | Implemented (Unified Bun & Node callback with ServerInfo in v0.1.4) | P0 |
+| Params/query/body context | Implemented (Proxy destructuring, `set`, `store`, shorthands in v0.1.2–v0.1.4) | P0 |
+| HEAD/OPTIONS/405 semantics | Implemented (Automatic 405 + Allow headers + OPTIONS 204) | P0 |
+| Lifecycle hooks | Implemented (`onBeforeHandle`, `onAfterHandle`, `onError`) | P0 |
+| Error handling | Implemented (`onError`, `HttpError`, status code mapping) | P0 |
+| Custom 404 handler | Implemented (`notFound()` in v0.1.3+) | P0 |
+| Cookies | Implemented (`cookies`, `setCookie`, `deleteCookie` in v0.1.4) | P1 |
+| WebSocket | Implemented (Native Bun & Node WebSocket) | P1 |
+| Streaming | Implemented (Native Response and ReadableStream support) | P1 |
 
 ## Type Integrity
 
 | Area | Nelysia status | Priority |
 | --- | --- | --- |
-| Path parameter inference | Missing | P0 |
-| Schema body validation | Basic | P0 |
-| Params/query/header schemas | Basic runtime validation | P0 |
-| Response schemas | Basic runtime validation | P1 |
-| Standard Schema adapters | Basic adapter | P1 |
-| Typed error/status outcomes | Missing | P1 |
-| Type-level test suite | Basic | P0 |
+| Path parameter inference | Basic / Parsed in Context params | P0 |
+| Schema body validation | Implemented (`t.Object`, standard schemas) | P0 |
+| Params/query/header schemas | Implemented (Runtime validation) | P0 |
+| Response schemas | Implemented (Runtime validation & serialization) | P1 |
+| Standard Schema adapters | Implemented (Zod, Valibot, ArkType Standard Schema v1) | P1 |
+| Typed error/status outcomes | Implemented (`HttpError`, `set.status`) | P1 |
+| Type-level test suite | Implemented (`npm run typecheck`, 0 errors) | P0 |
 
 ## Composition
 
 | Area | Nelysia status | Priority |
 | --- | --- | --- |
-| Plugins | Basic `use()` composition | P0 |
-| Plugin encapsulation | Missing | P0 |
-| Context extension | Missing | P1 |
-| Macros | Missing | P1 |
-| Mounting/sub-apps | Basic `mount()` | P1 |
-| Lifecycle ordering contract | Basic | P0 |
+| Plugins | Implemented (`use()` composition) | P0 |
+| Plugin encapsulation | Implemented (Hook inheritance and mounting boundary) | P0 |
+| Route grouping | Implemented (`group(prefix, callback)` in v0.1.3+) | P0 |
+| Context extension | Implemented (`context.store` request dictionary) | P1 |
+| Macros | Deferred / Investigating | P1 |
+| Mounting/sub-apps | Implemented (`mount()`) | P1 |
+| Built-in plugins | Implemented (`cors`, `securityHeaders`, `staticDirectory`, `rateLimit`, `compression`) | P0 |
 
 ## Tooling and Ecosystem
 
 | Area | Nelysia status | Priority |
 | --- | --- | --- |
-| CLI dev/build | MVP | P0 |
-| Route/compiler inspector | MVP | P0 |
-| OpenAPI | Basic document generation | P1 |
-| OpenTelemetry | Pluggable telemetry callbacks; exporter pending | P1 |
-| Trace/server timing | Missing | P1 |
-| Eden-like typed client | Basic fetch client | P1 |
-| Unit-test helpers | Basic direct handler tests | P1 |
-| AI/tutorial documentation | Missing | P2 |
+| CLI dev/build | Implemented (`nelysia inspect`, `nelysia build`) | P0 |
+| Route/compiler inspector | Implemented (`npm run inspect`) | P0 |
+| OpenAPI & Swagger UI | Implemented (`openapi()`, `openapiUi()`, `swaggerUi()`, route metadata) | P1 |
+| OpenTelemetry | Implemented (`otlpHttpExporter`, telemetry callbacks) | P1 |
+| Trace/server timing | Implemented via OpenTelemetry & lifecycle hooks | P1 |
+| Eden-like typed client | Implemented (`@narudom96/nelysia/client`) | P1 |
+| Unit-test helpers | Implemented (direct handler & fetch testing) | P1 |
+| Documentation | Comprehensive Bilingual Docs (TH/EN) & Portal | P0 |
 
 ## Integrations
 

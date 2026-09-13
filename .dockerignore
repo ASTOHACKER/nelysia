@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-package
+.nelysia-cache
+.git
+docs
+tests
+spec
+benchmarks
+*.tgz
+*.log
+coverage/
+.env
+.env.local
+examples/prisma/*.db
+examples/prisma/generated/

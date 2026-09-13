@@ -8,7 +8,9 @@ const framework = process.env.FRAMEWORK ?? "nelysia"
 const port = Number(process.env.PORT ?? 4310)
 
 if (framework === "nelysia") {
-  const app = new Nelysia()
+  // requestId disabled so the comparison measures routing/serialization like
+  // raw/fastify/express, which do not generate a request id per request.
+  const app = new Nelysia({ requestId: false })
     .get("/json", () => ({ message: "hello", value: 42 }))
     .get("/users/:id", ({ params }) => ({ id: params.id }))
   createNodeServer(app).listen(port, () => console.log(`ready:${framework}:${port}`))

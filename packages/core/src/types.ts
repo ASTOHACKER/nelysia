@@ -14,6 +14,8 @@ export interface NelysiaOptions {
   telemetry?: Telemetry
   trustedProxy?: boolean
   secureCookies?: boolean
+  /** When false, skips request-id generation and the `x-request-id` response header (Elysia-like fast path). Defaults to true for compatibility. */
+  requestId?: boolean
 }
 
 export interface TelemetrySpan {
@@ -54,6 +56,9 @@ export interface WebSocketHandlers {
 }
 
 export interface RouteOptions {
+  summary?: string
+  description?: string
+  tags?: string[]
   body?: import("./schema.ts").Schema | import("./schema.ts").StandardSchema
   params?: import("./schema.ts").Schema | import("./schema.ts").StandardSchema
   query?: import("./schema.ts").Schema | import("./schema.ts").StandardSchema
@@ -72,9 +77,7 @@ export interface ResponseData {
 export const responseMarker = Symbol("nelysia.response")
 
 export function requestIdFor(request: RequestData): string {
-  const h = request.headers as any
-  const headerId = typeof h?.get === "function" ? h.get("x-request-id") : h?.["x-request-id"]
-  return request.requestId ?? headerId ?? `req-${request.method}-${request.url}`
+  return request.requestId ?? request.headers?.get("x-request-id") ?? `req-${request.method}-${request.url}`
 }
 
 export class HttpError extends Error {
@@ -84,6 +87,25 @@ export class HttpError extends Error {
     super(message)
     this.status = status
   }
+}
+
+export type ParsedQuery = URLSearchParams & Record<string, string | undefined>
+
+export interface ResponseSetContext {
+  status?: number
+  headers: Record<string, string>
+}
+
+export interface ServerInfo {
+  port: number
+  hostname: string
+  url: string
+  server: unknown
+}
+
+export interface ListenOptions {
+  port: number
+  hostname?: string
 }
 
 export interface InjectOptions {
@@ -110,13 +132,21 @@ export interface Context {
   requestId: string
   clientIp?: string
   params: Record<string, string>
-  query: URLSearchParams
+  query: ParsedQuery
+  set: ResponseSetContext
+  store: Record<string, unknown>
   body: unknown
   headers: Headers
   cookies: Record<string, string>
   auth?: unknown
   setCookie(name: string, value: string, options?: CookieOptions): void
+  deleteCookie(name: string, options?: CookieOptions): void
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
+  html(body: string, status?: number): ResponseData
+  text(body: string, status?: number): ResponseData
+  json(body: unknown, status?: number): ResponseData
+  redirect(url: string, status?: number): ResponseData
+  header(name: string, value: string): this
 }
 
 export type Handler = (context: Context) => unknown | Promise<unknown>
@@ -138,6 +168,9 @@ export interface RouteRecord {
   contextFree?: boolean
   staticValue?: unknown
   auth?: string | boolean | Record<string, unknown>
+  summary?: string
+  description?: string
+  tags?: string[]
   bodySchema?: import("./schema.ts").Schema
   paramsSchema?: import("./schema.ts").Schema
   querySchema?: import("./schema.ts").Schema

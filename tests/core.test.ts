@@ -1,9 +1,9 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { gracefulShutdown, Nelysia, t } from "../packages/core/src/index.ts"
+import { gracefulShutdown, HttpError, Nelysia, t } from "../packages/core/src/index.ts"
 import { compile, createCompiledBunHandler, inspect } from "../packages/compiler/src/index.ts"
-import { generateClientTypes, generateOpenAPI, openapi, openapiUi } from "../packages/openapi/src/index.ts"
-import { compression, rateLimit, staticFile } from "../packages/plugins/src/index.ts"
+import { generateClientTypes, generateOpenAPI, openapi, openapiUi, swaggerUi } from "../packages/openapi/src/index.ts"
+import { compression, cors, rateLimit, securityHeaders, staticDirectory, staticFile } from "../packages/plugins/src/index.ts"
 import { otlpHttpExporter } from "../packages/observability/src/index.ts"
 import { createFetchHandler } from "../packages/runtime-fetch/src/server.ts"
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from "graphql"
@@ -108,6 +108,67 @@ test("routes errors through onError", async () => {
   assert.deepEqual(result.body, { message: "broken" })
 })
 
+test("onError automatically adopts HttpError status when returning plain object", async () => {
+  const app = new Nelysia()
+    .onError((error) => ({ error: (error as Error).message }))
+    .get("/fail-422", () => { throw new HttpError(422, "Invalid entity") })
+    .get("/fail-500", () => { throw new Error("Unexpected crash") })
+
+  const res422 = await app.handle({ method: "GET", url: "/fail-422" })
+  assert.equal(res422.status, 422)
+  assert.deepEqual(res422.body, { error: "Invalid entity" })
+
+  const res500 = await app.handle({ method: "GET", url: "/fail-500" })
+  assert.equal(res500.status, 500)
+  assert.deepEqual(res500.body, { error: "Unexpected crash" })
+})
+
+test("unhandled HttpError returns structured response with error.status", async () => {
+  const app = new Nelysia()
+    .get("/unhandled", () => { throw new HttpError(403, "Forbidden resource") })
+  const res = await app.handle({ method: "GET", url: "/unhandled" })
+  assert.equal(res.status, 403)
+  assert.deepEqual(res.body, { error: "Forbidden resource" })
+})
+
+test("provides ergonomic proxy access to context.query while preserving URLSearchParams methods", async () => {
+  const app = new Nelysia()
+    .get("/search", ({ query }) => {
+      const { category, q } = query
+      return {
+        category,
+        q,
+        rawCategory: query.get("category"),
+        hasQ: query.has("q"),
+      }
+    })
+  const result = await app.handle({ method: "GET", url: "/search?category=hardware&q=board" })
+  assert.equal(result.status, 200)
+  assert.deepEqual(result.body, {
+    category: "hardware",
+    q: "board",
+    rawCategory: "hardware",
+    hasQ: true,
+  })
+})
+
+test("supports setting response status and headers via context.set", async () => {
+  const app = new Nelysia()
+    .post("/items", ({ body, set }) => {
+      set.status = 201
+      set.headers["x-custom-engine"] = "nelysia"
+      return { created: true, body }
+    })
+  const result = await app.handle({
+    method: "POST",
+    url: "/items",
+    body: { name: "Keyboard" },
+  })
+  assert.equal(result.status, 201)
+  assert.deepEqual(result.body, { created: true, body: { name: "Keyboard" } })
+  assert.equal(result.headers.get("x-custom-engine"), "nelysia")
+})
+
 test("supports static value handlers", async () => {
   const app = new Nelysia()
     .get("/text", "hello")
@@ -137,7 +198,32 @@ test("generates OpenAPI paths from route schemas", () => {
   })
   const document = generateOpenAPI(app, { title: "Test API" })
   assert.equal(document.info.title, "Test API")
-  assert.ok(document.paths["/users"].post)
+  assert.deepEqual((document.paths["/users"]?.post as Record<string, any>)?.requestBody?.content["application/json"]?.schema, {
+    type: "object",
+    properties: { name: { type: "string" } },
+    required: ["name"]
+  })
+})
+
+test("generates OpenAPI paths and parameters from StandardSchema", () => {
+  const fakeStandardObject = {
+    shape: {
+      search: { type: "string" },
+      limit: { type: "number" },
+    },
+    "~standard": {
+      version: 1 as const,
+      validate(value: unknown) { return { value } }
+    }
+  }
+  const app = new Nelysia().get("/items", ({ query }) => query, {
+    query: fakeStandardObject
+  })
+  const document = generateOpenAPI(app)
+  assert.deepEqual((document.paths["/items"]?.get as Record<string, any>)?.parameters, [
+    { name: "search", in: "query", required: true, schema: { type: "string" } },
+    { name: "limit", in: "query", required: true, schema: { type: "number" } },
+  ])
 })
 
 test("OpenAPI plugin serves a live document", async () => {
@@ -221,6 +307,24 @@ test("serves an explicit static file with MIME metadata and 404 fallback", async
   assert.match(result.headers.get("content-type") ?? "", /application\/json/)
   assert.match(new TextDecoder().decode(result.body as Uint8Array), /\"name\"/)
   assert.equal((await app.handle({ method: "GET", url: "/missing" })).status, 404)
+})
+
+test("serves directory files with staticDirectory plugin, index fallback, and traversal guard", async () => {
+  const app = new Nelysia().use(staticDirectory({
+    prefix: "/docs",
+    root: new URL("../docs", import.meta.url),
+    index: "index.html"
+  }))
+
+  const rootRes = await app.handle({ method: "GET", url: "/docs" })
+  assert.equal(rootRes.status, 200)
+  assert.match(rootRes.headers.get("content-type") ?? "", /text\/html/)
+
+  const missingRes = await app.handle({ method: "GET", url: "/docs/does-not-exist.txt" })
+  assert.equal(missingRes.status, 404)
+
+  const attackRes = await app.handle({ method: "GET", url: "/docs/../../package.json" })
+  assert.equal(attackRes.status, 404)
 })
 
 test("compresses negotiated response bodies and preserves decompressed content", async () => {
@@ -338,6 +442,194 @@ test("isolates mounted plugin after and error lifecycle", async () => {
   assert.equal(failure.body, "child-error")
   assert.equal((await app.handle({ method: "GET", url: "/outside" })).body, "outside")
   assert.deepEqual(events, ["child-after"])
+})
+
+test("context.store shares state between hooks and handlers", async () => {
+  const app = new Nelysia()
+    .onBeforeHandle(({ store, headers }) => {
+      store.user = { id: headers.get("x-user-id") ?? "guest" }
+    })
+    .get("/me", ({ store }) => store.user)
+
+  const res = await app.handle({ method: "GET", url: "/me", headers: new Headers({ "x-user-id": "usr-123" }) })
+  assert.equal(res.status, 200)
+  assert.deepEqual(res.body, { id: "usr-123" })
+})
+
+test("app.group organizes routes with prefix and hook inheritance", async () => {
+  const traces: string[] = []
+  const app = new Nelysia()
+    .onBeforeHandle(() => { traces.push("global-hook") })
+    .group("/api/v1", (v1) => {
+      v1.onBeforeHandle(() => { traces.push("v1-hook") })
+      v1.get("/users", () => [{ id: 1 }])
+      v1.post("/users", () => ({ created: true }))
+    })
+    .get("/ping", () => "pong")
+
+  const resUsers = await app.handle({ method: "GET", url: "/api/v1/users" })
+  assert.equal(resUsers.status, 200)
+  assert.deepEqual(resUsers.body, [{ id: 1 }])
+  assert.deepEqual(traces, ["global-hook", "v1-hook"])
+
+  traces.length = 0
+  const resPing = await app.handle({ method: "GET", url: "/ping" })
+  assert.equal(resPing.status, 200)
+  assert.deepEqual(traces, ["global-hook"])
+})
+
+test("app.notFound provides custom 404 handler", async () => {
+  const app = new Nelysia()
+    .notFound(({ request, response }) => {
+      return response(404, { code: "NOT_FOUND_CUSTOM", url: request.url })
+    })
+    .get("/hello", () => "world")
+
+  const resMissing = await app.handle({ method: "GET", url: "/non-existent" })
+  assert.equal(resMissing.status, 404)
+  assert.deepEqual(resMissing.body, { code: "NOT_FOUND_CUSTOM", url: "/non-existent" })
+
+  const resOk = await app.handle({ method: "GET", url: "/hello" })
+  assert.equal(resOk.status, 200)
+  assert.equal(resOk.body, "world")
+})
+
+test("cors plugin handles preflight OPTIONS and normal requests", async () => {
+  const app = new Nelysia()
+    .use(cors({
+      origin: ["https://example.com"],
+      credentials: true,
+      maxAge: 3600
+    }))
+    .get("/data", () => ({ value: 42 }))
+
+  // Preflight
+  const preflight = await app.handle({
+    method: "OPTIONS",
+    url: "/data",
+    headers: new Headers({
+      origin: "https://example.com",
+      "access-control-request-method": "GET"
+    })
+  })
+  assert.equal(preflight.status, 204)
+  assert.equal(preflight.headers.get("access-control-allow-origin"), "https://example.com")
+  assert.equal(preflight.headers.get("access-control-allow-credentials"), "true")
+  assert.equal(preflight.headers.get("access-control-max-age"), "3600")
+
+  // Normal request with origin
+  const res = await app.handle({
+    method: "GET",
+    url: "/data",
+    headers: new Headers({ origin: "https://example.com" })
+  })
+  assert.equal(res.status, 200)
+  assert.equal(res.headers.get("access-control-allow-origin"), "https://example.com")
+  assert.equal(res.headers.get("access-control-allow-credentials"), "true")
+  assert.deepEqual(res.body, { value: 42 })
+})
+
+test("securityHeaders plugin applies standard defense-in-depth headers", async () => {
+  const app = new Nelysia()
+    .use(securityHeaders())
+    .get("/secure", () => "safe")
+
+  const res = await app.handle({ method: "GET", url: "/secure" })
+  assert.equal(res.status, 200)
+  assert.equal(res.headers.get("x-content-type-options"), "nosniff")
+  assert.equal(res.headers.get("x-frame-options"), "SAMEORIGIN")
+  assert.equal(res.headers.get("referrer-policy"), "no-referrer")
+  assert.match(res.headers.get("strict-transport-security") ?? "", /max-age/)
+})
+
+test("swaggerUi serves Swagger documentation interface and routes have metadata", async () => {
+  const app = new Nelysia()
+    .use(swaggerUi({ path: "/docs/swagger", title: "Test API Docs" }))
+    .get("/users", () => [], {
+      summary: "List users",
+      description: "Returns all active registered users",
+      tags: ["Users"]
+    })
+
+  const res = await app.handle({ method: "GET", url: "/docs/swagger" })
+  assert.equal(res.status, 200)
+  assert.equal(res.headers.get("content-type"), "text/html; charset=utf-8")
+  assert.match(res.body as string, /<div id="swagger-ui"><\/div>/)
+  assert.match(res.body as string, /Test API Docs/)
+
+  const openapiSpec = generateOpenAPI(app)
+  const userOp = openapiSpec.paths["/users"]?.["get"] as Record<string, unknown>
+  assert.equal(userOp.summary, "List users")
+  assert.equal(userOp.description, "Returns all active registered users")
+  assert.deepEqual(userOp.tags, ["Users"])
+})
+
+test("context provides html, text, json, and redirect shorthands", async () => {
+  const app = new Nelysia()
+    .get("/page", ({ html }) => html("<h1>Hello Nelysia</h1>"))
+    .get("/plain", ({ text }) => text("Just text"))
+    .get("/data", ({ json }) => json({ success: true }))
+    .get("/old", ({ redirect }) => redirect("/new"))
+
+  const resHtml = await app.handle({ method: "GET", url: "/page" })
+  assert.equal(resHtml.status, 200)
+  assert.equal(resHtml.headers.get("content-type"), "text/html; charset=utf-8")
+  assert.equal(resHtml.body, "<h1>Hello Nelysia</h1>")
+
+  const resText = await app.handle({ method: "GET", url: "/plain" })
+  assert.equal(resText.status, 200)
+  assert.equal(resText.headers.get("content-type"), "text/plain; charset=utf-8")
+  assert.equal(resText.body, "Just text")
+
+  const resJson = await app.handle({ method: "GET", url: "/data" })
+  assert.equal(resJson.status, 200)
+  assert.equal(resJson.headers.get("content-type"), "application/json; charset=utf-8")
+  assert.deepEqual(resJson.body, { success: true })
+
+  const resRedir = await app.handle({ method: "GET", url: "/old" })
+  assert.equal(resRedir.status, 302)
+  assert.equal(resRedir.headers.get("location"), "/new")
+})
+
+test("context provides header() and deleteCookie() helpers", async () => {
+  const app = new Nelysia()
+    .get("/set-hdr", ({ header }) => {
+      header("x-trace-id", "trace-abc-123")
+      return { ok: true }
+    })
+    .get("/logout", ({ deleteCookie }) => {
+      deleteCookie("token", { path: "/" })
+      return { loggedOut: true }
+    })
+
+  const resHdr = await app.handle({ method: "GET", url: "/set-hdr" })
+  assert.equal(resHdr.status, 200)
+  assert.equal(resHdr.headers.get("x-trace-id"), "trace-abc-123")
+
+  const resLogout = await app.handle({ method: "GET", url: "/logout" })
+  assert.equal(resLogout.status, 200)
+  const setCookie = resLogout.headers.get("set-cookie") ?? ""
+  assert.match(setCookie, /token=/)
+  assert.match(setCookie, /Max-Age=0/)
+})
+
+test("app.listen supports callback with server metadata", async () => {
+  const app = new Nelysia().get("/ping", () => "pong")
+  let serverInstance: any
+
+  const serverInfo = await new Promise<any>((resolve) => {
+    serverInstance = app.listen(0, (info) => {
+      resolve(info)
+    })
+  })
+
+  assert.ok(serverInfo.port >= 0)
+  assert.ok(serverInfo.url.startsWith("http://"))
+  if (typeof serverInstance?.close === "function") {
+    await new Promise<void>((r) => serverInstance.close(() => r()))
+  } else if (typeof serverInstance?.stop === "function") {
+    serverInstance.stop()
+  }
 })
 
 test("app.inject executes requests without binding a network port", async () => {
