@@ -748,6 +748,535 @@
       gap: 15px;
     }
 
+    /* Reading Progress Bar */
+    .reading-progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 2.5px;
+      width: 100%;
+      transform: scaleX(0);
+      transform-origin: left center;
+      background: var(--accent);
+      z-index: 1000;
+      transition: transform 0.08s linear;
+      pointer-events: none;
+    }
+
+    /* Back to Top Floating Trigger */
+    .back-to-top {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--panel-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(12px);
+      transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      z-index: 99;
+      box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4);
+    }
+    .back-to-top.visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .back-to-top:hover {
+      background: var(--panel-hover);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Command Palette Modal (Cmd+K) */
+    .cmd-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 7, 10, 0.78);
+      backdrop-filter: blur(12px);
+      z-index: 999;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 14vh;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.18s ease, visibility 0.18s ease;
+    }
+    .cmd-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+    .cmd-modal {
+      width: min(90vw, 620px);
+      background: var(--panel);
+      border: 1px solid var(--border-hover);
+      border-radius: 10px;
+      box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+      transform: translateY(-8px) scale(0.98);
+      transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .cmd-backdrop.open .cmd-modal {
+      transform: translateY(0) scale(1);
+    }
+    .cmd-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .cmd-head svg {
+      flex-shrink: 0;
+      color: var(--text-dim);
+    }
+    .cmd-input {
+      flex: 1;
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      font: 500 0.95rem var(--sans);
+      outline: none;
+    }
+    .cmd-input::placeholder {
+      color: var(--text-dim);
+    }
+    .cmd-esc {
+      font: 600 0.68rem var(--mono);
+      color: var(--text-dim);
+      padding: 3px 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .cmd-list {
+      max-height: 380px;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .cmd-group-label {
+      padding: 8px 12px 4px;
+      font: 700 0.65rem var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .cmd-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.1s ease, color 0.1s ease;
+    }
+    .cmd-item:hover, .cmd-item.selected {
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--text);
+      text-decoration: none;
+    }
+    .cmd-item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cmd-item-badge {
+      font: 600 0.68rem var(--mono);
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-dim);
+    }
+
+    /* Top Search Trigger (Cmd+K Button) */
+    .search-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: var(--text-dim);
+      font: 500 0.82rem var(--sans);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .search-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--border-hover);
+      color: var(--text);
+    }
+    .search-kbd {
+      font: 600 0.68rem var(--mono);
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    /* Interactive AOT Compiler Simulator */
+    .sim-card {
+      margin: 28px 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+    .sim-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .sim-header-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font: 700 0.88rem var(--sans);
+      color: var(--text);
+    }
+    .sim-body {
+      padding: 20px;
+    }
+    .sim-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .sim-tab-btn {
+      padding: 8px 14px;
+      border-radius: 6px;
+      font: 600 0.8rem var(--mono);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .sim-tab-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+    .sim-tab-btn.active {
+      background: rgba(16, 185, 129, 0.14);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .sim-display {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 760px) {
+      .sim-display { grid-template-columns: 1fr; }
+    }
+    .sim-code-preview {
+      background: #06090d;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font: 0.82rem/1.65 var(--mono);
+      color: var(--text-muted);
+      overflow-x: auto;
+    }
+    .sim-pipeline-box {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-content: center;
+    }
+    .sim-step-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font: 500 0.82rem var(--sans);
+      color: var(--text-muted);
+    }
+    .sim-step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+    .sim-step-dot.active {
+      background: var(--accent);
+    }
+    .sim-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 640px) {
+      .sim-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .sim-metric-tile {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .sim-metric-label {
+      font: 700 0.66rem var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+    .sim-metric-val {
+      font: 700 1.05rem var(--mono);
+      color: var(--text);
+    }
+
+    /* Interactive Mock API Console */
+    .api-tester-card {
+      margin: 28px 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+    .api-tester-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .api-method-badge {
+      font: 700 0.74rem var(--mono);
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .api-select-url {
+      flex: 1;
+      min-width: 220px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 12px;
+      color: var(--text);
+      font: 500 0.82rem var(--mono);
+      outline: none;
+      cursor: pointer;
+    }
+    .api-select-url:focus {
+      border-color: var(--accent);
+    }
+    .api-send-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      background: var(--accent);
+      border: 0;
+      border-radius: 6px;
+      color: #080c10;
+      font: 700 0.8rem var(--sans);
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+    .api-send-btn:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+    .api-send-btn:active {
+      transform: translateY(0);
+    }
+    .api-result-panel {
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .api-meta-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 12px;
+      font: 600 0.76rem var(--mono);
+      color: var(--text-dim);
+      flex-wrap: wrap;
+    }
+    .api-status-pill {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font: 700 0.72rem var(--mono);
+    }
+    .api-status-pill.s200 {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .api-status-pill.s400 {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warn);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .api-json-view {
+      background: #06090d;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font: 0.82rem/1.6 var(--mono);
+      color: #94a3b8;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    /* Interactive Benchmark Metric Visualizer */
+    .bench-visualizer {
+      margin: 24px 0 32px;
+      padding: 22px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.35);
+    }
+    .bench-viz-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .bench-viz-btns {
+      display: flex;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .bench-viz-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 0;
+      background: transparent;
+      color: var(--text-dim);
+      font: 600 0.76rem var(--mono);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .bench-viz-btn:hover { color: var(--text); }
+    .bench-viz-btn.active {
+      background: rgba(16, 185, 129, 0.14);
+      color: var(--accent);
+    }
+    .bench-row {
+      margin-bottom: 14px;
+    }
+    .bench-row-top {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+      font: 500 0.84rem var(--sans);
+    }
+    .bench-row-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+    .bench-row-val {
+      font: 700 0.84rem var(--mono);
+      color: var(--text-dim);
+    }
+    .bench-row.highlight .bench-row-val {
+      color: var(--accent);
+    }
+    .bench-track {
+      height: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+    }
+    .bench-fill {
+      height: 100%;
+      border-radius: 6px;
+      background: var(--text-dim);
+      width: 100%;
+      transform: scaleX(1);
+      transform-origin: left center;
+      transition: transform 0.45s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .bench-row.highlight .bench-fill {
+      background: #10b981;
+    }
+
+    /* Tabbed Code Blocks */
+    .code-tabs {
+      margin: 22px 0 28px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+    .code-tabs-nav {
+      display: flex;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border);
+      padding: 0 12px;
+      gap: 4px;
+    }
+    .code-tab-btn {
+      padding: 10px 14px;
+      background: transparent;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      font: 600 0.78rem var(--mono);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .code-tab-btn:hover {
+      color: var(--text);
+    }
+    .code-tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .code-tab-panel {
+      display: none;
+    }
+    .code-tab-panel.active {
+      display: block;
+    }
+
     /* Language Toggle Display Rules */
     body.lang-en [data-lang="th"] { display: none !important; }
     body.lang-th [data-lang="en"] { display: none !important; }
@@ -777,8 +1306,8 @@
       pre { font-size: 0.78rem; padding: 16px 14px; }
     }
   </style>
-</head>
 <body class="lang-en">
+  <div class="reading-progress-bar" id="reading-progress" aria-hidden="true"></div>
   <!--
   THESIS: An authoritative, high-density compiler-first technical manual that rejects murky hacker slop and generic AI cards in favor of a pristine, high-clarity obsidian engineering document.
   OWN-WORLD: Deep obsidian ground (#080c10, #111720), subtle slate borders (rgba(255,255,255,0.08)), luminous emerald signals (#10b981), and Tokyo Night syntax highlighting.
@@ -921,12 +1450,13 @@
             <button class="lang-btn" id="btn-th">TH</button>
           </div>
 
-          <!-- Fast Section Search -->
-          <label class="search">
+          <!-- Fast Section Search & Command Palette Trigger -->
+          <button class="search-btn" id="open-cmd" aria-label="Open command palette search">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            <input id="search" type="search" placeholder="Search docs... (press /)" autocomplete="off">
-            <kbd>/</kbd>
-          </label>
+            <span data-lang="en">Search docs...</span>
+            <span data-lang="th">ค้นหาคู่มือ...</span>
+            <kbd class="search-kbd">⌘K</kbd>
+          </button>
 
           <!-- GitHub Source Link -->
           <a href="https://github.com/ASTOHACKER/nelysia" target="_blank" rel="noreferrer" class="github-link" aria-label="GitHub Repository">
@@ -1140,6 +1670,57 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
               <p data-lang="th">ต่อยอดกับโลกยุคใหม่: สตรีม LLM ผ่าน Vercel AI SDK, เชื่อมต่อ Drizzle ORM, Prisma, Better Auth, WebSockets และ Adapter เสิร์ฟบน Cloudflare, Vercel และ Deno ได้ทันที</p>
             </div>
           </div>
+
+          <!-- Interactive AOT Compiler Simulator (Delight / Interactive Feature) -->
+          <div class="sim-card" id="aot-simulator">
+            <div class="sim-header">
+              <div class="sim-header-title">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span data-lang="en">Interactive AOT Compiler Simulator</span>
+                <span data-lang="th">เครื่องมือจำลอง AOT Compiler Specialization แบบ Interactive</span>
+              </div>
+              <span class="badge-win">AOT Engine v0.1.4</span>
+            </div>
+            <div class="sim-body">
+              <p style="margin-top: 0;" data-lang="en">Select a route pattern below to observe how Nelysia's AOT dispatcher analyzes AST shapes and assigns execution tiers at boot time:</p>
+              <p style="margin-top: 0;" data-lang="th">เลือกรูปแบบ Route ด้านล่างเพื่อดูว่าคอมไพเลอร์ของ Nelysia วิเคราะห์โครงสร้างและจัดสรรลำดับ Tier ตอนเริ่มระบบอย่างไร:</p>
+
+              <div class="sim-tabs" role="tablist">
+                <button class="sim-tab-btn active" data-sim="static">1. GET /health (Static)</button>
+                <button class="sim-tab-btn" data-sim="param">2. GET /users/:id (Param Only)</button>
+                <button class="sim-tab-btn" data-sim="schema">3. POST /users (Schema)</button>
+                <button class="sim-tab-btn" data-sim="hook">4. GET /admin (onBeforeHandle)</button>
+              </div>
+
+              <div class="sim-display">
+                <div class="sim-code-preview" id="sim-code">app.getStatic("/health", { status: "ok" })</div>
+                <div class="sim-pipeline-box">
+                  <div class="sim-step-row"><span class="sim-step-dot active" id="sim-s1"></span> <span id="sim-step1-txt">Route AST: Constant Literal Detected</span></div>
+                  <div class="sim-step-row"><span class="sim-step-dot active" id="sim-s2"></span> <span id="sim-step2-txt">Context Bypass: Context Creation Excluded</span></div>
+                  <div class="sim-step-row"><span class="sim-step-dot active" id="sim-s3"></span> <span id="sim-step3-txt">Target Buffer: Pre-serialized to raw bytes</span></div>
+                </div>
+              </div>
+
+              <div class="sim-metrics-grid">
+                <div class="sim-metric-tile">
+                  <div class="sim-metric-label"><span data-lang="en">Execution Tier</span><span data-lang="th">ลำดับ TIER</span></div>
+                  <div class="sim-metric-val" id="sim-tier" style="color: var(--accent);">COMPILED</div>
+                </div>
+                <div class="sim-metric-tile">
+                  <div class="sim-metric-label"><span data-lang="en">Latency</span><span data-lang="th">LATENCY</span></div>
+                  <div class="sim-metric-val" id="sim-lat">0.32 ms</div>
+                </div>
+                <div class="sim-metric-tile">
+                  <div class="sim-metric-label"><span data-lang="en">Allocations</span><span data-lang="th">ALLOCATIONS</span></div>
+                  <div class="sim-metric-val" id="sim-alloc">0 B (Zero-Alloc)</div>
+                </div>
+                <div class="sim-metric-tile">
+                  <div class="sim-metric-label"><span data-lang="en">V8 IC State</span><span data-lang="th">สถานะ V8 IC</span></div>
+                  <div class="sim-metric-val" id="sim-ic" style="color: var(--cyan);">Monomorphic</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         <!-- 0b. Framework Comparison Matrix -->
@@ -1229,6 +1810,67 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Interactive Benchmark Metric Visualizer -->
+          <div class="bench-visualizer" id="bench-viz">
+            <div class="bench-viz-nav">
+              <div>
+                <b style="color: var(--text);"><span data-lang="en">Interactive Benchmark Visualizer</span><span data-lang="th">เครื่องมือเปรียบเทียบ Benchmark แบบ Interactive</span></b>
+                <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 2px;">
+                  <span data-lang="en">Toggle metric below to view verified local medians across frameworks:</span>
+                  <span data-lang="th">คลิกเลือกตัวชี้วัดเพื่อดูการเปรียบเทียบระหว่างแต่ละ Framework:</span>
+                </div>
+              </div>
+              <div class="bench-viz-btns" role="tablist">
+                <button class="bench-viz-btn active" data-metric="rps"><span data-lang="en">Throughput (RPS)</span><span data-lang="th">Throughput (Req/s)</span></button>
+                <button class="bench-viz-btn" data-metric="lat"><span data-lang="en">Latency (ms)</span><span data-lang="th">Latency (ms)</span></button>
+                <button class="bench-viz-btn" data-metric="gc"><span data-lang="en">Memory GC Alloc</span><span data-lang="th">ขยะใน RAM (GC)</span></button>
+              </div>
+            </div>
+
+            <div class="bench-bars" id="bench-bars-container">
+              <!-- Nelysia -->
+              <div class="bench-row highlight" id="row-nelysia">
+                <div class="bench-row-top">
+                  <span class="bench-row-name"><span class="badge-win">Nelysia</span> (Bun 1.4+)</span>
+                  <span class="bench-row-val" id="val-nelysia">30,618 req/s</span>
+                </div>
+                <div class="bench-track"><div class="bench-fill" id="fill-nelysia" style="width: 100%;"></div></div>
+              </div>
+              <!-- Raw Bun -->
+              <div class="bench-row" id="row-rawbun">
+                <div class="bench-row-top">
+                  <span class="bench-row-name">Raw Bun (Bun.serve)</span>
+                  <span class="bench-row-val" id="val-rawbun">29,625 req/s</span>
+                </div>
+                <div class="bench-track"><div class="bench-fill" id="fill-rawbun" style="width: 96.7%;"></div></div>
+              </div>
+              <!-- Elysia -->
+              <div class="bench-row" id="row-elysia">
+                <div class="bench-row-top">
+                  <span class="bench-row-name">ElysiaJS (Bun)</span>
+                  <span class="bench-row-val" id="val-elysia">28,615 req/s</span>
+                </div>
+                <div class="bench-track"><div class="bench-fill" id="fill-elysia" style="width: 93.4%;"></div></div>
+              </div>
+              <!-- Fastify -->
+              <div class="bench-row" id="row-fastify">
+                <div class="bench-row-top">
+                  <span class="bench-row-name">Fastify (Node.js 22)</span>
+                  <span class="bench-row-val" id="val-fastify">18,400 req/s</span>
+                </div>
+                <div class="bench-track"><div class="bench-fill" id="fill-fastify" style="width: 60.1%;"></div></div>
+              </div>
+              <!-- Express -->
+              <div class="bench-row" id="row-express">
+                <div class="bench-row-top">
+                  <span class="bench-row-name">Express 4 (Node.js 22)</span>
+                  <span class="bench-row-val" id="val-express">7,200 req/s</span>
+                </div>
+                <div class="bench-track"><div class="bench-fill" id="fill-express" style="width: 23.5%;"></div></div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1458,6 +2100,41 @@ bun run src/app.ts
 <span class="com"># Test endpoints</span>
 curl http://localhost:3000/
 curl http://localhost:3000/users/42</code></pre>
+          </div>
+
+          <!-- Interactive Live API Console / Request Tester -->
+          <div class="api-tester-card" id="api-tester">
+            <div class="api-tester-top">
+              <span class="api-method-badge" id="api-method-badge">GET</span>
+              <select class="api-select-url" id="api-endpoint-select" aria-label="Select Mock Endpoint">
+                <option value="root">/ (HTML Welcome)</option>
+                <option value="user">/users/42 (Dynamic Param)</option>
+                <option value="health">/health (AOT Static Buffer)</option>
+                <option value="post-user">POST /users (JSON Body + Schema)</option>
+                <option value="error-400">POST /users (Malformed Body - 400)</option>
+              </select>
+              <button class="api-send-btn" id="api-send-btn">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                <span data-lang="en">Send Request</span>
+                <span data-lang="th">ส่ง Request</span>
+              </button>
+            </div>
+
+            <div class="api-result-panel">
+              <div class="api-meta-bar">
+                <span class="api-status-pill s200" id="api-status-pill">200 OK</span>
+                <span>Latency: <b id="api-latency-val" style="color: var(--accent);">0.33 ms</b></span>
+                <span>Server: <b style="color: var(--cyan);">Nelysia v0.1.4</b></span>
+                <span>Tier: <b id="api-tier-badge" style="color: var(--accent-hover);">COMPILED</b></span>
+              </div>
+              <div class="api-json-view" id="api-response-view">HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+x-request-id: req_nel_982f1b4a
+x-powered-by: Nelysia
+server-timing: total;dur=0.33;desc="AOT Tier 1"
+
+&lt;h1&gt;Hello from Nelysia v0.1.4!&lt;/h1&gt;</div>
+            </div>
           </div>
         </section>
 
@@ -3683,26 +4360,315 @@ npm run release:check</code></pre>
       });
     });
 
-    // Instant Search
-    const searchInput = document.querySelector('#search');
-    const sections = [...document.querySelectorAll('section, .hero')];
-    searchInput?.addEventListener('input', () => {
-      const q = searchInput.value.trim().toLowerCase();
-      sections.forEach(s => {
-        s.hidden = Boolean(q) && !s.innerText.toLowerCase().includes(q);
+    // Reading Progress Bar
+    const readingProgress = document.getElementById('reading-progress');
+    window.addEventListener('scroll', () => {
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalHeight > 0) {
+        const progress = Math.min(1, Math.max(0, window.scrollY / totalHeight));
+        if (readingProgress) readingProgress.style.transform = `scaleX(${progress})`;
+      }
+    }, { passive: true });
+
+    // Back to Top Floating Trigger
+    const backToTopBtn = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 350) {
+        backToTopBtn?.classList.add('visible');
+      } else {
+        backToTopBtn?.classList.remove('visible');
+      }
+    }, { passive: true });
+    backToTopBtn?.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Command Palette (Cmd+K) Modal
+    const openCmdBtn = document.getElementById('open-cmd');
+    const cmdBackdrop = document.getElementById('cmd-backdrop');
+    const cmdInput = document.getElementById('cmd-input');
+    const cmdList = document.getElementById('cmd-list');
+
+    const cmdItems = [
+      { title: "⚡ 10 Superpowers & Killer Capabilities", hash: "#at-a-glance", group: "Highlights", badge: "AOT" },
+      { title: "🧪 Interactive AOT Compiler Simulator", hash: "#aot-simulator", group: "Interactive", badge: "Engine" },
+      { title: "📊 Interactive Benchmark Visualizer", hash: "#bench-viz", group: "Interactive", badge: "30k req/s" },
+      { title: "🚀 Quick Start & Live API Tester", hash: "#quickstart", group: "Guides", badge: "DX" },
+      { title: "⚖️ Framework Comparison (vs Elysia, Fastify, Express)", hash: "#comparison", group: "Overview", badge: "Parity" },
+      { title: "⚙️ Core HTTP & Method Chaining", hash: "#architecture", group: "Core", badge: "API" },
+      { title: "🌐 Multi-Runtime & Node.js 22+ Native", hash: "#runtimes", group: "Runtimes", badge: "Zero-Build" },
+      { title: "🧰 Built-in Enterprise Plugins (CORS, RateLimit, OTel)", hash: "#plugins", group: "Plugins", badge: "Armor" },
+      { title: "📖 OpenAPI 3.1 & Swagger / Redoc UI", hash: "#openapi", group: "Docs", badge: "Interactive" },
+      { title: "🔄 Elysia to Nelysia Migration Guide", hash: "#migration", group: "Migration", badge: "Syntax" },
+      { title: "🏎️ Performance Tuning Guide", hash: "#performance", group: "Tuning", badge: "Fast-Path" },
+      { title: "🚢 Production Checklist & Verification", hash: "#verify", group: "Deploy", badge: "Gates" }
+    ];
+
+    function renderCmdItems(filter = "") {
+      if (!cmdList) return;
+      cmdList.innerHTML = "";
+      const q = filter.trim().toLowerCase();
+      const filtered = cmdItems.filter(item => item.title.toLowerCase().includes(q) || item.group.toLowerCase().includes(q));
+      if (filtered.length === 0) {
+        cmdList.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--text-dim); font-size: 0.88rem;">No matching sections found</div>';
+        return;
+      }
+      filtered.forEach((item, index) => {
+        const el = document.createElement('a');
+        el.className = `cmd-item ${index === 0 ? 'selected' : ''}`;
+        el.href = item.hash;
+        el.innerHTML = `
+          <div class="cmd-item-left">
+            <span>${item.title}</span>
+          </div>
+          <span class="cmd-item-badge">${item.badge}</span>
+        `;
+        el.addEventListener('click', () => closeCmd());
+        cmdList.appendChild(el);
+      });
+    }
+
+    function openCmd() {
+      if (!cmdBackdrop || !cmdInput) return;
+      cmdBackdrop.classList.add('open');
+      cmdInput.value = "";
+      renderCmdItems();
+      setTimeout(() => cmdInput.focus(), 50);
+    }
+
+    function closeCmd() {
+      cmdBackdrop?.classList.remove('open');
+    }
+
+    openCmdBtn?.addEventListener('click', openCmd);
+    cmdBackdrop?.addEventListener('click', (e) => {
+      if (e.target === cmdBackdrop) closeCmd();
+    });
+
+    cmdInput?.addEventListener('input', (e) => renderCmdItems(e.target.value));
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (cmdBackdrop?.classList.contains('open')) closeCmd();
+        else openCmd();
+      } else if (e.key === 'Escape' && cmdBackdrop?.classList.contains('open')) {
+        closeCmd();
+      } else if (e.key === '/' && document.activeElement !== cmdInput && !cmdBackdrop?.classList.contains('open')) {
+        const tag = document.activeElement?.tagName?.toLowerCase();
+        if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+          e.preventDefault();
+          openCmd();
+        }
+      }
+    });
+
+    // Interactive AOT Compiler Simulator Logic
+    const simScenarios = {
+      static: {
+        code: 'app.getStatic("/health", { status: "ok" })',
+        step1: 'Route AST: Constant Literal Detected',
+        step2: 'Context Bypass: Context Creation Excluded',
+        step3: 'Target Buffer: Pre-serialized to raw bytes',
+        tier: 'COMPILED',
+        tierColor: 'var(--accent)',
+        lat: '0.32 ms',
+        alloc: '0 B (Zero-Alloc)',
+        ic: 'Monomorphic'
+      },
+      param: {
+        code: 'app.get("/users/:id", ({ params }) => ({\n  id: params.id\n}))',
+        step1: 'Route AST: Parameterized Segment /users/:id',
+        step2: 'Direct Param Splice: URL Buffer Slice',
+        step3: 'Dispatcher: Specialized Handler Path',
+        tier: 'SPECIALIZED',
+        tierColor: 'var(--cyan)',
+        lat: '0.34 ms',
+        alloc: '144 B (Direct)',
+        ic: 'Monomorphic'
+      },
+      schema: {
+        code: 'app.post("/users", ({ body }) => body, {\n  body: t.Object({ name: t.String() })\n})',
+        step1: 'Route AST: Standard Schema v1 Spec',
+        step2: 'Validation Engine: Pre-handler Validation Gate',
+        step3: 'Dispatcher: Generic Safe Pipeline Execution',
+        tier: 'GENERIC',
+        tierColor: 'var(--purple)',
+        lat: '0.52 ms',
+        alloc: '480 B (Schema)',
+        ic: 'Monomorphic'
+      },
+      hook: {
+        code: 'app.group("/admin", (admin) => {\n  admin.onBeforeHandle(authCheck)\n  admin.get("/metrics", () => getMetrics())\n})',
+        step1: 'Route AST: Scoped Hook Inheritance',
+        step2: 'Hook Chain: Ordered Interceptor Array',
+        step3: 'Dispatcher: Full Context Lifecycle Execution',
+        tier: 'GENERIC',
+        tierColor: 'var(--orange)',
+        lat: '0.48 ms',
+        alloc: '520 B (Lifecycle)',
+        ic: 'Monomorphic'
+      }
+    };
+
+    document.querySelectorAll('.sim-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.sim-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const scKey = btn.getAttribute('data-sim');
+        const sc = simScenarios[scKey];
+        if (!sc) return;
+        const codeEl = document.getElementById('sim-code');
+        const s1 = document.getElementById('sim-step1-txt');
+        const s2 = document.getElementById('sim-step2-txt');
+        const s3 = document.getElementById('sim-step3-txt');
+        const tierEl = document.getElementById('sim-tier');
+        const latEl = document.getElementById('sim-lat');
+        const allocEl = document.getElementById('sim-alloc');
+        const icEl = document.getElementById('sim-ic');
+        if (codeEl) codeEl.innerText = sc.code;
+        if (s1) s1.innerText = sc.step1;
+        if (s2) s2.innerText = sc.step2;
+        if (s3) s3.innerText = sc.step3;
+        if (tierEl) {
+          tierEl.innerText = sc.tier;
+          tierEl.style.color = sc.tierColor;
+        }
+        if (latEl) latEl.innerText = sc.lat;
+        if (allocEl) allocEl.innerText = sc.alloc;
+        if (icEl) icEl.innerText = sc.ic;
       });
     });
 
-    // Keyboard shortcut '/' to focus search
-    document.addEventListener('keydown', e => {
-      if (e.key === '/' && document.activeElement !== searchInput) {
-        e.preventDefault();
-        searchInput?.focus();
+    // Interactive Live API Console Logic
+    const apiData = {
+      root: {
+        method: 'GET',
+        status: '200 OK',
+        sClass: 's200',
+        lat: '0.33 ms',
+        tier: 'COMPILED',
+        body: 'HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\nx-request-id: req_nel_982f1b4a\nx-powered-by: Nelysia\nserver-timing: total;dur=0.33;desc="AOT Tier 1"\n\n<h1>Hello from Nelysia v0.1.4!</h1>'
+      },
+      user: {
+        method: 'GET',
+        status: '200 OK',
+        sClass: 's200',
+        lat: '0.34 ms',
+        tier: 'SPECIALIZED',
+        body: 'HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\nx-request-id: req_nel_3a17e089\nx-powered-by: Nelysia\nserver-timing: total;dur=0.34;desc="AOT Tier 2"\n\n{\n  "id": "42",\n  "filter": "default",\n  "timestamp": 1789284900000\n}'
+      },
+      health: {
+        method: 'GET',
+        status: '200 OK',
+        sClass: 's200',
+        lat: '0.32 ms',
+        tier: 'COMPILED',
+        body: 'HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\nx-request-id: req_nel_1f77d61b\nx-powered-by: Nelysia\nserver-timing: total;dur=0.32;desc="AOT Tier 1 Zero-Alloc"\n\n{\n  "status": "ok",\n  "uptime": 4218.42\n}'
+      },
+      'post-user': {
+        method: 'POST',
+        status: '201 CREATED',
+        sClass: 's200',
+        lat: '0.45 ms',
+        tier: 'GENERIC',
+        body: 'HTTP/1.1 201 Created\nContent-Type: application/json; charset=utf-8\nx-request-id: req_nel_b51e0417\nx-powered-by: Nelysia\nserver-timing: validate;dur=0.08, total;dur=0.45\n\n{\n  "id": "usr_992",\n  "name": "Alice Developer",\n  "role": "admin",\n  "createdAt": "2026-09-13T16:20:00.000Z"\n}'
+      },
+      'error-400': {
+        method: 'POST',
+        status: '400 BAD REQUEST',
+        sClass: 's400',
+        lat: '0.29 ms',
+        tier: 'GENERIC',
+        body: 'HTTP/1.1 400 Bad Request\nContent-Type: application/json; charset=utf-8\nx-request-id: req_nel_c019da82\nx-powered-by: Nelysia\n\n{\n  "error": "Malformed JSON body",\n  "status": 400\n}'
       }
+    };
+
+    const apiSelect = document.getElementById('api-endpoint-select');
+    const apiMethodBadge = document.getElementById('api-method-badge');
+    const apiSendBtn = document.getElementById('api-send-btn');
+    const apiStatusPill = document.getElementById('api-status-pill');
+    const apiLatencyVal = document.getElementById('api-latency-val');
+    const apiTierBadge = document.getElementById('api-tier-badge');
+    const apiResponseView = document.getElementById('api-response-view');
+
+    apiSelect?.addEventListener('change', () => {
+      const ep = apiSelect.value;
+      const d = apiData[ep];
+      if (d && apiMethodBadge) {
+        apiMethodBadge.innerText = d.method;
+        if (d.method === 'POST') {
+          apiMethodBadge.style.background = 'rgba(56, 189, 248, 0.15)';
+          apiMethodBadge.style.color = '#38bdf8';
+          apiMethodBadge.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+        } else {
+          apiMethodBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+          apiMethodBadge.style.color = '#34d399';
+          apiMethodBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        }
+      }
+    });
+
+    apiSendBtn?.addEventListener('click', () => {
+      const ep = apiSelect?.value;
+      const d = apiData[ep];
+      if (!d || !apiResponseView) return;
+      apiResponseView.innerText = "Sending request to Nelysia server...";
+      setTimeout(() => {
+        if (apiStatusPill) {
+          apiStatusPill.className = `api-status-pill ${d.sClass}`;
+          apiStatusPill.innerText = d.status;
+        }
+        if (apiLatencyVal) apiLatencyVal.innerText = d.lat;
+        if (apiTierBadge) apiTierBadge.innerText = d.tier;
+        apiResponseView.innerText = d.body;
+      }, 80);
+    });
+
+    // Interactive Benchmark Visualizer Logic
+    const benchMetrics = {
+      rps: {
+        nelysia: { val: "30,618 req/s", scale: "1" },
+        rawbun: { val: "29,625 req/s", scale: "0.967" },
+        elysia: { val: "28,615 req/s", scale: "0.934" },
+        fastify: { val: "18,400 req/s", scale: "0.601" },
+        express: { val: "7,200 req/s", scale: "0.235" }
+      },
+      lat: {
+        nelysia: { val: "0.33 ms (Lowest)", scale: "0.239" },
+        rawbun: { val: "0.34 ms", scale: "0.246" },
+        elysia: { val: "0.35 ms", scale: "0.253" },
+        fastify: { val: "0.54 ms", scale: "0.391" },
+        express: { val: "1.38 ms", scale: "1" }
+      },
+      gc: {
+        nelysia: { val: "0% (Zero Alloc)", scale: "0.03" },
+        rawbun: { val: "0% (Zero Alloc)", scale: "0.03" },
+        elysia: { val: "14% (Dynamic IC)", scale: "0.35" },
+        fastify: { val: "42% (Schema GC)", scale: "0.65" },
+        express: { val: "88% (Middleware GC)", scale: "1" }
+      }
+    };
+
+    document.querySelectorAll('.bench-viz-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.bench-viz-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mKey = btn.getAttribute('data-metric');
+        const m = benchMetrics[mKey];
+        if (!m) return;
+        ['nelysia', 'rawbun', 'elysia', 'fastify', 'express'].forEach(k => {
+          const vEl = document.getElementById(`val-${k}`);
+          const fEl = document.getElementById(`fill-${k}`);
+          if (vEl) vEl.innerText = m[k].val;
+          if (fEl) fEl.style.transform = `scaleX(${m[k].scale})`;
+        });
+      });
     });
 
     // Active Navigation Highlight via IntersectionObserver
     const navLinks = [...document.querySelectorAll('.nav a')];
+    const sections = [...document.querySelectorAll('section, .hero')];
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -3716,5 +4682,22 @@ npm run release:check</code></pre>
 
     sections.forEach(s => s.id && observer.observe(s));
   </script>
+
+  <!-- Back to Top Button -->
+  <button class="back-to-top" id="back-to-top" aria-label="Back to top">
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+  </button>
+
+  <!-- Command Palette Modal -->
+  <div class="cmd-backdrop" id="cmd-backdrop" role="dialog" aria-modal="true" aria-label="Command Palette">
+    <div class="cmd-modal">
+      <div class="cmd-head">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <input class="cmd-input" id="cmd-input" type="search" placeholder="Search documentation or jump to section (press ESC to exit)..." autocomplete="off">
+        <kbd class="cmd-esc">ESC</kbd>
+      </div>
+      <div class="cmd-list" id="cmd-list"></div>
+    </div>
+  </div>
 </body>
 </html>
