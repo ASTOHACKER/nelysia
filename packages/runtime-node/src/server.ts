@@ -5,30 +5,39 @@ import { HttpError, type Nelysia } from "../../core/src/app.ts"
 import type { RequestData, ResponseData } from "../../core/src/types.ts"
 
 export function createNodeServer(app: Nelysia) {
+  const hasWebSocket = app.websocketRoutes.length > 0
+  const websocketRoutes = new Map(app.websocketRoutes.map((route) => [route.path, route.handlers]))
   const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
+      const method = request.method ?? "GET"
+      // Fast path: GET/HEAD without body headers never touch the request stream.
+      const needsBody = method !== "GET" && method !== "HEAD" && (request.headers["content-length"] !== undefined || request.headers["transfer-encoding"] !== undefined)
       const headers = new Headers(request.headers as Record<string, string>)
-      const body = await readBody(request, Number(headers.get("content-length") ?? 0), app.bodyLimit, headers.get("content-type"))
-       const data: RequestData = { method: request.method ?? "GET", url: request.url ?? "/", requestId: randomUUID(), remoteAddress: request.socket.remoteAddress, headers, body }
+      const body = needsBody
+        ? await readBody(request, Number(headers.get("content-length") ?? 0), app.bodyLimit, headers.get("content-type"))
+        : undefined
+      const requestId = app.requestIdEnabled ? randomUUID() : undefined
+       const data: RequestData = { method, url: request.url ?? "/", requestId, remoteAddress: request.socket.remoteAddress, headers, body }
       const result = await app.handle(data)
-      await writeResponse(response, result, request.method === "HEAD")
+      await writeResponse(response, result, method === "HEAD")
     } catch (error) {
       const status = error instanceof HttpError ? error.status : 500
       const message = status === 500 ? "Internal Server Error" : error instanceof Error ? error.message : "Bad Request"
       await writeResponse(response, { status, headers: new Headers(), body: { error: message } }, request.method === "HEAD")
     }
   })
+  if (!hasWebSocket) return server
   const websocketServer = new WebSocketServer({ noServer: true })
   server.on("upgrade", (request, socket, head) => {
     if (request.headers.upgrade?.toLowerCase() !== "websocket") return
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname
-    const route = app.websocketRoutes.find((candidate) => candidate.path === pathname)
-    if (!route) {
+    const handlers = websocketRoutes.get(pathname)
+    if (!handlers) {
       socket.destroy()
       return
     }
     websocketServer.handleUpgrade(request, socket, head, (websocket) => {
-      attachWebSocketHandlers(websocket, route.handlers)
+      attachWebSocketHandlers(websocket, handlers)
     })
   })
   return server
@@ -45,7 +54,7 @@ function attachWebSocketHandlers(websocket: WebSocket, handlers: { open?(socket:
 }
 
 async function writeResponse(response: ServerResponse, result: ResponseData, head = false): Promise<void> {
-  const headers = new Headers(result.headers)
+  const headers = result.headers
   const getSetCookie = (headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
   const writeHeaders = () => {
     const values = Object.fromEntries(headers.entries()) as Record<string, string | string[]>

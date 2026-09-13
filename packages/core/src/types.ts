@@ -14,6 +14,8 @@ export interface NelysiaOptions {
   telemetry?: Telemetry
   trustedProxy?: boolean
   secureCookies?: boolean
+  /** When false, skips request-id generation and the `x-request-id` response header (Elysia-like fast path). Defaults to true for compatibility. */
+  requestId?: boolean
 }
 
 export interface TelemetrySpan {

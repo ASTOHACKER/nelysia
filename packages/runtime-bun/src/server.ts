@@ -14,7 +14,7 @@ export function createBunHandler(app: Nelysia): (request: Request) => Promise<Re
           try { body = JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }
         }
       }
-       const result = await app.handle({ method: request.method, url: request.url, requestId: crypto.randomUUID(), headers: request.headers, body })
+       const result = await app.handle({ method: request.method, url: request.url, requestId: app.requestIdEnabled ? crypto.randomUUID() : undefined, headers: request.headers, body })
       return toResponse(result)
     } catch (error) {
       const status = error instanceof HttpError ? error.status : 500
