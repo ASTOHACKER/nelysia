@@ -200,7 +200,7 @@ test("Standard Schema validation reports nested issue paths", async () => {
       validate() { return { issues: [{ message: "expected text", path: ["profile", "name"] }] } }
     }
   }
-  const response = await new Nelysia().post("/standard-error", () => "never", { body: standard }).inject({ method: "POST", path: "/standard-error", body: {} })
+  const response = await new Nelysia().post("/standard-error", () => "never", { body: standard }).injectUntyped({ method: "POST", path: "/standard-error", body: {} })
   assert.equal(response.status, 400)
   assert.match(String((await response.json<{ error: string }>()).error), /body\.profile\.name/)
 })
@@ -470,7 +470,7 @@ test("Fetch-standard adapter works with Deno/edge-compatible Request and Respons
 })
 
 test("Fetch adapter waits for lazy modules before dispatching", async () => {
-  const app = new Nelysia().use(new Promise<Nelysia>((resolve) => {
+  const app = new Nelysia().use(new Promise<Nelysia<any, any, any>>((resolve) => {
     setTimeout(() => resolve(new Nelysia().get("/lazy", () => "ready")), 5)
   }))
   const response = await createFetchHandler(app)(new Request("https://example.test/lazy"))
@@ -664,8 +664,8 @@ test("deduplicates named modules and waits for async modules", async () => {
 
   await app.modules
   assert.equal(app.graph.routes.filter((route) => route.path === "/health").length, 1)
-  assert.equal((await app.inject({ method: "GET", path: "/async" })).statusCode, 200)
-  assert.equal(await (await app.inject({ method: "GET", path: "/async" })).text(), "ready")
+  assert.equal((await app.injectUntyped({ method: "GET", path: "/async" })).statusCode, 200)
+  assert.equal(await (await app.injectUntyped({ method: "GET", path: "/async" })).text(), "ready")
 })
 
 test("exposes module graph ownership and rejects conflicting named modules", async () => {
@@ -710,7 +710,7 @@ test("runs the extended request and response lifecycle in order", async () => {
 })
 
 test("routes every request and response lifecycle failure through the owning error handler", async () => {
-  const failures: Array<{ name: string; status: number; build(app: Nelysia): void }> = [
+  const failures: Array<{ name: string; status: number; build(app: Nelysia<any, any, any>): void }> = [
     { name: "request", status: 401, build: (app) => app.onRequest(() => { throw new HttpError(401, "request failed") }).get("/failure", () => "never") },
     { name: "parse", status: 402, build: (app) => app.onParse(() => { throw new HttpError(402, "parse failed") }).post("/failure", () => "never") },
     { name: "handler", status: 403, build: (app) => app.get("/failure", () => { throw new HttpError(403, "handler failed") }) },
@@ -748,7 +748,7 @@ test("supports composed built-in schemas with optional, array, union, and nullab
   })
   const app = new Nelysia().post("/schema-composed", ({ body }) => body, { body: payload })
 
-  const valid = await app.inject({
+  const valid = await app.injectUntyped({
     method: "POST",
     path: "/schema-composed",
     body: { name: "Ada", labels: ["active"], role: "admin" }
@@ -756,7 +756,7 @@ test("supports composed built-in schemas with optional, array, union, and nullab
   assert.equal(valid.statusCode, 200)
   assert.deepEqual(await valid.json(), { name: "Ada", labels: ["active"], role: "admin" })
 
-  const invalid = await app.inject({
+  const invalid = await app.injectUntyped({
     method: "POST",
     path: "/schema-composed",
     body: { name: "Ada", labels: [1], role: "owner" }
@@ -933,7 +933,7 @@ test("promotes all instance hooks with as()", async () => {
 })
 
 test("waits for lazy modules before starting a server", async () => {
-  const app = new Nelysia().use(new Promise<Nelysia>((resolve) => {
+  const app = new Nelysia().use(new Promise<Nelysia<any, any, any>>((resolve) => {
     setTimeout(() => resolve(new Nelysia({ name: "lazy-server-module" }).get("/ready", () => "ready")), 5)
   }))
 
@@ -959,7 +959,7 @@ test("waits for lazy modules before starting a server", async () => {
 })
 
 test("waits for lazy modules before inject", async () => {
-  const app = new Nelysia().use(new Promise<Nelysia>((resolve) => {
+  const app = new Nelysia().use(new Promise<Nelysia<any, any, any>>((resolve) => {
     setTimeout(() => resolve(new Nelysia().get("/lazy", () => "loaded")), 5)
   }))
   const response = await app.inject({ method: "GET", path: "/lazy" })
@@ -1030,7 +1030,7 @@ test("explicit local lifecycle hooks stay on the owning instance", async () => {
   await app.inject({ method: "GET", path: "/root" })
   assert.deepEqual(events, ["request", "parse", "before", "map", "after-response"])
   events.length = 0
-  await app.inject({ method: "GET", path: "/feature/child" })
+  await app.injectUntyped({ method: "GET", path: "/feature/child" })
   assert.deepEqual(events, [])
 })
 
@@ -1094,6 +1094,24 @@ test("mounts response lifecycle hooks within the child module boundary", async (
   const inside = await app.inject({ method: "GET", path: "/feature/inside" })
   assert.deepEqual(await inside.json(), { wrapped: "inside" })
   assert.deepEqual(events, ["child-map", "child-after:inside"])
+})
+
+test("keeps transform hook scopes consistent across mounted and sibling routes", async () => {
+  const events: string[] = []
+  const child = new Nelysia()
+    .onTransform({ as: "local" }, () => { events.push("child-local") })
+    .onTransform({ as: "scoped" }, () => { events.push("child-scoped") })
+    .get("/inside", () => "inside")
+  const app = new Nelysia()
+    .onTransform({ as: "local" }, () => { events.push("root-local") })
+    .mount("/feature", child)
+    .get("/outside", () => "outside")
+
+  await app.inject({ method: "GET", path: "/outside" })
+  assert.deepEqual(events, ["root-local"])
+  events.length = 0
+  await app.inject({ method: "GET", path: "/feature/inside" })
+  assert.deepEqual(events, ["child-local", "child-scoped"])
 })
 
 test("context.store shares state between hooks and handlers", async () => {
@@ -1233,7 +1251,7 @@ test("OpenAPI preserves route security metadata and safely embeds custom Swagger
   const app = new Nelysia().get("/private", () => "ok", { auth: true, summary: "Private" }).use(swaggerUi({ path: "/api-docs", specPath: "/spec?name='safe" }))
   const spec = generateOpenAPI(app) as { paths: Record<string, Record<string, { security?: unknown[] }>> }
   assert.deepEqual(spec.paths["/private"]?.get.security, [{ bearerAuth: [] }])
-  const page = await app.inject({ method: "GET", path: "/api-docs" })
+  const page = await app.injectUntyped({ method: "GET", path: "/api-docs" })
   assert.match(await page.text(), /name='safe/)
   assert.doesNotMatch(await page.text(), /url: '\/spec\?name=/)
 })
@@ -1299,6 +1317,7 @@ test("app.listen supports callback with server metadata", async () => {
 
   assert.ok(serverInfo.port >= 0)
   assert.ok(serverInfo.url.startsWith("http://"))
+  assert.equal(typeof serverInfo.stop, "function")
   if (typeof serverInstance?.close === "function") {
     await new Promise<void>((r) => serverInstance.close(() => r()))
   } else if (typeof serverInstance?.stop === "function") {

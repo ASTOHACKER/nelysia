@@ -24,7 +24,12 @@ const packageNames = [
   "@narudom96/nelysia/client",
   "@narudom96/nelysia/upload",
   "@narudom96/nelysia/logger",
-  "@narudom96/nelysia/timeout"
+  "@narudom96/nelysia/timeout",
+  "@narudom96/nelysia/session",
+  "@narudom96/nelysia/roles",
+  "@narudom96/nelysia/csrf",
+  "@narudom96/nelysia/cache",
+  "@narudom96/nelysia/health"
 ]
 const tempRoot = await mkdtemp("/tmp/nelysia-package-imports-")
 const projectRoot = join(tempRoot, "project")

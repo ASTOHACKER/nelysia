@@ -1,8 +1,23 @@
 # Nelysia: Comprehensive Technical Documentation
 
-> **Version:** 0.5.1 (Current package and GitHub Release)
+> **Version:** 0.6.0 (Current package and GitHub Release)
 > **Target Runtimes:** Bun 1.4+, Node.js 22+, and Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **Language:** TypeScript / JavaScript (ESM)
+
+Use the [Documentation Map](./README.md) to choose the right guide, status
+page, or benchmark report.
+
+The post-v0.5.1 additive work is included in the v0.6.0 release. Remaining
+future work is documented in
+[`roadmap-after-v051.md`](./roadmap-after-v051.md). The current worktree also
+exports production contracts from `@narudom96/nelysia/session`,
+`@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
+`@narudom96/nelysia/cache`, and `@narudom96/nelysia/health`; these remain on the
+v0.6.0 package line.
+
+Runnable examples: [basic](../examples/hello/index.ts),
+[JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts), and
+[typed client](../examples/typed-client/client.ts).
 
 ---
 
@@ -30,6 +45,7 @@
 6. [Schema Validation & Type Safety](#6-schema-validation--type-safety)
    - [Built-in Schema Builder (`t`)](#built-in-schema-builder-t)
    - [Standard Schema Integration (Zod, Valibot, ArkType)](#standard-schema-integration-zod-valibot-arktype)
+   - [Strict TypeScript Contracts](#strict-typescript-contracts)
    - [Validation Points](#validation-points)
 7. [Lifecycle Hooks & Error Handling](#7-lifecycle-hooks--error-handling)
    - [`onBeforeHandle`](#onbeforehandle)
@@ -47,6 +63,7 @@
    - [Rate Limiting (`rateLimit`)](#rate-limiting-ratelimit)
    - [Static File Serving (`staticFile`)](#static-file-serving-staticfile)
    - [HTTP Compression (`compression`)](#http-compression-compression)
+   - [Production Subpaths](#production-subpaths)
 10. [OpenAPI 3.1 & Redoc / Swagger UI](#10-openapi-31--redoc--swagger-ui)
     - [Generating OpenAPI Specification & Route Metadata](#generating-openapi-specification--route-metadata)
     - [Serving OpenAPI JSON Endpoint](#serving-openapi-json-endpoint)
@@ -59,7 +76,7 @@
 12. [GraphQL Integration](#12-graphql-integration)
 13. [Database Integrations (Drizzle & Prisma)](#13-database-integrations-drizzle--prisma)
 14. [Authentication with Better Auth](#14-authentication-with-better-auth)
-15. [Client SDK (`@nelysia/client`)](#15-client-sdk-nelysiaclient)
+15. [Client SDK (`@narudom96/nelysia/client`)](#15-client-sdk-narudom96nelysiaclient)
 16. [Compiler Platform & CLI](#16-compiler-platform--cli)
 17. [Supported Runtimes & Adapters](#17-supported-runtimes--adapters)
 18. [Full-Stack Framework Integrations](#18-full-stack-framework-integrations)
@@ -84,12 +101,12 @@
 
 ### The 10 Superpowers of Nelysia (Why Nelysia Wins)
 
-#### 1. 4-Tier AOT Compiler
-Nelysia analyzes every route before the first request arrives. Instead of running everything through the same middleware chain, it puts each route in the right tier:
-- **Tier 1 (`static-prebuilt`)**: `getStatic()` responses are serialized once and served without normal request-context allocation.
-- **Tier 2 (`static-sync`)**: Supported zero-argument `.get()` handlers use the compiled `staticFunctionMap` and fast serializer.
-- **Tier 3 (`SPECIALIZED`)**: Param routes like `/users/:id` extract parameters directly from the URL buffer.
-- **Tier 4 (`GENERIC`)**: Complex routes with middleware, schema validation, body parsing, or unsupported behavior use the full pipeline.
+#### 1. 3-Lane AOT Execution Model
+Nelysia analyzes every route before the first request arrives and assigns one of
+three public execution lanes:
+- **`COMPILED`**: proven routes use internal subtiers such as `static-prebuilt` (`getStatic()`) and `static-sync` (supported zero-argument `.get()`).
+- **`SPECIALIZED`**: param routes like `/users/:id` extract parameters directly from the URL buffer.
+- **`GENERIC`**: complex routes with middleware, schema validation, body parsing, or unsupported behavior use the full pipeline.
 
 Result: every request uses only the power it actually needs.
 
@@ -173,7 +190,12 @@ The published compiler helpers are available from `@narudom96/nelysia/compiler`,
     "./jwt": "./dist-package/packages/jwt/src/index.js",
     "./upload": "./dist-package/packages/upload/src/index.js",
     "./logger": "./dist-package/packages/logger/src/index.js",
-    "./timeout": "./dist-package/packages/timeout/src/index.js"
+    "./timeout": "./dist-package/packages/timeout/src/index.js",
+    "./session": "./dist-package/packages/session/src/index.js",
+    "./roles": "./dist-package/packages/roles/src/index.js",
+    "./csrf": "./dist-package/packages/csrf/src/index.js",
+    "./cache": "./dist-package/packages/cache/src/index.js",
+    "./health": "./dist-package/packages/health/src/index.js"
   }
 }
 ```
@@ -281,10 +303,10 @@ Nelysia provides chainable registration methods:
 - `app.all(path, handler, options?)` — Registers one handler for every HTTP method (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
 - `app.route(method, path, handler, options?)`
 
-> **OPTIONS behavior:** an `OPTIONS` request never reaches a route handler. When any
-> route matches the path, Nelysia answers `204` with an `Allow` header listing the
-> registered methods (plus `HEAD` for `GET` routes); otherwise it answers `404`.
-> Registering `app.options(path, handler)` is accepted but the handler is not invoked.
+> **OPTIONS behavior:** an explicit `app.options(path, handler)` runs first. If no
+> explicit OPTIONS route exists, a matching path receives automatic `204` with an
+> `Allow` header listing registered methods (plus `HEAD` for `GET` routes); an
+> unmatched path answers `404`.
 
 ```ts
 app
@@ -386,6 +408,7 @@ interface ServerInfo {
   hostname: string    // Bound hostname (e.g. "localhost")
   url: string         // Full accessible base URL (e.g. "http://localhost:3000")
   server: unknown     // Native server handle (Bun.serve or Node.js http.Server)
+  stop(): void | Promise<void> // Normalized graceful stop helper
 }
 ```
 
@@ -405,7 +428,7 @@ app.listen({ port: 8080, hostname: "0.0.0.0" }, ({ url }) => {
 
 ### Plugin Mechanics (`use`) and Lifecycle Scope
 
-`use()` accepts only a function `(app) => app | void`:
+For plugin callbacks, `use()` accepts a function `(app) => app | void`:
 
 ```ts
 // A plugin is a config factory returning (app) => app
@@ -417,11 +440,29 @@ const myPlugin = (opts: { tag: string }) => (app: Nelysia) =>
 app.use(myPlugin({ tag: "missing-tag" }))
 ```
 
+For routing modules, prefer `.mount(prefix, subApp)` or
+`.mountLazy(prefix, loader)`. The legacy `.use(subApp)` form remains supported
+so existing applications remain backward-compatible.
+
 Scope rules to remember:
 - Hooks added to the parent (before or after `mount` or `group`) apply to all of the parent's own routes — including routes registered earlier (backfill).
 - Child routes registered via `mount` or `group` carry their own `before/after/error` lifecycle with them: no leaking to siblings, and parent hooks added later do not retroactively apply to them.
 - A duplicate method+path during mount throws `Duplicate route`.
 - No deduplication — calling `use()` twice registers the plugin twice.
+
+Lifecycle scope is available on every lifecycle family. `local` stays with the
+owning module, `scoped` follows that module's mounted subtree, and `global`
+propagates to the whole application. The default scope keeps the existing
+instance behavior for backward compatibility. `.lazy()` defers its loader until
+the application module boundary is awaited; `.mountLazy(prefix, loader)` does
+the same for a prefixed child app. `.use(Promise)` remains supported.
+
+```ts
+const app = new Nelysia()
+  .onBeforeHandle({ as: "global" }, () => undefined)
+  .lazy(() => import("./feature.ts").then(({ app }) => app))
+  .mountLazy("/admin", () => import("./admin.ts").then(({ app }) => app))
+```
 
 ### Zero-Port Testing with `app.inject()`
 
@@ -439,6 +480,20 @@ console.log(await res.json()) // { id: "42", filter: "active" }
 console.log(await res.text()) // Text content
 console.log(await res.bytes()) // Uint8Array
 ```
+
+For a typed application, `inject()` checks the route map and
+`injectTyped()` provides path-specific response inference:
+
+```ts
+const typed = new Nelysia()
+  .get("/users/:id", ({ params }) => ({ id: params.id }))
+
+const response = await typed.injectTyped({ method: "GET", path: "/users/42" })
+const user = await response.json() // { id: string }
+```
+
+Use `injectUntyped()` only as an explicit escape hatch for dynamic tests that
+intentionally do not use route-map inference.
 
 ---
 
@@ -458,12 +513,17 @@ interface Context {
   body: unknown                            // Parsed JSON body or raw payload
   headers: Headers                         // Web Standard Request Headers
   cookies: Record<string, string>          // Parsed incoming cookies
+  auth?: unknown                           // Auth payload; typed by an auth plugin
+  signal: AbortSignal                      // Request/deadline cancellation signal
+  logger?: Logger                          // Added by the logger plugin
+  files?: Record<string, UploadedFile[]>   // Added by the upload plugin
   setCookie(name: string, value: string, options?: CookieOptions): void
   deleteCookie(name: string, options?: CookieOptions): void
+  response(body: unknown, options?: ResponseOptions): ResponseData
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
   html(body: string, status?: number): ResponseData
   text(body: string, status?: number): ResponseData
-  json(body: unknown, status?: number): ResponseData
+  json(body: unknown, status?: number | ResponseOptions): ResponseData
   redirect(url: string, status?: number): ResponseData
   header(name: string, value: string): this
 }
@@ -598,6 +658,21 @@ app.get("/stream", () => {
 })
 ```
 
+The body-first response form is additive and keeps the positional form valid:
+
+```ts
+import { error } from "@narudom96/nelysia"
+
+app.get("/created", ({ response }) => response(
+  { created: true },
+  { status: 201, headers: { "x-source": "nelysia" } }
+))
+
+app.get("/missing", () => {
+  throw error(404, { code: "NOT_FOUND" })
+})
+```
+
 ---
 
 ## 6. Schema Validation & Type Safety
@@ -641,6 +716,45 @@ const app = new Nelysia().post("/posts", ({ body }) => {
 }, {
   body: CreatePost
 })
+```
+
+### Strict TypeScript Contracts
+
+The public `Nelysia` generics default to `{}` instead of `any`. `Context` and
+`RouteOptions` intentionally do not have a broad index signature, so misspelled
+fields fail at compile time. Macro keys are added to route options only after
+the macro is declared:
+
+```ts
+const app = new Nelysia()
+  .macro({ cache: { beforeHandle: () => undefined } })
+  .get("/users", () => [], { cache: true })
+
+app.get("/strict", () => "ok", {
+  // @ts-expect-error: `parmas` is not a declared route option
+  parmas: {}
+})
+```
+
+Authentication packages extend the `AuthStrategyRegistry` through module
+augmentation. The JWT package registers `jwt`, so `auth: "jwt"`, `auth: true`,
+and the object form `{ strategy: "jwt" }` are typed and supported. Arbitrary
+legacy strategy strings remain accepted for v0.x compatibility but are
+deprecated.
+
+`derive()` and `resolve()` are retained as sync/async context-extension aliases:
+
+```ts
+const app = new Nelysia()
+  .derive(() => ({ requestStartedAt: Date.now() }))
+  .resolve(async ({ requestStartedAt }) => ({
+    elapsedAtResolve: Date.now() - requestStartedAt
+  }))
+
+app.get("/timing", ({ requestStartedAt, elapsedAtResolve }) => ({
+  requestStartedAt,
+  elapsedAtResolve
+}))
 ```
 
 ### Validation Points
@@ -902,6 +1016,66 @@ app.use(compression({
   threshold: 1024 // Only compress bodies larger than 1KB
 }))
 ```
+
+### Production Subpaths
+
+These composable modules are opt-in; an application that does not call the
+plugin does not allocate their stores or install their hooks.
+
+```ts
+import { session } from "@narudom96/nelysia/session"
+import { roles, requireRole } from "@narudom96/nelysia/roles"
+import { csrf } from "@narudom96/nelysia/csrf"
+import { cache } from "@narudom96/nelysia/cache"
+import { health } from "@narudom96/nelysia/health"
+import { logger } from "@narudom96/nelysia/logger"
+import { timeout } from "@narudom96/nelysia/timeout"
+import { upload } from "@narudom96/nelysia/upload"
+
+const app = new Nelysia()
+  .use(session<{ userId: string }>({ ttlSeconds: 3600 }))
+  .use(roles({
+    resolveRoles: ({ auth }) => {
+      const role = (auth as { role?: string } | undefined)?.role
+      return role ? [role] : []
+    },
+    permissions: { "users:read": ["admin"] }
+  }))
+  .use(csrf())
+  .use(cache({ ttlMs: 30_000 }))
+  .use(logger({ level: "info" }))
+  .use(timeout({ timeoutMs: 5_000 }))
+  .use(health({ checks: { database: async () => true } }))
+  .use(upload({ maxFileSize: 2 * 1024 * 1024, maxFiles: 1 }))
+  .onBeforeHandle(requireRole("admin"))
+  .post("/upload", ({ files }) => files, {
+    // Multipart parsing produces Web `FormData`/`File` values.
+  })
+```
+
+Contracts and limitations:
+
+- `session()` exposes `context.session.get/set/destroy`; the default memory
+  store is process-local. Use a custom `SessionStore` for multi-process or
+  distributed deployments.
+- `roles()` exposes typed `context.permissions`; `requireRole()` returns a
+  `403` response when no required role is present.
+- `csrf()` issues a cookie on safe methods and checks the configured header on
+  unsafe methods. Use `exclude()` for explicitly public endpoints.
+- `cache()` caches successful `GET` responses, adds weak ETags, and returns
+  `304` for a matching `If-None-Match`. Native `Response` and streams are not
+  cached by this in-memory contract.
+- `health()` exposes `/health` and `/ready` by default, runs named checks, and
+  returns a degraded status or `503` readiness response when appropriate.
+- `upload()` accepts Web `FormData`/`File`, limits file size/count/fields, and
+  supports memory, disk, or custom storage adapters. Storage failures invoke
+  cleanup for already stored files.
+- `logger()` exposes typed `context.logger`, configurable levels/sinks, and
+  redacts authorization, cookie, secret, token, password, and API-key fields
+  by default. Sink failures never change the request result.
+- `timeout()` exposes a request deadline through `context.signal` and defaults
+  to `504`. It clears timers on every completion path and cannot interrupt
+  synchronous JavaScript that is already running.
 
 ---
 
@@ -1185,9 +1359,18 @@ app.use(betterAuthPlugin(auth)) // default prefix: /api/auth
 - Method, headers, and body are forwarded to `auth.handler` untouched, and its `Response` (including `Set-Cookie`) is returned unmodified
 - You install and configure `better-auth` yourself (database, secret, trusted origins) — this plugin is only the bridge
 
+JWT claims can be typed without changing the runtime contract:
+
+```ts
+type Claims = { sub: string; role: "admin" | "user" }
+const secured = new Nelysia()
+  .use(jwt<Claims>({ secret: process.env.JWT_SECRET! }))
+  .get("/me", ({ auth, jwt }) => ({ subject: auth?.sub }), { auth: "jwt" })
+```
+
 ---
 
-## 15. Client SDK (`@nelysia/client`)
+## 15. Client SDK (`@narudom96/nelysia/client`)
 
 A lightweight, type-friendly client for invoking Nelysia endpoints:
 
@@ -1209,6 +1392,17 @@ if (error) {
 await client.post("/users", { name: "John Doe", age: 30 })
 ```
 
+For route-aware inference, pass the application type directly:
+
+```ts
+const typedClient = createClient<typeof app>("http://localhost:3000")
+const result = await typedClient.get("/users/42")
+// path, params, body, query, headers, response, and errors are inferred
+```
+
+`createTypedClient<RouteMap>()` remains available for generated or manually
+declared route maps.
+
 ---
 
 ## 16. Compiler Platform & CLI
@@ -1217,11 +1411,10 @@ Nelysia includes an ahead-of-time compiler and CLI tool: `nelysia`.
 
 ### Route Classification
 
-The compiler classifies every route into explicit execution tiers:
-1. **`static-prebuilt`**: `getStatic()` response serialized once at startup and served without request-context creation.
-2. **`static-sync`**: supported zero-argument `.get()` handler indexed by the compiled dispatcher; plain values, strings, bytes, native `Response`, and streams preserve their documented result contract.
-3. **`SPECIALIZED`**: Known route structure where only parameter decoding is needed.
-4. **`GENERIC`**: Route uses dynamic hooks, schemas, cookies, custom serialization, or opaque handlers; unsupported compiler cases fall back here with diagnostics.
+The compiler assigns every route to one of three public execution lanes:
+1. **`COMPILED`**: internal subtiers include `static-prebuilt` and `static-sync`; plain values, strings, bytes, native `Response`, and streams preserve their documented result contract.
+2. **`SPECIALIZED`**: Known route structure where only parameter decoding is needed.
+3. **`GENERIC`**: Route uses dynamic hooks, schemas, cookies, custom serialization, or opaque handlers; unsupported compiler cases fall back here with diagnostics.
 
 ### Inspecting Route Analysis
 
@@ -1253,6 +1446,15 @@ nelysia build ./src/app.ts --target bun
 
 # Build for Node.js
 nelysia build ./src/app.ts --target node
+```
+
+Additional DX commands:
+
+```bash
+nelysia routes ./src/app.ts   # method, path, public lane, compiler reason
+nelysia doctor ./src/app.ts   # runtime, TypeScript, exports, duplicates
+nelysia create my-api         # scaffold a project
+nelysia dev ./src/app.ts --port 3000
 ```
 
 ### Standalone Generation
@@ -1537,8 +1739,10 @@ The completed v0.5 release evidence is recorded in
 [`benchmark-oha-v05-2026-09-14.md`](./benchmark-oha-v05-2026-09-14.md),
 [`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md), and
 [`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md).
-The 1M and 10M request-count soak evidence is in
-[`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md). The 24-hour soak is a
+The original 1M and 10M request-count soak evidence is in
+[`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md), with the fresh post-roadmap
+rerun in [`soak-roadmap-rerun-2026-09-14.md`](./soak-roadmap-rerun-2026-09-14.md).
+The 24-hour soak is a
 separate production-readiness gate and is intentionally deferred.
 
 ### Historical TechEmpower snapshot
@@ -1616,7 +1820,7 @@ Nelysia was designed with a familiar chainable DX inspired by Elysia, but introd
 | Feature / Pattern | ElysiaJS | Nelysia | Architectural Rationale |
 | :--- | :--- | :--- | :--- |
 | **State Injection** | `app.state('k', v)`<br>`app.decorate('db', db)`<br>→ `({ db, store }) => ...` | `context.store`<br>→ `({ store }) => { store.db = ... }` | Elysia mutates context object shapes, causing V8 Inline Cache de-optimizations. Nelysia preserves stable object shapes for peak V8 monomorphic execution. |
-| **Sub-Apps** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Distinct separation: `use()` is strictly for plugin functions `(app) => app \| void`; `mount()` is for routing trees. |
+| **Sub-Apps** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Recommended separation: use `mount()` for prefixed routing trees and `use()` for plugins; legacy `use(subApp)` remains supported for compatibility. |
 | **Route Grouping** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | Identical DX. Nested groups inherit parent lifecycle hooks (`onBeforeHandle`, etc.). |
 | **Guards / Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Explicit group hooks maintain predictable AOT dispatch compiler analysis. |
 | **Static Endpoints** | Generic dynamic handler `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` or supported zero-argument `.get('/ping', () => 'pong')` | `getStatic()` is `static-prebuilt`; supported zero-argument `.get()` is `static-sync` through `staticFunctionMap`. Unsupported results fall back to generic execution. |
@@ -1733,7 +1937,7 @@ Per-request cost ranking (most to least expensive): JSON body parsing → schema
 | `413 Request body is too large` | Body exceeds `bodyLimit` (default 1 MB) | Raise `bodyLimit` or reject earlier |
 | `404 Not Found` | No route matches the path | Check `npm run inspect` output |
 | `405 Method Not Allowed` | Path exists, method doesn't | Read the `Allow` header for valid methods |
-| `OPTIONS` handler never runs | By design: `OPTIONS` short-circuits to `204` + `Allow` | Don't rely on `.options()` handlers |
+| `OPTIONS` handler does not run | An explicit handler runs first; otherwise the automatic `204` + `Allow` fallback is used | Register `.options(path, handler)` when custom preflight behavior is required |
 | `EADDRINUSE` on `listen` | Port already taken (e.g. another dev server) | Set `PORT` env or free the port |
 | WebSocket upgrade fails / socket destroyed | No `websocket()` route for the path, or missing `upgrade` header | Register `app.websocket(path, …)` first |
 | Benchmark numbers swing wildly | Dev-machine noise (background load, power saving) | Use a quiet Linux box, dedicated load generator, 10-round medians |

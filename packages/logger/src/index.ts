@@ -1,4 +1,4 @@
-import type { Logger, Nelysia } from "../../core/src/index.ts"
+import type { Logger, Nelysia, NelysiaPlugin } from "../../core/src/index.ts"
 
 export type LogLevel = "debug" | "info" | "warn" | "error"
 
@@ -14,6 +14,8 @@ export interface LoggerOptions {
   sink?: (entry: LogEntry) => void | Promise<void>
   redact?: (key: string, value: unknown) => unknown
 }
+
+export type LoggerPlugin = NelysiaPlugin<{ logger: Logger }>
 
 const levelOrder: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 }
 const sensitiveKey = /authorization|cookie|secret|token|password|api[-_]?key/i
@@ -36,7 +38,7 @@ function redactValue(value: unknown, redact: (key: string, value: unknown) => un
   return output
 }
 
-export function logger(options: LoggerOptions = {}): (app: Nelysia) => Nelysia {
+export function logger(options: LoggerOptions = {}): LoggerPlugin {
   const minimum = options.level ?? "info"
   const sink = options.sink ?? defaultSink
   const redact = options.redact ?? ((_key, value) => value)
@@ -65,7 +67,7 @@ export function logger(options: LoggerOptions = {}): (app: Nelysia) => Nelysia {
     }
   }
 
-  return (app) => {
+  return ((app: Nelysia<any, any, any>) => {
     app.decorate("logger", instance)
     app.onAfterHandle((context, response) => {
       instance.info("request.complete", {
@@ -84,7 +86,7 @@ export function logger(options: LoggerOptions = {}): (app: Nelysia) => Nelysia {
       })
     })
     return app
-  }
+  }) as LoggerPlugin
 }
 
 export type { Logger }

@@ -37,7 +37,7 @@ test("Cloudflare example preserves env and execution context forwarding", async 
 })
 
 test("feature module example composes prefixed routes and named schemas", async () => {
-  const created = await featureModuleApp.inject({
+  const created = await featureModuleApp.injectUntyped({
     method: "POST",
     path: "/users",
     body: { name: "Ada" }
@@ -45,7 +45,7 @@ test("feature module example composes prefixed routes and named schemas", async 
   assert.equal(created.statusCode, 200)
   assert.deepEqual(await created.json(), { id: "user-1", name: "Ada" })
 
-  const user = await featureModuleApp.inject({ method: "GET", path: "/users/42" })
+  const user = await featureModuleApp.injectUntyped({ method: "GET", path: "/users/42" })
   assert.equal(user.statusCode, 200)
   assert.deepEqual(await user.json(), { id: "42", name: "Ada" })
 })

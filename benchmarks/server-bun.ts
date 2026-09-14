@@ -2,6 +2,7 @@ import { Nelysia } from "../packages/core/src/index.ts"
 import { createCompiledBunHandler } from "../packages/compiler/src/index.ts"
 import { createBunHandler } from "../packages/runtime-bun/src/server.ts"
 import { Elysia } from "elysia"
+import { Hono } from "hono"
 
 const framework = process.env.FRAMEWORK ?? "nelysia-bun-static"
 const port = Number(process.env.PORT ?? 4310)
@@ -42,6 +43,17 @@ function buildElysia(): Elysia {
   return app
 }
 
+function buildHono(): Hono {
+  const app = new Hono()
+  if (benchCase === "json") app.get("/json", (context) => context.json({ message: "hello", value: 42 }))
+  else app.get("/users/:id", (context) => context.json({ id: context.req.param("id") }))
+  if (routeSet === "multi") {
+    if (benchCase === "json") app.get("/users/:id", (context) => context.json({ id: context.req.param("id") }))
+    else app.get("/json", (context) => context.json({ message: "hello", value: 42 }))
+  }
+  return app
+}
+
 if (framework === "raw-bun") {
   const jsonHeader = { "content-type": "application/json; charset=utf-8" }
   Bun.serve({
@@ -78,6 +90,10 @@ if (framework === "raw-bun") {
   console.log(`ready:${framework}:${port}`)
 } else if (framework === "elysia-bun") {
   const app = buildElysia().listen(port)
+  console.log(`ready:${framework}:${port}`)
+} else if (framework === "hono-bun") {
+  const app = buildHono()
+  Bun.serve({ port, fetch: app.fetch })
   console.log(`ready:${framework}:${port}`)
 } else {
   throw new Error(`Unknown framework: ${framework}`)

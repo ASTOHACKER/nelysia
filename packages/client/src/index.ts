@@ -1,6 +1,6 @@
-export interface ClientResponse<T> {
+export interface ClientResponse<T, ErrorBody = unknown> {
   data?: T
-  error?: { status: number; body: unknown }
+  error?: { status: number; body: ErrorBody }
   response: Response
 }
 
@@ -50,6 +50,7 @@ type RouteBody<Routes, Method extends string, Path extends string> = RouteField<
 type RouteQuery<Routes, Method extends string, Path extends string> = RouteField<Routes, Method, Path, "query">
 type RouteParams<Routes, Method extends string, Path extends string> = RouteField<Routes, Method, Path, "params">
 type RouteHeaders<Routes, Method extends string, Path extends string> = RouteField<Routes, Method, Path, "headers">
+type RouteErrors<Routes, Method extends string, Path extends string> = RouteField<Routes, Method, Path, "errors", unknown>
 type HeaderInput<Value> = Value extends Record<string, unknown> ? Value & Record<string, string | number | boolean | undefined> : HeadersInit
 type PathNeedsParams<Path extends string> = Path extends `${string}:${string}` | `${string}/*` ? true : false
 type RequestOptions<Routes, Method extends string, Path extends string> = (PathNeedsParams<Path> extends true
@@ -58,6 +59,17 @@ type RequestOptions<Routes, Method extends string, Path extends string> = (PathN
   query?: RouteQuery<Routes, Method, Path>
   headers?: HeaderInput<RouteHeaders<Routes, Method, Path>>
   signal?: AbortSignal
+}
+
+type RoutesOfApp<App> = App extends { readonly __nelysiaRouteMap?: infer Routes } ? Routes : App extends Record<string, unknown> ? App : never
+type TypedClient<Routes> = {
+  get<Path extends RoutePaths<Routes, "GET">>(path: Path, requestOptions?: RequestOptions<Routes, "GET", Path>): Promise<ClientResponse<RouteResponse<Routes, "GET", Path>, RouteErrors<Routes, "GET", Path>>>
+  post<Path extends RoutePaths<Routes, "POST">>(path: Path, body: RouteBody<Routes, "POST", Path>, requestOptions?: RequestOptions<Routes, "POST", Path>): Promise<ClientResponse<RouteResponse<Routes, "POST", Path>, RouteErrors<Routes, "POST", Path>>>
+  put<Path extends RoutePaths<Routes, "PUT">>(path: Path, body: RouteBody<Routes, "PUT", Path>, requestOptions?: RequestOptions<Routes, "PUT", Path>): Promise<ClientResponse<RouteResponse<Routes, "PUT", Path>, RouteErrors<Routes, "PUT", Path>>>
+  patch<Path extends RoutePaths<Routes, "PATCH">>(path: Path, body: RouteBody<Routes, "PATCH", Path>, requestOptions?: RequestOptions<Routes, "PATCH", Path>): Promise<ClientResponse<RouteResponse<Routes, "PATCH", Path>, RouteErrors<Routes, "PATCH", Path>>>
+  delete<Path extends RoutePaths<Routes, "DELETE">>(path: Path, requestOptions?: RequestOptions<Routes, "DELETE", Path>): Promise<ClientResponse<RouteResponse<Routes, "DELETE", Path>, RouteErrors<Routes, "DELETE", Path>>>
+  head<Path extends RoutePaths<Routes, "HEAD">>(path: Path, requestOptions?: RequestOptions<Routes, "HEAD", Path>): Promise<ClientResponse<RouteResponse<Routes, "HEAD", Path>, RouteErrors<Routes, "HEAD", Path>>>
+  options<Path extends RoutePaths<Routes, "OPTIONS">>(path: Path, requestOptions?: RequestOptions<Routes, "OPTIONS", Path>): Promise<ClientResponse<RouteResponse<Routes, "OPTIONS", Path>, RouteErrors<Routes, "OPTIONS", Path>>>
 }
 
 function toHeaders(input?: HeadersInit): Headers {
@@ -96,9 +108,9 @@ function resolveUrl(path: string, baseUrl: string): string {
   return joined
 }
 
-export function createClient(baseUrl: string, options: ClientOptions = {}) {
+function createBaseClient(baseUrl: string, options: ClientOptions = {}) {
   const fetcher = options.fetch ?? globalThis.fetch
-  const request = async <T>(method: string, path: string, body?: unknown, requestOptions: { headers?: HeadersInit; signal?: AbortSignal } = {}): Promise<ClientResponse<T>> => {
+  const request = async <T, E = unknown>(method: string, path: string, body?: unknown, requestOptions: { headers?: HeadersInit; signal?: AbortSignal } = {}): Promise<ClientResponse<T, E>> => {
     const headers = toHeaders(options.headers)
     for (const [key, value] of toHeaders(requestOptions.headers)) headers.set(key, value)
     if (body !== undefined && !headers.has("content-type")) headers.set("content-type", "application/json")
@@ -113,22 +125,27 @@ export function createClient(baseUrl: string, options: ClientOptions = {}) {
     if (text.length > 0) {
       try { value = JSON.parse(text) } catch { value = text }
     }
-    return response.ok ? { data: value as T, response } : { error: { status: response.status, body: value }, response }
+    return response.ok ? { data: value as T, response } : { error: { status: response.status, body: value as E }, response }
   }
   return {
     request,
-    get: <T>(path: string, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T>("GET", path, undefined, requestOptions),
-    post: <T>(path: string, body: unknown, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T>("POST", path, body, requestOptions),
-    put: <T>(path: string, body: unknown, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T>("PUT", path, body, requestOptions),
-    patch: <T>(path: string, body: unknown, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T>("PATCH", path, body, requestOptions),
-    delete: <T>(path: string, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T>("DELETE", path, undefined, requestOptions),
-    head: <T>(path: string, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T>("HEAD", path, undefined, requestOptions),
-    options: <T>(path: string, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T>("OPTIONS", path, undefined, requestOptions)
+    get: <T, E = unknown>(path: string, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T, E>("GET", path, undefined, requestOptions),
+    post: <T, E = unknown>(path: string, body: unknown, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T, E>("POST", path, body, requestOptions),
+    put: <T, E = unknown>(path: string, body: unknown, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T, E>("PUT", path, body, requestOptions),
+    patch: <T, E = unknown>(path: string, body: unknown, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T, E>("PATCH", path, body, requestOptions),
+    delete: <T, E = unknown>(path: string, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T, E>("DELETE", path, undefined, requestOptions),
+    head: <T, E = unknown>(path: string, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T, E>("HEAD", path, undefined, requestOptions),
+    options: <T, E = unknown>(path: string, requestOptions?: { headers?: HeadersInit; signal?: AbortSignal }) => request<T, E>("OPTIONS", path, undefined, requestOptions)
   }
 }
 
-export function createTypedClient<Routes>(baseUrl: string, options: ClientOptions = {}) {
-  const client = createClient(baseUrl, options)
+export function createClient<App = never>(baseUrl: string, options?: ClientOptions): [App] extends [never] ? ReturnType<typeof createBaseClient> : TypedClient<RoutesOfApp<App>>
+export function createClient(baseUrl: string, options: ClientOptions = {}): ReturnType<typeof createBaseClient> {
+  return createBaseClient(baseUrl, options)
+}
+
+export function createTypedClient<Routes>(baseUrl: string, options: ClientOptions = {}): TypedClient<Routes> {
+  const client = createBaseClient(baseUrl, options)
   const prepare = <Method extends string, Path extends string>(path: Path, requestOptions?: RequestOptions<Routes, Method, Path>) => ({
     path: withQuery(withParams(path, requestOptions?.params), requestOptions?.query, options.queryArray ?? "repeat"),
     requestOptions: { headers: requestOptions?.headers as HeadersInit | undefined, signal: requestOptions?.signal }
@@ -136,31 +153,31 @@ export function createTypedClient<Routes>(baseUrl: string, options: ClientOption
   return {
     get: <Path extends RoutePaths<Routes, "GET">>(path: Path, requestOptions?: RequestOptions<Routes, "GET", Path>) => {
       const prepared = prepare(path, requestOptions)
-      return client.get<RouteResponse<Routes, "GET", Path>>(prepared.path, prepared.requestOptions)
+      return client.get<RouteResponse<Routes, "GET", Path>, RouteErrors<Routes, "GET", Path>>(prepared.path, prepared.requestOptions)
     },
     post: <Path extends RoutePaths<Routes, "POST">>(path: Path, body: RouteBody<Routes, "POST", Path>, requestOptions?: RequestOptions<Routes, "POST", Path>) => {
       const prepared = prepare(path, requestOptions)
-      return client.post<RouteResponse<Routes, "POST", Path>>(prepared.path, body, prepared.requestOptions)
+      return client.post<RouteResponse<Routes, "POST", Path>, RouteErrors<Routes, "POST", Path>>(prepared.path, body, prepared.requestOptions)
     },
     put: <Path extends RoutePaths<Routes, "PUT">>(path: Path, body: RouteBody<Routes, "PUT", Path>, requestOptions?: RequestOptions<Routes, "PUT", Path>) => {
       const prepared = prepare(path, requestOptions)
-      return client.put<RouteResponse<Routes, "PUT", Path>>(prepared.path, body, prepared.requestOptions)
+      return client.put<RouteResponse<Routes, "PUT", Path>, RouteErrors<Routes, "PUT", Path>>(prepared.path, body, prepared.requestOptions)
     },
     patch: <Path extends RoutePaths<Routes, "PATCH">>(path: Path, body: RouteBody<Routes, "PATCH", Path>, requestOptions?: RequestOptions<Routes, "PATCH", Path>) => {
       const prepared = prepare(path, requestOptions)
-      return client.patch<RouteResponse<Routes, "PATCH", Path>>(prepared.path, body, prepared.requestOptions)
+      return client.patch<RouteResponse<Routes, "PATCH", Path>, RouteErrors<Routes, "PATCH", Path>>(prepared.path, body, prepared.requestOptions)
     },
     delete: <Path extends RoutePaths<Routes, "DELETE">>(path: Path, requestOptions?: RequestOptions<Routes, "DELETE", Path>) => {
       const prepared = prepare(path, requestOptions)
-      return client.delete<RouteResponse<Routes, "DELETE", Path>>(prepared.path, prepared.requestOptions)
+      return client.delete<RouteResponse<Routes, "DELETE", Path>, RouteErrors<Routes, "DELETE", Path>>(prepared.path, prepared.requestOptions)
     },
     head: <Path extends RoutePaths<Routes, "HEAD">>(path: Path, requestOptions?: RequestOptions<Routes, "HEAD", Path>) => {
       const prepared = prepare(path, requestOptions)
-      return client.head<RouteResponse<Routes, "HEAD", Path>>(prepared.path, prepared.requestOptions)
+      return client.head<RouteResponse<Routes, "HEAD", Path>, RouteErrors<Routes, "HEAD", Path>>(prepared.path, prepared.requestOptions)
     },
     options: <Path extends RoutePaths<Routes, "OPTIONS">>(path: Path, requestOptions?: RequestOptions<Routes, "OPTIONS", Path>) => {
       const prepared = prepare(path, requestOptions)
-      return client.options<RouteResponse<Routes, "OPTIONS", Path>>(prepared.path, prepared.requestOptions)
+      return client.options<RouteResponse<Routes, "OPTIONS", Path>, RouteErrors<Routes, "OPTIONS", Path>>(prepared.path, prepared.requestOptions)
     }
   }
 }

@@ -48,8 +48,8 @@ graph TD
     subgraph L6["Layer 6: Ecosystem & Integrations"]
         OpenAPI["OpenAPI 3.1 & Redoc UI"]
         Telemetry["Observability & OTLP HTTP Exporter"]
-        Plugins["Plugins (JWT, upload, logger, timeout, rateLimit, staticFile, compression)"]
-        Integrations["Integrations (OpenAPI, GraphQL, Drizzle, Prisma, Better Auth, Client SDK)"]
+        Plugins["Plugins (JWT, upload, logger, timeout, session, roles, CSRF, cache, health, rateLimit, staticFile, compression)"]
+        Integrations["Integrations (OpenAPI, GraphQL, Drizzle, Prisma, Better Auth, Client SDK, package subpaths)"]
         Frameworks["Full-Stack + Edge (Next.js, Nuxt, Astro, SvelteKit, TanStack, Deno, Cloudflare, Vercel)"]
     end
 
@@ -76,6 +76,12 @@ graph TD
 #### Feature Module Convention
 
 Nelysia treats a feature module as a `Nelysia` instance. The instance owns the feature's routes, schemas, policies, and lifecycle while services remain independent from HTTP concerns.
+
+The post-v0.5.1 roadmap is split into additive v0.6–v0.9 milestones. See
+[`roadmap-after-v051.md`](./roadmap-after-v051.md) for the strict type, typed DX,
+compiler, module, CLI, benchmark, and deferred-soak gates. The public execution
+model is `COMPILED`, `SPECIALIZED`, or `GENERIC`; names such as `static-prebuilt`
+and `static-sync` are internal diagnostics only.
 
 ```text
 modules/users/

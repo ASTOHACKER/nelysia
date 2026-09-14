@@ -1,4 +1,5 @@
 import { asParsedQuery, createParsedQuery, type Nelysia } from "../../core/src/app.ts"
+import { HttpError } from "../../core/src/types.ts"
 import { requestIdFor, responseMarker, type Context, type RouteGraph, type RouteRecord } from "../../core/src/types.ts"
 import type { Schema } from "../../core/src/schema.ts"
 import { createBunHandler } from "../../runtime-bun/src/server.ts"
@@ -8,10 +9,14 @@ import { createHash } from "node:crypto"
 export { canGenerateSchema, createGeneratedMatcher, createGeneratedValidator, isParamsOnlyHandler } from "./dispatcher.ts"
 export type { CompiledDispatcher, CompiledLookup, CompiledRoute, GeneratedRouteSchema, GeneratedValidator, SerializedBody } from "./dispatcher.ts"
 
+export type ExecutionLane = "COMPILED" | "SPECIALIZED" | "GENERIC"
+
 export interface RouteAnalysis {
   method: string
   path: string
   execution: "compiled" | "specialized" | "generic"
+  /** Stable public execution lane. Internal subtiers remain in `reason`. */
+  lane: ExecutionLane
   reason: string
 }
 
@@ -67,21 +72,27 @@ export interface BuildArtifact {
 export interface CompiledApplication {
   graph: RouteGraph
   analyses: RouteAnalysis[]
-  handle: Nelysia["handle"]
+  handle: Nelysia<any, any, any>["handle"]
   standaloneBlock?: { code: "NELY107" | "NELY110" | "NELY111"; reason: string }
 }
 
-export function compile(app: Nelysia): CompiledApplication {
-  const analyses = app.graph.routes.map((route) => ({
-    method: route.method,
-    path: route.path,
-    execution: route.static && route.hooks.length === 0 && route.contextFree ? "compiled" as const : route.static && route.hooks.length === 0 ? "specialized" as const : "generic" as const,
-    reason: route.static && route.hooks.length === 0 && route.contextFree
-      ? "Explicit static response; adapter uses static-prebuilt dispatch"
-      : route.static && route.hooks.length === 0 && route.handler.length === 0
-        ? "Static zero-arg handler; adapter uses static-sync dispatch"
-        : isStandaloneRoute(route) ? "Handler and schema source can be embedded" : unsupportedRouteDiagnostic(route).reason
-  }))
+export function compile(app: Nelysia<any, any, any>): CompiledApplication {
+  const analyses = app.graph.routes.map((route) => {
+    const compiled = route.static && route.hooks.length === 0 && route.contextFree
+    const zeroArg = route.static && route.hooks.length === 0 && route.handler.length === 0
+    const params = !route.static && isParamsOnlyHandler(route.handler) && route.hooks.length === 0
+    return {
+      method: route.method,
+      path: route.path,
+      execution: compiled ? "compiled" as const : route.static && route.hooks.length === 0 ? "specialized" as const : "generic" as const,
+      lane: compiled || zeroArg ? "COMPILED" as const : params ? "SPECIALIZED" as const : "GENERIC" as const,
+      reason: compiled
+        ? "Explicit static response; adapter uses static-prebuilt dispatch"
+        : zeroArg
+          ? "Static zero-arg handler; adapter uses static-sync dispatch"
+          : isStandaloneRoute(route) ? "Handler and schema source can be embedded" : unsupportedRouteDiagnostic(route).reason
+    }
+  })
   const standaloneBlock = app.telemetry !== undefined
     ? { code: "NELY111" as const, reason: "Telemetry requires the generic runtime" }
     : app.websocketRoutes.length > 0
@@ -92,7 +103,7 @@ export function compile(app: Nelysia): CompiledApplication {
   return { graph: app.graph, analyses, handle: app.handle.bind(app), standaloneBlock }
 }
 
-export function createCompiledBunHandler(app: Nelysia): (request: Request) => Response | Promise<Response> {
+export function createCompiledBunHandler(app: Nelysia<any, any, any>): (request: Request) => Response | Promise<Response> {
   const fallback = createBunHandler(app)
   const useFallback = app.telemetry !== undefined || app.hasGlobalLifecycle
   // Shared Headers instances: Bun normalizes plain-object headers on every
@@ -124,11 +135,16 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
     // skipping the intermediate pathname slice (benchmark /users/:id case).
     if (dispatcher.singleDynamic !== undefined) {
       const params = matchSingleDynamicUrl(dispatcher.singleDynamic, request.url)
-      if (params !== undefined) return runParamsOnly(dispatcher.singleDynamic, params, fallback)
+      if (params !== undefined) return runParamsOnly(dispatcher.singleDynamic, params, request)
       return fallback(request)
     }
     const found = lookupCompiled(dispatcher, fastPathname(request.url))
     if (found === undefined) return fallback(request)
+    // A context-free static route can still use the zero-allocation lane when
+    // an application has decorations (for example JWT on public routes).
+    // Params-only handlers receive a synthetic context, so contextful apps
+    // must use the reference runtime for those routes.
+    if (dispatcher.hasContextValues && found.kind === "params") return fallback(request)
     switch (found.kind) {
       case "static-prebuilt":
         return prebuilt.get(found.entry)!.clone()
@@ -139,18 +155,18 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
         return runStaticFunction(found.entry, request)
       }
       case "params":
-        return runParamsOnly(found.entry, found.params, fallback)
+        return runParamsOnly(found.entry, found.params, request)
       case "generic":
         return runGeneric(found.entry, found.params, request, fallback)
     }
   }
 
-  function runParamsOnly(c: CompiledRoute, params: Record<string, string>, fb: (r: Request) => Promise<Response>): Response | Promise<Response> {
+  function runParamsOnly(c: CompiledRoute, params: Record<string, string>, request: Request): Response | Promise<Response> {
     try {
       const result = c.route.handler({ params } as Context)
-      if (result instanceof Promise) return result.then((v) => fastJson(v), () => fbNoRequest(fb))
+      if (isPromiseLike(result)) return Promise.resolve(result).then((value) => fastJson(value), (error) => handleFastError(error, request))
       return fastJson(result)
-    } catch { return fbNoRequest(fb) }
+    } catch (error) { return handleFastError(error, request) }
   }
 
   function runStaticFunction(c: CompiledRoute, request: Request): Response | Promise<Response> {
@@ -173,13 +189,6 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
     return responseFromResult(result.status, result.headers, result.body)
   }
 
-  function fbNoRequest(fb: (r: Request) => Promise<Response>): Promise<Response> {
-    // Generic fallback needs the original request; this path is cold (handler threw).
-    // Return 500 to avoid re-entry cost; route-level errors on fast paths are rare.
-    void fb
-    return Promise.resolve(new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500, headers: jsonHeaders }))
-  }
-
   function runGeneric(entry: CompiledRoute, params: Record<string, string>, request: Request, fb: (r: Request) => Promise<Response>): Response | Promise<Response> {
     const route = entry.route
     const headers = request.headers
@@ -197,10 +206,19 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
       cookies: {},
       setCookie: () => {},
       deleteCookie: () => {},
-      response: (status, body, responseHeaders) => ({ status, body, headers: new Headers(responseHeaders), [responseMarker]: true }),
+      response: ((bodyOrStatus: unknown, optionsOrBody?: unknown, extraHeaders?: Record<string, string>) => {
+        if (typeof bodyOrStatus === "number" && !(extraHeaders === undefined && isResponseOptions(optionsOrBody))) return { status: bodyOrStatus, body: optionsOrBody, headers: new Headers(extraHeaders), [responseMarker]: true }
+        const options = optionsOrBody as { status?: number; headers?: HeadersInit } | undefined
+        return { status: options?.status ?? 200, body: bodyOrStatus, headers: new Headers(options?.headers), [responseMarker]: true }
+      }) as Context["response"],
       html: (body, status = 200) => ({ status, body, headers: new Headers({ "content-type": "text/html; charset=utf-8" }), [responseMarker]: true }),
       text: (body, status = 200) => ({ status, body, headers: new Headers({ "content-type": "text/plain; charset=utf-8" }), [responseMarker]: true }),
-      json: (body, status = 200) => ({ status, body, headers: new Headers({ "content-type": "application/json; charset=utf-8" }), [responseMarker]: true }),
+      json: (body, statusOrOptions = 200) => {
+        const options = typeof statusOrOptions === "number" ? { status: statusOrOptions } : statusOrOptions
+        const headers = new Headers({ "content-type": "application/json; charset=utf-8" })
+        for (const [key, value] of new Headers(options.headers)) headers.set(key, value)
+        return { status: options.status ?? 200, body, headers, [responseMarker]: true }
+      },
       redirect: (url, status = 302) => ({ status, body: undefined, headers: new Headers({ location: url }), [responseMarker]: true }),
       header: (name, value) => {
         context.set.headers[name.toLowerCase()] = value
@@ -209,18 +227,20 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
     }
     try {
       const generated = entry.generated
-      if (generated?.params) context.params = generated.params.validate(context.params, "params") as Record<string, string>
-      if (generated?.query) context.query = asParsedQuery(generated.query.validate(Object.fromEntries(context.query.entries()), "query"))
-      if (generated?.headers) context.headers = generated.headers.validate(Object.fromEntries(context.headers.entries()), "headers") as Headers
+      // The reference runtime uses the schema's default `body` path for
+      // params/query/headers validation. Keep generated diagnostics identical
+      // so switching lanes never changes the public 400 payload.
+      if (generated?.params) context.params = generated.params.validate(context.params) as Record<string, string>
+      if (generated?.query) context.query = asParsedQuery(generated.query.validate(Object.fromEntries(context.query.entries())))
+      if (generated?.headers) context.headers = generated.headers.validate(Object.fromEntries(context.headers.entries())) as Headers
       const out = route.handler(context) as unknown
-      if (out instanceof Promise) return out.then((v) => {
-        try { return genericToResponse(v, context, entry) } catch { return fb(request) }
-      }, () => fb(request))
+      if (isPromiseLike(out)) return Promise.resolve(out).then((value) => genericToResponse(value, context, entry), (error) => handleFastError(error, request))
       return genericToResponse(out, context, entry)
-    } catch { return fb(request) }
+    } catch (error) { return handleFastError(error, request) }
   }
 
   function genericToResponse(result: unknown, ctx: Context, entry?: CompiledRoute): Response {
+    if (result instanceof HttpError) throw result
     if (isResponseData(result)) return responseFromResult(result.status, result.headers, result.body)
     if (entry?.generated?.response) result = entry.generated.response.validate(result, "response")
     const status = ctx.set.status ?? 200
@@ -229,6 +249,8 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
   }
 
   function fastJson(value: unknown, status = 200, headers?: Record<string, string>): Response {
+    if (value instanceof HttpError) throw value
+    if (isResponseData(value)) return responseFromResult(value.status, value.headers, value.body)
     if (value instanceof Response) return value
     if (value instanceof ReadableStream) return new Response(value, { status, headers })
     if (value === undefined || value === null) return new Response(null, { status, headers })
@@ -255,6 +277,10 @@ function responseFromResult(status: number, headers: HeadersInit | undefined, bo
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
   return typeof value === "object" && value !== null && typeof (value as { then?: unknown }).then === "function"
+}
+
+function isResponseOptions(value: unknown): value is { status?: number; headers?: HeadersInit } {
+  return typeof value === "object" && value !== null && ("status" in value || "headers" in value)
 }
 
 function requestPath(input: string): string {
@@ -348,7 +374,7 @@ function isResponseData(value: unknown): value is { status: number; headers: Hea
 }
 
 export function inspect(compiled: CompiledApplication): string {
-  return compiled.analyses.map((route) => `${route.method} ${route.path}\n  Execution: ${route.execution.toUpperCase()}\n  Reason: ${route.reason}`).join("\n")
+  return compiled.analyses.map((route) => `${route.method} ${route.path}\n  Execution: ${route.execution.toUpperCase()}\n  Lane: ${route.lane}\n  Reason: ${route.reason}`).join("\n")
 }
 
 export function generateServerSource(options: { entry: string; target: BuildTarget }): string {

@@ -79,8 +79,28 @@ export interface WebSocketHandlers {
   error?(socket: WebSocketSocket, error: unknown): void | Promise<void>
 }
 
-export interface RouteOptions<Models extends Record<string, unknown> = {}> {
+export interface AuthStrategyRegistry {
+  /** Authentication packages augment this registry with their strategy names. */
+}
+
+export type AuthStrategyName = Extract<keyof AuthStrategyRegistry, string>
+
+/** @deprecated Prefer a strategy name registered through AuthStrategyRegistry. */
+export type LegacyAuthStrategy = string
+
+export interface AuthStrategyDescriptor {
+  strategy: AuthStrategyName
   [key: string]: unknown
+}
+
+export interface DecorationOptions {
+  /** Keep framework internals such as `jwt` out of Object.keys(context). */
+  enumerable?: boolean
+  /** Resolve a decoration on first access for each request context. */
+  lazy?: boolean
+}
+
+export type RouteOptions<Models extends Record<string, unknown> = {}, MacroNames extends string = never> = {
   summary?: string
   description?: string
   tags?: string[]
@@ -91,8 +111,8 @@ export interface RouteOptions<Models extends Record<string, unknown> = {}> {
   response?: SchemaDefinitionInput | (keyof Models & string)
   /** Additional response contracts keyed by HTTP status (for example 201 or 422). */
   responses?: Record<string | number, SchemaDefinitionInput | (keyof Models & string)>
-  auth?: string | boolean | Record<string, unknown>
-}
+  auth?: AuthStrategyName | boolean | AuthStrategyDescriptor | LegacyAuthStrategy
+} & Partial<Record<MacroNames, boolean>>
 
 export type SchemaInput = import("./schema.ts").Schema | import("./schema.ts").StandardSchema | string
 type SchemaDefinitionInput = import("./schema.ts").Schema | import("./schema.ts").StandardSchema
@@ -120,7 +140,53 @@ export type RouteContract = {
   errors?: unknown
 }
 
+type ResponseContractValues<Value, Models extends Record<string, unknown>> = Value extends Record<string | number, infer Entry>
+  ? SchemaValue<Entry, Models>
+  : unknown
+
 export type RouteMap = object
+
+/** Generic plugin contract. Plugin packages use this shape to preserve the
+ * host application's route/model/macro generics while adding context fields. */
+export type NelysiaPlugin<Added extends object = {}> = (<Extensions extends Record<string, unknown> = {}, Routes extends RouteMap = {}, Models extends Record<string, unknown> = {}, Macros extends string = never>(app: import("./app.ts").Nelysia<Extensions, Routes, Models, Macros>) => import("./app.ts").Nelysia<Extensions & Added, Routes, Models, Macros>) & {
+  /** Type-only marker used by `Nelysia.use()` to infer plugin context. */
+  readonly __nelysiaPlugin?: Added
+}
+
+type ExpandInjectPath<Path extends string> = Path extends `${infer Prefix}:${string}/${infer Rest}`
+  ? `${Prefix}${string}/${ExpandInjectPath<Rest>}`
+  : Path extends `${infer Prefix}:${string}`
+    ? `${Prefix}${string}`
+    : Path extends `${infer Prefix}/*`
+      ? `${Prefix}/${string}`
+      : Path
+
+type InjectRouteOptions<Key extends string, Contract> = Key extends `${infer Method} ${infer Path}`
+  ? { method: Method; path: Path | ExpandInjectPath<Path> }
+    & (Contract extends { body: infer Body } ? { body: Body } : { body?: unknown })
+    & (Contract extends { query: infer Query } ? { query?: Query } : { query?: Record<string, string> })
+    & (Contract extends { headers: infer Headers } ? { headers?: Headers | globalThis.Headers } : { headers?: Record<string, string> | globalThis.Headers })
+  : never
+
+export type TypedInjectOptions<Routes extends RouteMap> = string extends keyof Routes ? InjectOptions : keyof Routes extends never
+  ? InjectOptions
+  : { [Key in Extract<keyof Routes, string>]: InjectRouteOptions<Key, Routes[Key]> }[Extract<keyof Routes, string>] | (InjectOptions & { path?: undefined })
+
+export type InjectResponseBody<Routes extends RouteMap> = Routes[keyof Routes & keyof Routes] extends infer Contract
+  ? Contract extends { response: infer Response } ? Response : unknown
+  : unknown
+
+type InjectRouteKey<Routes extends RouteMap, Method extends string, Path extends string> = {
+  [Key in Extract<keyof Routes, string>]: Key extends `${Method} ${infer Pattern}`
+    ? Path extends Pattern | ExpandInjectPath<Pattern> ? Key : never
+    : never
+}[Extract<keyof Routes, string>]
+
+export type InjectResponseBodyFor<Routes extends RouteMap, Options> = Options extends { method: infer Method extends string; path: infer Path extends string }
+  ? Routes[InjectRouteKey<Routes, Method, Path> & keyof Routes] extends infer Contract
+    ? Contract extends { response: infer Response } ? Response : unknown
+    : unknown
+  : unknown
 
 type OptionalContractField<Options extends object, Key extends string, Value> = Options extends Record<Key, infer Input>
   ? { [K in Key]: Value extends never ? unknown : Value }
@@ -128,6 +194,7 @@ type OptionalContractField<Options extends object, Key extends string, Value> = 
 
 export type RouteContractFor<Method extends string, Path extends string, Options extends object, Result, Models extends Record<string, unknown> = {}> = {
   response: Options extends { response: infer Input } ? SchemaValue<Input, Models> : Awaited<Result>
+  errors: Options extends { responses: infer Responses } ? ResponseContractValues<Responses, Models> : unknown
   params: Options extends { params: infer Input } ? SchemaValue<Input, Models> : PathParams<Path>
 } & OptionalContractField<Options, "body", SchemaValue<Options extends { body: infer Input } ? Input : never, Models>>
   & OptionalContractField<Options, "query", SchemaValue<Options extends { query: infer Input } ? Input : never, Models>>
@@ -195,11 +262,23 @@ export function requestIdFor(request: RequestData): string {
 
 export class HttpError extends Error {
   readonly status: number
+  readonly body?: unknown
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, body?: unknown) {
     super(message)
     this.status = status
+    this.body = body
   }
+}
+
+export interface ResponseOptions {
+  status?: number
+  headers?: HeadersInit
+}
+
+export function error(status: number, body: unknown): HttpError {
+  const message = typeof body === "string" ? body : `HTTP ${status}`
+  return new HttpError(status, message, body)
 }
 
 export type ParsedQuery = URLSearchParams & Record<string, string | undefined>
@@ -214,7 +293,11 @@ export interface ServerInfo {
   hostname: string
   url: string
   server: unknown
+  /** Stops the underlying runtime server. Existing `server` access remains supported. */
+  stop(): void | Promise<void>
 }
+
+export type NelysiaServer = ServerInfo
 
 export interface ListenOptions {
   port: number
@@ -230,18 +313,17 @@ export interface InjectOptions {
   query?: Record<string, string>
 }
 
-export interface InjectResponse {
+export interface InjectResponse<Body = unknown> {
   readonly status: number
   readonly statusCode: number
   readonly headers: Headers
   readonly body: unknown
-  json<T = unknown>(): Promise<T>
+  json<T = Body>(): Promise<T>
   text(): Promise<string>
   bytes(): Promise<Uint8Array>
 }
 
 export interface Context {
-  readonly [key: string]: unknown
   request: RequestData
   requestId: string
   clientIp?: string
@@ -261,10 +343,11 @@ export interface Context {
   files?: Record<string, UploadedFile[]>
   setCookie(name: string, value: string, options?: CookieOptions): void
   deleteCookie(name: string, options?: CookieOptions): void
+  response(body: unknown, options?: ResponseOptions): ResponseData
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
   html(body: string, status?: number): ResponseData
   text(body: string, status?: number): ResponseData
-  json(body: unknown, status?: number): ResponseData
+  json(body: unknown, status?: number | ResponseOptions): ResponseData
   redirect(url: string, status?: number): ResponseData
   header(name: string, value: string): this
 }
@@ -291,7 +374,7 @@ export interface UploadedFile {
   storage?: unknown
 }
 
-export type Handler<Extensions extends Record<string, unknown> = Record<string, unknown>> = (context: Context & Extensions) => unknown | Promise<unknown>
+export type Handler<Extensions extends Record<string, unknown> = {}> = (context: Context & Extensions) => unknown | Promise<unknown>
 export type Hook = (context: Context) => unknown | Promise<unknown>
 export type RouteGuard = (context: Context) => unknown | Promise<unknown>
 export type AfterHook = (context: Context, result: ResponseData) => unknown | Promise<unknown>
@@ -308,7 +391,7 @@ export interface RouteRecord {
   path: string
   segments: string[]
   params: string[]
-  handler: Handler<any>
+  handler: Handler
   requestHooks?: RequestHook[]
   parseHooks?: ParseHook[]
   mapResponseHooks?: MapResponseHook[]
@@ -320,7 +403,7 @@ export interface RouteRecord {
   wildcard?: boolean
   contextFree?: boolean
   staticValue?: unknown
-  auth?: string | boolean | Record<string, unknown>
+  auth?: AuthStrategyName | boolean | AuthStrategyDescriptor | LegacyAuthStrategy
   routeGuards?: RouteGuard[]
   summary?: string
   description?: string

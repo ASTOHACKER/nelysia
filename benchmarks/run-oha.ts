@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
 import { once } from "node:events"
+import { readFile } from "node:fs/promises"
 import { cpus } from "node:os"
 
 interface OhaMetrics {
@@ -19,6 +20,9 @@ interface OhaMetrics {
   totalRequests: number
   failureCount: number
   throughputMBs: number
+  serverRssBeforeKb: number | null
+  serverRssAfterKb: number | null
+  runnerHeapDeltaKb: number
 }
 
 interface RawOhaJson {
@@ -44,6 +48,10 @@ interface RawOhaJson {
   }
   statusCodeDistribution: Record<string, number>
   errorDistribution: Record<string, number>
+}
+
+interface ProcessMemory {
+  rssKb: number | null
 }
 
 const PORT = Number(process.env.BENCH_PORT ?? 4321)
@@ -122,6 +130,16 @@ async function runOha(url: string, durationSec: number, concurrency: number): Pr
   return JSON.parse(stdout) as RawOhaJson
 }
 
+async function readProcessMemory(pid: number): Promise<ProcessMemory> {
+  try {
+    const status = await readFile(`/proc/${pid}/status`, "utf8")
+    const match = status.match(/^VmRSS:\s+(\d+)\s+kB$/m)
+    return { rssKb: match ? Number(match[1]) : null }
+  } catch {
+    return { rssKb: null }
+  }
+}
+
 interface TargetConfig {
   framework: string
   label: string
@@ -174,6 +192,14 @@ function getTargets(): TargetConfig[] {
       path: "/json",
       command: { bin: "bun", file: "benchmarks/server-bun.ts" }
     },
+    {
+      framework: "hono-bun",
+      label: "Hono (Bun)",
+      runtime: "Bun",
+      workload: "JSON Serialization (/json)",
+      path: "/json",
+      command: { bin: "bun", file: "benchmarks/server-bun.ts" }
+    },
     // Dynamic Route
     {
       framework: "raw-bun",
@@ -202,6 +228,14 @@ function getTargets(): TargetConfig[] {
     {
       framework: "elysia-bun",
       label: "Elysia",
+      runtime: "Bun",
+      workload: "Dynamic Route (/users/42)",
+      path: "/users/42",
+      command: { bin: "bun", file: "benchmarks/server-bun.ts" }
+    },
+    {
+      framework: "hono-bun",
+      label: "Hono (Bun)",
       runtime: "Bun",
       workload: "Dynamic Route (/users/42)",
       path: "/users/42",
@@ -243,6 +277,14 @@ function getTargets(): TargetConfig[] {
       path: "/json",
       command: { bin: process.execPath, file: "benchmarks/server.ts" }
     },
+    {
+      framework: "hono-node",
+      label: "Hono (Node)",
+      runtime: "Node.js",
+      workload: "JSON Serialization (/json)",
+      path: "/json",
+      command: { bin: process.execPath, file: "benchmarks/server.ts" }
+    },
     // Dynamic
     {
       framework: "raw-node",
@@ -271,6 +313,14 @@ function getTargets(): TargetConfig[] {
     {
       framework: "express",
       label: "Express 5",
+      runtime: "Node.js",
+      workload: "Dynamic Route (/users/42)",
+      path: "/users/42",
+      command: { bin: process.execPath, file: "benchmarks/server.ts" }
+    },
+    {
+      framework: "hono-node",
+      label: "Hono (Node)",
       runtime: "Node.js",
       workload: "Dynamic Route (/users/42)",
       path: "/users/42",
@@ -311,7 +361,8 @@ async function main() {
   for (const target of targets) {
     process.stdout.write(`Benchmarking [${target.runtime}] ${target.label} - ${target.workload}... `)
 
-    const roundResults: RawOhaJson[] = []
+    const roundResults: Array<{ data: RawOhaJson; before: ProcessMemory; after: ProcessMemory }> = []
+    const heapBefore = process.memoryUsage().heapUsed
 
     for (let round = 1; round <= ROUNDS; round++) {
       const isBun = target.command.bin === "bun"
@@ -334,29 +385,34 @@ async function main() {
         await waitForServerReady(child)
         const targetUrl = `http://127.0.0.1:${PORT}${target.path}`
 
-        // Warmup (1s)
+        const before = await readProcessMemory(child.pid ?? -1)
+        // Warmup (1s), explicitly excluded from the measured samples.
         await runOha(targetUrl, 1, Math.min(CONCURRENCY, 20))
 
         // Measured Run
         const ohaData = await runOha(targetUrl, DURATION_SEC, CONCURRENCY)
-        roundResults.push(ohaData)
+        const after = await readProcessMemory(child.pid ?? -1)
+        roundResults.push({ data: ohaData, before, after })
       } finally {
         await stopServer(child)
       }
     }
 
-    const rpsMed = median(roundResults.map((r) => r.summary.requestsPerSec))
-    const rpsValues = roundResults.map((r) => r.summary.requestsPerSec)
-    const avgLatencyMed = median(roundResults.map((r) => r.summary.average * 1000))
-    const p50Med = median(roundResults.map((r) => r.latencyPercentiles.p50 * 1000))
-    const p90Med = median(roundResults.map((r) => r.latencyPercentiles.p90 * 1000))
-    const p95Med = median(roundResults.map((r) => r.latencyPercentiles.p95 * 1000))
-    const p99Med = median(roundResults.map((r) => r.latencyPercentiles.p99 * 1000))
-    const maxLatMed = median(roundResults.map((r) => r.summary.slowest * 1000))
-    const successRateMed = median(roundResults.map((r) => r.summary.successRate * 100))
-    const totalReqsMed = median(roundResults.map((r) => r.summary.total))
-    const mbPerSecMed = median(roundResults.map((r) => r.summary.sizePerSec / (1024 * 1024)))
-    const failureCount = roundResults.reduce((total, r) => total + Math.max(0, Math.round(r.summary.total * (1 - r.summary.successRate))), 0)
+    const rpsMed = median(roundResults.map((r) => r.data.summary.requestsPerSec))
+    const rpsValues = roundResults.map((r) => r.data.summary.requestsPerSec)
+    const avgLatencyMed = median(roundResults.map((r) => r.data.summary.average * 1000))
+    const p50Med = median(roundResults.map((r) => r.data.latencyPercentiles.p50 * 1000))
+    const p90Med = median(roundResults.map((r) => r.data.latencyPercentiles.p90 * 1000))
+    const p95Med = median(roundResults.map((r) => r.data.latencyPercentiles.p95 * 1000))
+    const p99Med = median(roundResults.map((r) => r.data.latencyPercentiles.p99 * 1000))
+    const maxLatMed = median(roundResults.map((r) => r.data.summary.slowest * 1000))
+    const successRateMed = median(roundResults.map((r) => r.data.summary.successRate * 100))
+    const totalReqsMed = median(roundResults.map((r) => r.data.summary.total))
+    const mbPerSecMed = median(roundResults.map((r) => r.data.summary.sizePerSec / (1024 * 1024)))
+    const failureCount = roundResults.reduce((total, r) => total + Math.max(0, Math.round(r.data.summary.total * (1 - r.data.summary.successRate))), 0)
+    const rssBefore = roundResults.map((r) => r.before.rssKb).filter((value): value is number => value !== null)
+    const rssAfter = roundResults.map((r) => r.after.rssKb).filter((value): value is number => value !== null)
+    const heapAfter = process.memoryUsage().heapUsed
 
     finalResults.push({
       framework: target.label,
@@ -374,7 +430,10 @@ async function main() {
       successRate: successRateMed,
       totalRequests: totalReqsMed,
       failureCount,
-      throughputMBs: mbPerSecMed
+      throughputMBs: mbPerSecMed,
+      serverRssBeforeKb: rssBefore.length > 0 ? median(rssBefore) : null,
+      serverRssAfterKb: rssAfter.length > 0 ? median(rssAfter) : null,
+      runnerHeapDeltaKb: Math.round((heapAfter - heapBefore) / 1024)
     })
 
     console.log(`✓ ${Math.round(rpsMed).toLocaleString()} req/s (p95: ${p95Med.toFixed(2)}ms)`)
@@ -394,15 +453,15 @@ async function main() {
       if (filtered.length === 0) continue
 
       console.log(`### Runtime: ${runtime} | Workload: ${workload}`)
-      console.log(`| Framework | Median req/s | Min/Max req/s | Avg Latency | p50 | p95 | p99 | Max Latency | Success Rate | Failures | Throughput |`)
-      console.log(`| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |`)
+      console.log(`| Framework | Median req/s | Min/Max req/s | Avg Latency | p50 | p95 | p99 | Max Latency | Success Rate | Failures | Throughput | RSS before/after | Heap delta |`)
+      console.log(`| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |`)
       
       // Sort by RPS descending
       filtered.sort((a, b) => b.rps - a.rps)
 
       for (const res of filtered) {
         console.log(
-          `| **${res.framework}** | **${Math.round(res.rps).toLocaleString()}** | ${Math.round(res.rpsMin).toLocaleString()} / ${Math.round(res.rpsMax).toLocaleString()} | ${res.avgLatencyMs.toFixed(2)} ms | ${res.p50Ms.toFixed(2)} ms | ${res.p95Ms.toFixed(2)} ms | ${res.p99Ms.toFixed(2)} ms | ${res.maxLatencyMs.toFixed(2)} ms | ${res.successRate.toFixed(1)}% | ${res.failureCount} | ${res.throughputMBs.toFixed(2)} MB/s |`
+          `| **${res.framework}** | **${Math.round(res.rps).toLocaleString()}** | ${Math.round(res.rpsMin).toLocaleString()} / ${Math.round(res.rpsMax).toLocaleString()} | ${res.avgLatencyMs.toFixed(2)} ms | ${res.p50Ms.toFixed(2)} ms | ${res.p95Ms.toFixed(2)} ms | ${res.p99Ms.toFixed(2)} ms | ${res.maxLatencyMs.toFixed(2)} ms | ${res.successRate.toFixed(1)}% | ${res.failureCount} | ${res.throughputMBs.toFixed(2)} MB/s | ${res.serverRssBeforeKb ?? "n/a"} / ${res.serverRssAfterKb ?? "n/a"} kB | ${res.runnerHeapDeltaKb} kB |`
         )
       }
       console.log(`\n`)

@@ -1,8 +1,22 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 0.5.1 (package และ GitHub Release ปัจจุบัน)
+> **เวอร์ชัน:** 0.6.0 (package และ GitHub Release ปัจจุบัน)
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
+
+เริ่มจาก [แผนผังเอกสาร](./README.md) เพื่อเลือกคู่มือ, สถานะ release หรือ
+รายงาน benchmark ที่ต้องการได้เร็วขึ้น
+
+ฟีเจอร์ additive หลัง v0.5.1 รวมอยู่ใน release v0.6.0 แล้ว ส่วนแผนงานถัดไปอยู่ที่
+[`roadmap-after-v051.md`](./roadmap-after-v051.md) โดย worktree ปัจจุบันมี
+subpath สำหรับ production contract ได้แก่ `@narudom96/nelysia/session`,
+`@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
+`@narudom96/nelysia/cache` และ `@narudom96/nelysia/health` แล้ว แต่ยังคง
+package line เป็น v0.6.0
+
+ตัวอย่างที่รันได้: [basic](../examples/hello/index.ts),
+[JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts) และ
+[typed client](../examples/typed-client/client.ts)
 
 ---
 
@@ -30,6 +44,7 @@
 6. [การตรวจสอบข้อมูลและ Schema Validation](#6-การตรวจสอบข้อมูลและ-schema-validation)
    - [เครื่องมือสร้าง Schema ในตัว (`t`)](#เครื่องมือสร้าง-schema-ในตัว-t)
    - [การเชื่อมต่อกับ Standard Schema (Zod, Valibot, ArkType)](#การเชื่อมต่อกับ-standard-schema-zod-valibot-arktype)
+   - [Strict TypeScript Contracts](#strict-typescript-contracts)
    - [จุดที่สามารถ Validate ได้ทั้ง 5 จุด](#จุดที่สามารถ-validate-ได้ทั้ง-5-จุด)
 7. [Lifecycle Hooks และการดักจับข้อผิดพลาด (Error Handling)](#7-lifecycle-hooks-และการดักจับข้อผิดพลาด)
    - [`onBeforeHandle`](#onbeforehandle)
@@ -45,6 +60,7 @@
    - [การจำกัดจำนวน Request (`rateLimit`)](#การจำกัดจำนวน-request-ratelimit)
    - [การให้บริการไฟล์ Static เดี่ยว (`staticFile`)](#การให้บริการไฟล์-static-staticfiles)
    - [การบีบอัดข้อมูล Gzip (`compression`)](#การบีบอัดข้อมูล-gzip-compression)
+   - [Production Subpaths](#production-subpaths)
 10. [OpenAPI 3.1 และหน้าเอกสาร Redoc / Swagger UI](#10-openapi-31-และหน้าเอกสาร-redoc--swagger-ui)
     - [สร้างเอกสาร OpenAPI อัตโนมัติและ Route Metadata](#สร้างเอกสาร-openapi-อัตโนมัติและ-route-metadata)
     - [เปิดหน้าเว็บ Redoc UI (`openapiUi`)](#เปิดหน้าเว็บ-redoc-ui-openapiui)
@@ -54,7 +70,7 @@
 12. [การเชื่อมต่อกับ GraphQL](#12-การเชื่อมต่อกับ-graphql)
 13. [การเชื่อมต่อฐานข้อมูล (Drizzle & Prisma)](#13-การเชื่อมต่อฐานข้อมูล-drizzle--prisma)
 14. [การยืนยันตัวตนด้วย Better Auth](#14-การยืนยันตัวตนด้วย-better-auth)
-15. [Nelysia Client SDK (`@nelysia/client`)](#15-nelysia-client-sdk-nelysiaclient)
+15. [Nelysia Client SDK (`@narudom96/nelysia/client`)](#15-nelysia-client-sdk-narudom96nelysiaclient)
 16. [ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)](#16-ระบบคอมไพเลอร์และเครื่องมือ-cli-nelysia)
     - [การจัดหมวดหมู่ Route (Compiled vs Specialized vs Generic)](#การจัดหมวดหมู่-route)
     - [Standalone Generation](#standalone-generation-เส้นทางที่รองรับ)
@@ -83,12 +99,11 @@
 
 ### รวม 10 สุดยอดสรรพคุณและจุดเด่นระดับเทพของ Nelysia (Why Nelysia?)
 
-#### 1. คอมไพเลอร์ 4 ระดับ พร้อม fast-path (AOT 4-Tier)
-Nelysia วิเคราะห์ Route ทั้งหมดล่วงหน้าตั้งแต่เปิดเซิร์ฟเวอร์ แล้วจัดเป็น 4 ระดับตามพฤติกรรมที่พิสูจน์ได้:
-- **ระดับ 1 (`static-prebuilt`)**: response จาก `getStatic()` ถูก serialize ครั้งเดียวและไม่สร้าง request context ปกติ
-- **ระดับ 2 (`static-sync`)**: handler `.get()` แบบไม่มี argument ที่รองรับ ใช้ `staticFunctionMap` และ fast serializer
-- **ระดับ 3 (`SPECIALIZED`)**: รูทมี param เช่น `/users/:id` ดึงค่าตรงจาก URL
-- **ระดับ 4 (`GENERIC`)**: รูทที่มี middleware, validation, body parsing หรือ behavior ที่ไม่รองรับ ใช้ full pipeline
+#### 1. โมเดลการทำงาน 3 Lane พร้อม fast-path (AOT)
+Nelysia วิเคราะห์ Route ทั้งหมดล่วงหน้าตั้งแต่เปิดเซิร์ฟเวอร์ แล้วจัดเข้า 3 public execution lane ตามพฤติกรรมที่พิสูจน์ได้:
+- **`COMPILED`**: มี subtier ภายในคือ `static-prebuilt` จาก `getStatic()` และ `static-sync` จาก `.get()` แบบไม่มี argument ที่รองรับ
+- **`SPECIALIZED`**: route มี param เช่น `/users/:id` และดึงค่าตรงจาก URL
+- **`GENERIC`**: route ที่มี middleware, validation, body parsing หรือ behavior ที่ไม่รองรับ ใช้ full pipeline
 
 ผลลัพธ์: แต่ละ Request ใช้พลังงานพอดีกับสิ่งที่ต้องการ ไม่เปลือง ไม่เสียเวลา
 
@@ -171,7 +186,12 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
     "./jwt": "./dist-package/packages/jwt/src/index.js",
     "./upload": "./dist-package/packages/upload/src/index.js",
     "./logger": "./dist-package/packages/logger/src/index.js",
-    "./timeout": "./dist-package/packages/timeout/src/index.js"
+    "./timeout": "./dist-package/packages/timeout/src/index.js",
+    "./session": "./dist-package/packages/session/src/index.js",
+    "./roles": "./dist-package/packages/roles/src/index.js",
+    "./csrf": "./dist-package/packages/csrf/src/index.js",
+    "./cache": "./dist-package/packages/cache/src/index.js",
+    "./health": "./dist-package/packages/health/src/index.js"
   }
 }
 ```
@@ -278,10 +298,10 @@ Nelysia รองรับ Method ต่างๆ ในรูปแบบ Chain
 - `app.all(path, handler, options?)` — ลงทะเบียน Route เดียวกันสำหรับทุก HTTP Method (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)
 - `app.route(method, path, handler, options?)`
 
-> **พฤติกรรมของ OPTIONS:** request แบบ `OPTIONS` จะไม่วิ่งเข้า handler ใดๆ ถ้ามี route
-> ตรงกับ path จะตอบ `204` พร้อม header `Allow` ที่ลิสต์ method ที่ลงทะเบียนไว้ (บวก `HEAD`
-> สำหรับ route `GET`) ถ้าไม่ตรงเลยจะตอบ `404` การลงทะเบียน `app.options(path, handler)`
-> ทำได้แต่ handler จะไม่ถูกเรียก
+> **พฤติกรรมของ OPTIONS:** ถ้าลงทะเบียน `app.options(path, handler)` ไว้ handler นี้
+> จะทำงานก่อน หากไม่มี explicit OPTIONS route จึงใช้ fallback อัตโนมัติ โดย path ที่ตรง
+> จะตอบ `204` พร้อม header `Allow` ที่ลิสต์ method ที่ลงทะเบียนไว้ (บวก `HEAD` สำหรับ
+> route `GET`) และ path ที่ไม่ตรงจะตอบ `404`
 
 ```ts
 app
@@ -382,6 +402,7 @@ interface ServerInfo {
   hostname: string    // Hostname เช่น "localhost"
   url: string         // URL สมบูรณ์ เช่น "http://localhost:3000"
   server: unknown     // Native Server instance ของ Bun หรือ Node.js http.Server
+  stop(): void | Promise<void> // ตัวช่วยหยุด Server แบบมาตรฐาน
 }
 ```
 
@@ -401,7 +422,7 @@ app.listen({ port: 8080, hostname: "0.0.0.0" }, ({ url }) => {
 
 ### กลไก Plugin (`use`) และขอบเขต Lifecycle
 
-`use()` รับได้เฉพาะฟังก์ชัน `(app) => app | void`:
+สำหรับ Plugin callback, `use()` รับฟังก์ชัน `(app) => app | void`:
 
 ```ts
 // Plugin = factory รับ config แล้วคืน (app) => app
@@ -413,11 +434,28 @@ const myPlugin = (opts: { tag: string }) => (app: Nelysia) =>
 app.use(myPlugin({ tag: "missing-tag" }))
 ```
 
+สำหรับ routing module แนะนำให้ใช้ `.mount(prefix, subApp)` หรือ
+`.mountLazy(prefix, loader)` ส่วนรูปแบบเดิม `.use(subApp)` ยังรองรับอยู่
+เพื่อให้แอปเดิมยังทำงานได้แบบ backward-compatible
+
 กฎขอบเขตที่ต้องจำ:
 - Hook ที่เพิ่มเข้า parent (ก่อนหรือหลัง `mount`) มีผลกับ route ของ parent เองทั้งหมด — รวมถึง route ที่ลงทะเบียนไว้ก่อนแล้ว (backfill)
 - Route ที่ `mount` หรือสร้างผ่าน `group` เก็บ lifecycle `before/after/error` ของตัวเองไว้ ไม่รั่วไป route ข้างเคียง และ hook ของ parent ที่เพิ่มทีหลังไม่ย้อนมาติด
 - Route ซ้ำ method+path ตอน mount จะ throw `Duplicate route`
 - ไม่มี deduplication — เรียก `use()` ซ้ำจะลงทะเบียนซ้ำ
+
+Lifecycle ทุกประเภทกำหนด scope ได้เหมือนกัน: `local` อยู่กับ module เจ้าของ,
+`scoped` ติดตาม subtree ที่ถูก mount และ `global` กระจายไปทั้ง application
+ค่าเริ่มต้นยังคง behavior เดิมเพื่อ compatibility. `.lazy()` จะเลื่อนการเรียก
+loader จนกว่าจะ await module boundary และ `.mountLazy(prefix, loader)` ใช้กับ
+sub-app ที่มี prefix; `.use(Promise)` แบบเดิมยังใช้ได้
+
+```ts
+const app = new Nelysia()
+  .onBeforeHandle({ as: "global" }, () => undefined)
+  .lazy(() => import("./feature.ts").then(({ app }) => app))
+  .mountLazy("/admin", () => import("./admin.ts").then(({ app }) => app))
+```
 
 ### การทดสอบแบบ Zero-Port ด้วย `app.inject()`
 
@@ -435,6 +473,20 @@ console.log(await res.json()) // { id: "42", filter: "active" }
 console.log(await res.text()) // ข้อมูลในรูปแบบข้อความ
 console.log(await res.bytes()) // Uint8Array
 ```
+
+เมื่อ app มี route map แบบ typed แล้ว `inject()` จะตรวจ method/path และ
+`injectTyped()` จะ infer response ตาม route ที่เลือก:
+
+```ts
+const typed = new Nelysia()
+  .get("/users/:id", ({ params }) => ({ id: params.id }))
+
+const response = await typed.injectTyped({ method: "GET", path: "/users/42" })
+const user = await response.json() // { id: string }
+```
+
+ใช้ `injectUntyped()` เฉพาะกรณีที่ต้องการ escape hatch สำหรับ test ที่ไม่ใช้
+route map
 
 ---
 
@@ -454,12 +506,17 @@ interface Context {
   body: unknown                            // Body ที่ถูก Parse เป็น JSON หรือข้อความ
   headers: Headers                         // Web Standard Headers
   cookies: Record<string, string>          // Cookies ที่ถูก Parse เข้ามา
+  auth?: unknown                           // Auth payload; auth plugin จะช่วยกำหนด type
+  signal: AbortSignal                      // Signal สำหรับยกเลิกหรือกำหนด deadline
+  logger?: Logger                          // เพิ่มโดย logger plugin
+  files?: Record<string, UploadedFile[]>   // เพิ่มโดย upload plugin
   setCookie(name: string, value: string, options?: CookieOptions): void
   deleteCookie(name: string, options?: CookieOptions): void
+  response(body: unknown, options?: ResponseOptions): ResponseData
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
   html(body: string, status?: number): ResponseData
   text(body: string, status?: number): ResponseData
-  json(body: unknown, status?: number): ResponseData
+  json(body: unknown, status?: number | ResponseOptions): ResponseData
   redirect(url: string, status?: number): ResponseData
   header(name: string, value: string): this
 }
@@ -592,6 +649,21 @@ app.get("/stream", () => {
 })
 ```
 
+รูปแบบ body-first เป็น additive และรูปแบบ positional เดิมยังใช้ได้:
+
+```ts
+import { error } from "@narudom96/nelysia"
+
+app.get("/created", ({ response }) => response(
+  { created: true },
+  { status: 201, headers: { "x-source": "nelysia" } }
+))
+
+app.get("/missing", () => {
+  throw error(404, { code: "NOT_FOUND" })
+})
+```
+
 ---
 
 ## 6. การตรวจสอบข้อมูลและ Schema Validation
@@ -634,6 +706,44 @@ const app = new Nelysia().post("/posts", ({ body }) => {
 }, {
   body: PostSchema
 })
+```
+
+### Strict TypeScript Contracts
+
+Generic สาธารณะของ `Nelysia` มีค่าเริ่มต้นเป็น `{}` ไม่ใช่ `any` และ
+`Context`/`RouteOptions` ไม่มี index signature กว้าง จึงช่วยจับ typo ตั้งแต่
+ตอน compile ส่วน key ของ Macro จะถูกเพิ่มเข้า route options หลังประกาศ Macro
+แล้วเท่านั้น:
+
+```ts
+const app = new Nelysia()
+  .macro({ cache: { beforeHandle: () => undefined } })
+  .get("/users", () => [], { cache: true })
+
+app.get("/strict", () => "ok", {
+  // @ts-expect-error: `parmas` ไม่ใช่ route option ที่ประกาศไว้
+  parmas: {}
+})
+```
+
+Authentication package จะเพิ่มชื่อ strategy ให้ `AuthStrategyRegistry` ผ่าน
+module augmentation โดย JWT จะลงทะเบียน `jwt` ให้เอง ดังนั้น `auth: "jwt"`,
+`auth: true` และ `{ strategy: "jwt" }` จึงมี type รองรับทั้งหมด ส่วน string
+strategy แบบ legacy ที่กำหนดเองยังรับได้ใน v0.x แต่ประกาศ deprecated แล้ว
+
+`derive()` และ `resolve()` ยังคงเป็น alias สำหรับเพิ่ม context แบบ sync/async:
+
+```ts
+const app = new Nelysia()
+  .derive(() => ({ requestStartedAt: Date.now() }))
+  .resolve(async ({ requestStartedAt }) => ({
+    elapsedAtResolve: Date.now() - requestStartedAt
+  }))
+
+app.get("/timing", ({ requestStartedAt, elapsedAtResolve }) => ({
+  requestStartedAt,
+  elapsedAtResolve
+}))
 ```
 
 ### จุดที่สามารถ Validate ได้ทั้ง 5 จุด
@@ -882,6 +992,60 @@ app.use(compression({
 }))
 ```
 
+### Production Subpaths
+
+โมดูลเหล่านี้เป็น composable plugin แบบ opt-in หากไม่เรียกใช้ plugin จะไม่มี
+การสร้าง store หรือ hook ของโมดูลนั้นเพิ่มเข้า application
+
+```ts
+import { session } from "@narudom96/nelysia/session"
+import { roles, requireRole } from "@narudom96/nelysia/roles"
+import { csrf } from "@narudom96/nelysia/csrf"
+import { cache } from "@narudom96/nelysia/cache"
+import { health } from "@narudom96/nelysia/health"
+import { logger } from "@narudom96/nelysia/logger"
+import { timeout } from "@narudom96/nelysia/timeout"
+import { upload } from "@narudom96/nelysia/upload"
+
+const app = new Nelysia()
+  .use(session<{ userId: string }>({ ttlSeconds: 3600 }))
+  .use(roles({
+    resolveRoles: ({ auth }) => {
+      const role = (auth as { role?: string } | undefined)?.role
+      return role ? [role] : []
+    },
+    permissions: { "users:read": ["admin"] }
+  }))
+  .use(csrf())
+  .use(cache({ ttlMs: 30_000 }))
+  .use(logger({ level: "info" }))
+  .use(timeout({ timeoutMs: 5_000 }))
+  .use(health({ checks: { database: async () => true } }))
+  .use(upload({ maxFileSize: 2 * 1024 * 1024, maxFiles: 1 }))
+  .onBeforeHandle(requireRole("admin"))
+  .post("/upload", ({ files }) => files)
+```
+
+สัญญาและข้อจำกัด:
+
+- `session()` มี `context.session.get/set/destroy`; memory store เริ่มต้นเป็น
+  store ภายใน process เดียว หากรันหลาย process ให้ใช้ `SessionStore` ของระบบเอง
+- `roles()` เพิ่ม `context.permissions` แบบ typed และ `requireRole()` จะตอบ
+  `403` เมื่อไม่มี role ที่ต้องการ
+- `csrf()` จะออก cookie ให้ safe methods และตรวจ header ที่ตั้งค่าไว้กับ unsafe
+  methods ใช้ `exclude()` สำหรับ endpoint ที่ตั้งใจเปิดสาธารณะ
+- `cache()` cache เฉพาะ `GET` ที่สำเร็จ เพิ่ม weak ETag และตอบ `304` เมื่อ
+  `If-None-Match` ตรงกัน โดย contract memory นี้ไม่ cache native `Response`/stream
+- `health()` มี `/health` และ `/ready` เป็นค่าเริ่มต้น รัน named checks และตอบ
+  degraded หรือ `503` สำหรับ readiness ที่ไม่พร้อม
+- `upload()` รับ Web `FormData`/`File` จำกัดขนาด จำนวนไฟล์ และ field พร้อม
+  memory/disk/custom storage; หาก storage ล้มเหลวจะ cleanup ไฟล์ที่บันทึกไปแล้ว
+- `logger()` เพิ่ม `context.logger` แบบ typed ตั้ง level/sink ได้ และ redact
+  authorization, cookie, secret, token, password และ API key เป็นค่าเริ่มต้น
+  ความล้มเหลวของ sink จะไม่เปลี่ยนผลลัพธ์ของ request
+- `timeout()` เพิ่ม deadline ผ่าน `context.signal` ค่าเริ่มต้น `504` และ clear
+  timer ทุกเส้นทางการจบงาน แต่ไม่สามารถหยุด synchronous JavaScript ที่กำลังรันอยู่ได้
+
 ---
 
 ## 10. OpenAPI 3.1 และหน้าเอกสาร Redoc / Swagger UI
@@ -1110,6 +1274,15 @@ app.use(betterAuthPlugin(auth)) // ค่าเริ่มต้น prefix: /ap
 - Request method, headers และ body จะถูก forward ไปยัง `auth.handler` ตรงๆ และ `Response` (รวม `Set-Cookie`) จะถูกส่งกลับโดยไม่ดัดแปลง
 - ต้องติดตั้งและตั้งค่า `better-auth` เอง (ฐานข้อมูล, secret, trusted origins) — ปลั๊กอินนี้ทำหน้าที่เป็นสะพานเชื่อมเท่านั้น
 
+สามารถกำหนด type ของ JWT claims ได้โดยไม่เปลี่ยน runtime contract:
+
+```ts
+type Claims = { sub: string; role: "admin" | "user" }
+const secured = new Nelysia()
+  .use(jwt<Claims>({ secret: process.env.JWT_SECRET! }))
+  .get("/me", ({ auth, jwt }) => ({ subject: auth?.sub }), { auth: "jwt" })
+```
+
 ---
 
 ## 15. Nelysia Client SDK (`@narudom96/nelysia/client`)
@@ -1144,6 +1317,14 @@ const api = createTypedClient<NelysiaRoutes>("http://localhost:3000")
 const result = await api.get("/users/1")
 ```
 
+หรือให้ client อ่าน route map จาก app โดยตรง:
+
+```ts
+const typedClient = createClient<typeof app>("http://localhost:3000")
+const result = await typedClient.get("/users/1")
+// path, params, body, query, headers, response และ errors ถูกตรวจให้
+```
+
 หากต้องการสร้างไฟล์ route map แบบ reproducible ให้ใช้ CLI ซึ่งจะ await
 `app.modules` และไม่ bind port:
 
@@ -1157,11 +1338,10 @@ nelysia client src/app.ts --out src/generated/nelysia-client.ts --force
 ## 16. ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)
 
 ### การจัดหมวดหมู่ Route
-เมื่อผ่านคอมไพเลอร์ Route แต่ละเส้นทางจะถูกวิเคราะห์เป็นระดับที่ชัดเจน:
-1. **`static-prebuilt`**: `getStatic()` serialize response เป็น bytes ตั้งแต่เริ่มต้นและไม่สร้าง request context
-2. **`static-sync`**: `.get()` แบบไม่มี argument ที่ผลลัพธ์อยู่ใน subset ที่รองรับ จะ lookup ผ่าน `staticFunctionMap` และข้าม request-context allocation
-3. **`SPECIALIZED`**: สำหรับเส้นทางที่มี Parameter แต่ไม่ต้องใช้ Cookie/Query
-4. **`GENERIC`**: สำหรับเส้นทางที่มี Middleware, schema, custom serializer หรือ behavior ที่คอมไพเลอร์สร้างไม่ได้ โดยจะ fallback พร้อม diagnostic
+เมื่อผ่านคอมไพเลอร์ Route แต่ละเส้นทางจะถูกวิเคราะห์เป็น 3 public execution lane:
+1. **`COMPILED`**: มี subtier ภายใน `static-prebuilt` และ `static-sync` สำหรับ response ที่พิสูจน์ได้
+2. **`SPECIALIZED`**: สำหรับเส้นทางที่มี Parameter แต่ไม่ต้องใช้ Cookie/Query
+3. **`GENERIC`**: สำหรับเส้นทางที่มี Middleware, schema, custom serializer หรือ behavior ที่คอมไพเลอร์สร้างไม่ได้ โดยจะ fallback พร้อม diagnostic
 
 ### Standalone Generation (เส้นทางที่รองรับ)
 
@@ -1187,6 +1367,15 @@ npm run build -- ./src/app.ts --target bun
 
 # คอมไพล์และสร้าง Entrypoint เฉพาะสำหรับ Node.js
 npm run build -- ./src/app.ts --target node
+```
+
+คำสั่ง DX เพิ่มเติม:
+
+```bash
+nelysia routes ./src/app.ts   # method, path, lane และ compiler reason
+nelysia doctor ./src/app.ts   # runtime, TypeScript, exports, duplicate routes
+nelysia create my-api         # สร้าง project scaffold
+nelysia dev ./src/app.ts --port 3000
 ```
 
 ผลลัพธ์จากการสั่ง Build จะถูกบันทึกไว้ในโฟลเดอร์ `dist/`:
@@ -1442,7 +1631,8 @@ Raw Node 42.3% นี่เป็น directional result จากเครื่
 [`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md) และ
 [`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md)
 ส่วนหลักฐาน soak 1M/10M อยู่ที่
-[`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md) ส่วน 24 ชั่วโมงเป็น gate
+[`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md) และ rerun ล่าสุดอยู่ที่
+[`soak-roadmap-rerun-2026-09-14.md`](./soak-roadmap-rerun-2026-09-14.md) ส่วน 24 ชั่วโมงเป็น gate
 แยกสำหรับ production readiness และยังตั้งใจเลื่อนไว้ก่อน
 
 ### การเทียบกับ benchmark เดิมแบบ runner เดียวกัน
@@ -1497,7 +1687,7 @@ Nelysia ได้รับแรงบันดาลใจจาก Developer E
 | ฟีเจอร์ / รูปแบบ | ElysiaJS | Nelysia | เหตุผลและจุดต่างของ Nelysia |
 | :--- | :--- | :--- | :--- |
 | **State & Decorator** | `app.state('k', v)`<br>`app.decorate('db', db)`<br>→ รับผ่าน `({ db, store }) => ...` | `context.store`<br>→ รับผ่าน `({ store }) => { store.db = ... }` | Elysia แทรก property เข้าไปใน context object ทำให้ V8 Hidden Class เปลี่ยนรูป (de-opt) ส่วน Nelysia ยึด object shape เดิมเพื่อรักษา V8 Inline Cache ให้เร็วคงที่ |
-| **การต่อ Sub-App** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Nelysia แยกหน้าที่ชัดเจน: `.use()` ใช้สำหรับ Plugin Function `(app) => void` เท่านั้น, ส่วนซับแอพแยกไฟล์ใช้ `.mount()` |
+| **การต่อ Sub-App** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | แนะนำให้ใช้ `.mount()` กับ routing tree ที่มี prefix และ `.use()` กับ Plugin; รูปแบบเดิม `.use(subApp)` ยังรองรับเพื่อ compatibility |
 | **การจัดกลุ่ม Route** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | ไวยากรณ์เหมือนกัน โดย group ใน Nelysia จะสืบทอด Lifecycle Hooks (`onBeforeHandle`) จากกลุ่มแม่โดยตรง |
 | **Guards & Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Nelysia ใช้ Hook ปกติผ่าน group เพื่อให้ AOT Dispatch Compiler วิเคราะห์เส้นทางและคอมไพล์ได้เร็วแม่นยำ |
 | **Route ค่าคงที่ (Static)** | รันผ่าน dynamic handler ปกติ `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` หรือ `.get('/ping', () => 'pong')` ที่รองรับ | `getStatic()` เป็น `static-prebuilt`; `.get()` แบบไม่มี argument ที่รองรับเป็น `static-sync` ผ่าน `staticFunctionMap` ส่วนผลลัพธ์ที่ไม่รองรับจะ fallback ไป generic |
@@ -1617,7 +1807,7 @@ ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 | `413 Request body is too large` | body เกิน `bodyLimit` (ค่าเริ่มต้น 1 MB) | เพิ่ม `bodyLimit` หรือ reject ตั้งแต่ต้นทาง |
 | `404 Not Found` | ไม่มี route ตรง path | ดูผล `npm run inspect` |
 | `405 Method Not Allowed` | มี path แต่ไม่มี method นี้ | อ่าน header `Allow` ว่าวิธีไหนใช้ได้ |
-| handler `OPTIONS` ไม่ทำงาน | ตั้งใจ: `OPTIONS` ตอบ `204` + `Allow` เสมอ | อย่าพึ่ง `.options()` handler |
+| ได้ fallback `OPTIONS` อัตโนมัติ | explicit handler จะทำงานก่อน; ถ้าไม่มีจึงใช้ fallback `204` + `Allow` | ลงทะเบียน `.options(path, handler)` เมื่อต้องการ custom preflight behavior |
 | `EADDRINUSE` ตอน `listen` | port ถูกใช้แล้ว (เช่น dev server ตัวอื่น) | ตั้ง `PORT` env หรือปิดตัวที่ใช้อยู่ |
 | WebSocket upgrade ล้มเหลว | ไม่มี route `websocket()` สำหรับ path หรือขาด header `upgrade` | ลงทะเบียน `app.websocket(path, …)` ก่อน |
 | ตัวเลข benchmark แกว่ง | noise บนเครื่อง dev | ใช้เครื่อง Linux นิ่งๆ + load generator แยก + median 10 รอบ |

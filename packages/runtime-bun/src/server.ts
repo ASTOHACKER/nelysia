@@ -1,7 +1,7 @@
 import { HttpError, type Nelysia } from "../../core/src/app.ts"
 import type { WebSocketHandlers } from "../../core/src/types.ts"
 
-export function createBunHandler(app: Nelysia): (request: Request) => Promise<Response> {
+export function createBunHandler(app: Nelysia<any, any, any>): (request: Request) => Promise<Response> {
   return async (request) => {
     try {
       let body: unknown
@@ -31,7 +31,7 @@ export function createBunHandler(app: Nelysia): (request: Request) => Promise<Re
   }
 }
 
-export function createBunServer(app: Nelysia, port: number): unknown {
+export function createBunServer(app: Nelysia<any, any, any>, port: number): unknown {
   const runtime = globalThis as typeof globalThis & { Bun?: { serve(options: Record<string, unknown>): unknown } }
   if (!runtime.Bun) throw new Error("Bun runtime is required")
   type BunSocket = { data: { handlers: WebSocketHandlers }; send(message: string | Uint8Array): void; close(code?: number, reason?: string): void }

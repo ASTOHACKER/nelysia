@@ -94,7 +94,7 @@ fixture dependencies.
 - [x] `@narudom96/nelysia/upload` multipart/storage contract
 - [x] `@narudom96/nelysia/logger` redacted typed logger contract
 - [x] `@narudom96/nelysia/timeout` deadline and 504 contract
-- [x] 20 package exports checked on Node, Bun, and Deno
+- [x] 25 package exports checked on Node, Bun, and Deno
 - [x] Node, Bun, Deno, Cloudflare, and Vercel deployment smoke command
 - [x] Existing five framework fixtures retained as deployment smoke coverage
 - [x] 30s × 7 core Bun/Node release benchmark evidence recorded
@@ -108,6 +108,8 @@ The technical implementation is present in the current workspace, but unchecked
 evidence items are release gates rather than claims that have already passed.
 The detailed commands and limitations are in [`v0.5-release-gates.md`](./v0.5-release-gates.md).
 The completed local soak evidence is in [`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md).
+The post-roadmap 1M/10M rerun is in [`soak-roadmap-rerun-2026-09-14.md`](./soak-roadmap-rerun-2026-09-14.md).
+The post-roadmap benchmark smoke is in [`benchmark-roadmap-smoke-2026-09-14.md`](./benchmark-roadmap-smoke-2026-09-14.md).
 The completed core load evidence is in [`benchmark-oha-v05-2026-09-14.md`](./benchmark-oha-v05-2026-09-14.md).
 The completed JWT security benchmark evidence is in [`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md).
 
@@ -131,6 +133,25 @@ No v0.5.0 tag was created or moved; the v0.5.1 patch tag is immutable. The route
 tracked separately in [`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md)
 and does not make a universal claim against Raw Bun, Elysia, or historical runners.
 The JWT evidence gate is recorded in [`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md).
+
+## Roadmap after v0.5.1
+
+The next work is tracked in [`roadmap-after-v051.md`](./roadmap-after-v051.md)
+and remains additive. The current worktree includes the following foundations;
+they are not a new release claim until their milestone gates pass:
+
+- [x] Strict default generic and typo-resistant public route/context types
+- [x] Typed macro keys and route-aware `injectTyped()`/`createClient<typeof app>()`
+- [x] Separate canonical state/decorations with v0.x compatibility mirrors
+- [x] Lifecycle scope, lazy module, explicit OPTIONS, response/error DX coverage
+- [x] `session`, `roles`, `csrf`, `cache`, and `health` package subpaths
+- [x] CLI `routes`, `doctor`, `create`, and `dev` commands
+- [x] Compiler `COMPILED`/`SPECIALIZED`/`GENERIC` diagnostics and fallback reasons
+- [ ] New v0.6–v0.9 release gates and milestone tags
+- [ ] 30m/1h/6h evidence before the deferred 24-hour soak
+
+The package is now `0.6.0` and the existing v0.5.1 tag remains immutable. No
+production-readiness announcement is made for the deferred 24-hour soak gate.
 
 ## Archived v0.4.0 verification record (2026-09-14)
 

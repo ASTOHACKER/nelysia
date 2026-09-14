@@ -7,7 +7,7 @@ export interface FetchRequestContext {
   executionContext?: unknown
 }
 
-export function createFetchHandler(app: Nelysia): (request: Request, context?: FetchRequestContext) => Promise<Response> {
+export function createFetchHandler(app: Nelysia<any, any, any>): (request: Request, context?: FetchRequestContext) => Promise<Response> {
   // Auto-use the compiled dispatcher for hook-free GET routes; everything else
   // flows through the generic adapter below (same contract, same fallbacks).
   let dispatcher: CompiledDispatcher | undefined
@@ -36,9 +36,10 @@ export function createFetchHandler(app: Nelysia): (request: Request, context?: F
 }
 
 /** Compiled GET fast path. Returns undefined when the generic flow owns it. */
-async function tryCompiledGet(app: Nelysia, dispatcher: CompiledDispatcher, request: Request): Promise<Response | undefined> {
+async function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledDispatcher, request: Request): Promise<Response | undefined> {
   const found = lookupCompiled(dispatcher, fastPathname(request.url))
   if (found === undefined || found.kind === "generic") return undefined
+  if (dispatcher.hasContextValues && found.kind === "params") return undefined
   const requestId = dispatcher.needsRequestId
     ? (request.headers.get("x-request-id") ?? `req-GET-${request.url}`)
     : undefined
@@ -63,6 +64,7 @@ async function tryCompiledGet(app: Nelysia, dispatcher: CompiledDispatcher, requ
   } catch (error) {
     return errorResponse(app, error, request)
   }
+  if (result instanceof HttpError) return errorResponse(app, result, request)
   if (result instanceof Response) {
     return new Response(result.body, { status: result.status, headers: withId(new Headers(result.headers)) })
   }
@@ -103,7 +105,7 @@ function responseData(result: { status: number; headers: Headers; body: unknown 
   return new Response(JSON.stringify(result.body), { status: result.status, headers })
 }
 
-async function errorResponse(app: Nelysia, error: unknown, request: Request): Promise<Response> {
+async function errorResponse(app: Nelysia<any, any, any>, error: unknown, request: Request): Promise<Response> {
   const result = await app.handleAdapterError(error, { method: request.method, url: request.url, headers: request.headers })
   if (result.body instanceof Response) return result.body
   if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers: result.headers })
@@ -112,7 +114,7 @@ async function errorResponse(app: Nelysia, error: unknown, request: Request): Pr
   return new Response(output, { status: result.status, headers: result.headers })
 }
 
-async function genericFetch(app: Nelysia, request: Request, context?: FetchRequestContext): Promise<Response> {
+async function genericFetch(app: Nelysia<any, any, any>, request: Request, context?: FetchRequestContext): Promise<Response> {
   try {
     let body: unknown
     if (request.method !== "GET" && request.method !== "HEAD" && request.body) {

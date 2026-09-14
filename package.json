@@ -1,6 +1,6 @@
 {
   "name": "@narudom96/nelysia",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "private": false,
   "publishConfig": {
     "access": "public"
@@ -27,6 +27,8 @@
   "scripts": {
     "test": "node --experimental-strip-types --test tests/**/*.test.ts",
     "example": "node --experimental-strip-types examples/hello/index.ts",
+    "example:upload": "node --experimental-strip-types examples/upload/index.ts",
+    "example:typed-client": "node --experimental-strip-types examples/typed-client/client.ts",
     "bun:example": "bun run examples/hello/bun.ts",
     "bun:smoke": "bun run examples/hello/bun-smoke.ts",
     "benchmark": "node --experimental-strip-types benchmarks/run.ts",
@@ -44,6 +46,9 @@
     "soak": "node --experimental-strip-types benchmarks/soak.ts",
     "soak:1m": "SOAK_REQUESTS=1000000 node --experimental-strip-types benchmarks/soak.ts",
     "soak:10m": "SOAK_REQUESTS=10000000 node --experimental-strip-types benchmarks/soak.ts",
+    "soak:30m": "SOAK_DURATION_MS=1800000 node --experimental-strip-types benchmarks/soak.ts",
+    "soak:1h": "SOAK_DURATION_MS=3600000 node --experimental-strip-types benchmarks/soak.ts",
+    "soak:6h": "SOAK_DURATION_MS=21600000 node --experimental-strip-types benchmarks/soak.ts",
     "soak:24h": "SOAK_DURATION_MS=86400000 node --experimental-strip-types benchmarks/soak.ts",
     "soak:gate": "npm run soak:1m && npm run soak:10m",
     "prisma:generate": "prisma generate --schema examples/prisma/schema.prisma",
@@ -54,10 +59,15 @@
     "framework:check": "node spec/scripts/check-framework-fixtures.mjs",
     "docs:check": "node spec/scripts/check-docs.mjs",
     "release:check": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run soak && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
-    "release:check:v05": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run deployment:smoke && npm run soak:gate && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
+    "release:check:v05": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run deployment:smoke && npm run framework:check && npm run soak:gate && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
+    "release:check:roadmap": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run deployment:smoke && npm run framework:check && npm run soak:gate && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
     "inspect": "node --experimental-strip-types packages/cli/src/index.ts inspect",
+    "routes": "node --experimental-strip-types packages/cli/src/index.ts routes",
+    "doctor": "node --experimental-strip-types packages/cli/src/index.ts doctor",
+    "dev": "node --experimental-strip-types packages/cli/src/index.ts dev",
     "build": "node --experimental-strip-types packages/cli/src/index.ts build",
     "package:build": "tsc -p tsconfig.build.json",
+    "package:tarball": "npm pack --dry-run",
     "prepack": "npm run package:build",
     "prepare": "npm run package:build",
     "typecheck": "tsc --noEmit"
@@ -90,7 +100,12 @@
     "./client": "./dist-package/packages/client/src/index.js",
     "./upload": "./dist-package/packages/upload/src/index.js",
     "./logger": "./dist-package/packages/logger/src/index.js",
-    "./timeout": "./dist-package/packages/timeout/src/index.js"
+    "./timeout": "./dist-package/packages/timeout/src/index.js",
+    "./session": "./dist-package/packages/session/src/index.js",
+    "./roles": "./dist-package/packages/roles/src/index.js",
+    "./csrf": "./dist-package/packages/csrf/src/index.js",
+    "./cache": "./dist-package/packages/cache/src/index.js",
+    "./health": "./dist-package/packages/health/src/index.js"
   },
   "engines": {
     "node": ">=22"

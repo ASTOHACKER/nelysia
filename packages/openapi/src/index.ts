@@ -19,7 +19,7 @@ export interface SwaggerUiOptions {
   title?: string
 }
 
-export function generateOpenAPI(app: Nelysia, options: OpenAPIOptions = {}) {
+export function generateOpenAPI(app: Nelysia<any, any, any>, options: OpenAPIOptions = {}) {
   const paths: Record<string, Record<string, unknown>> = {}
   for (const route of app.graph.routes) {
     const responseFor = (status: string, schema?: Schema, model?: string): Record<string, unknown> => {
@@ -56,7 +56,7 @@ export function generateOpenAPI(app: Nelysia, options: OpenAPIOptions = {}) {
 }
 
 export function openapi(options: OpenAPIOptions = {}) {
-  return (app: Nelysia): Nelysia => {
+  return (app: Nelysia<any, any, any>): Nelysia<any, any, any> => {
     const path = options.path ?? "/openapi.json"
     app.get(path, () => generateOpenAPI(app, options))
     return app
@@ -64,7 +64,7 @@ export function openapi(options: OpenAPIOptions = {}) {
 }
 
 export function openapiUi(options: OpenAPIUiOptions = {}) {
-  return (app: Nelysia): Nelysia => {
+  return (app: Nelysia<any, any, any>): Nelysia<any, any, any> => {
     const path = options.path ?? "/docs"
     const specPath = options.specPath ?? "/openapi.json"
     const title = options.title ?? "Nelysia API"
@@ -74,7 +74,7 @@ export function openapiUi(options: OpenAPIUiOptions = {}) {
 }
 
 export function swaggerUi(options: SwaggerUiOptions = {}) {
-  return (app: Nelysia): Nelysia => {
+  return (app: Nelysia<any, any, any>): Nelysia<any, any, any> => {
     const path = options.path ?? "/swagger"
     const specPath = options.specPath ?? "/openapi.json"
     const title = options.title ?? "Nelysia Swagger UI"
@@ -83,7 +83,7 @@ export function swaggerUi(options: SwaggerUiOptions = {}) {
   }
 }
 
-export function generateClientTypes(app: Nelysia): string {
+export function generateClientTypes(app: Nelysia<any, any, any>): string {
   const modelNames = new Map([...app.modelDefinitions].map(([name]) => [name, safeTypeName(name)]))
   const models = [...app.modelDefinitions].map(([name, schema]) => `export type ${modelNames.get(name)} = ${schemaType(normalizeModel(schema).definition)}\n`).join("")
   const methods = app.graph.routes.map((route) => {

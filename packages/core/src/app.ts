@@ -1,16 +1,19 @@
 import { allowedMethodsFor, compilePath, lookupDynamicRoute, normalizeMethod, normalizePathname, splitSegments } from "./router.ts"
 import { fromStandardSchema, type Schema, type StandardSchema } from "./schema.ts"
-import { HttpError, responseMarker, type AddRoute, type AfterHook, type AfterResponseHook, type ApplyGuard, type Context, type ContextExtension, type CookieOptions, type ErrorHandler, type FetchHandler, type GuardOptions, type Handler, type Hook, type HookOptions, type InjectOptions, type InjectResponse, type ListenOptions, type MacroDefinition, type MapResponseHook, type MergeRouteMaps, type ModelValues, type ModuleGraphNode, type NelysiaOptions, type ParseHook, type ParsedQuery, type RequestData, type RequestHook, type ResponseData, type RouteContext, type RouteGraph, type RouteGuard, type RouteMap, type RouteOptions, type RouteRecord, type SchemaInput, type ServerInfo, type Telemetry, type TransformHook, type WebSocketHandlers } from "./types.ts"
+import { HttpError, responseMarker, type AddRoute, type AfterHook, type AfterResponseHook, type ApplyGuard, type Context, type ContextExtension, type CookieOptions, type DecorationOptions, type ErrorHandler, type FetchHandler, type GuardOptions, type Handler, type Hook, type HookOptions, type HookScope, type InjectOptions, type InjectResponse, type InjectResponseBody, type InjectResponseBodyFor, type MacroDefinition, type MapResponseHook, type MergeRouteMaps, type ModelValues, type ModuleGraphNode, type NelysiaOptions, type NelysiaPlugin, type ParseHook, type ParsedQuery, type RequestData, type RequestHook, type ResponseData, type ResponseOptions, type RouteContext, type RouteGraph, type RouteGuard, type RouteMap, type RouteOptions, type RouteRecord, type SchemaInput, type ServerInfo, type Telemetry, type TransformHook, type TypedInjectOptions, type WebSocketHandlers } from "./types.ts"
 import { createBunServer } from "../../runtime-bun/src/server.ts"
 
 const asHeaders = (headers?: Headers): Headers => headers ?? new Headers()
 const defaultSignal = new AbortController().signal
 
-type PluginCallback = (app: Nelysia<any>) => Nelysia<any> | void | Promise<Nelysia<any> | void>
-type Plugin = Nelysia<any> | PluginCallback
+type PluginCallback = (app: Nelysia<any, any, any>) => Nelysia<any, any, any> | void | Promise<Nelysia<any, any, any> | void>
+type Plugin = Nelysia<any, any, any> | PluginCallback | NelysiaPlugin<any>
 type LazyPlugin = Plugin | Promise<Plugin | { default?: Plugin; app?: Plugin }>
+type ExtensionsOf<App> = App extends Nelysia<infer Extensions, any, any> ? Extensions : {}
 type RoutesOf<App> = App extends Nelysia<any, infer Routes, any> ? Routes : {}
 type ModelsOf<App> = App extends Nelysia<any, any, infer Models> ? Models : {}
+type MacrosOf<App> = App extends Nelysia<any, any, any, infer Macros> ? Macros : never
+type MergeMacroNames<Left extends string, Right extends string> = Left | Right
 type PrefixRoutes<Prefix extends string, Routes extends RouteMap> = {
   [Key in keyof Routes as Key extends `${infer Method} ${infer Path}` ? `${Method} ${JoinRoutePath<Prefix, Path>}` : never]: Routes[Key]
 }
@@ -25,7 +28,9 @@ type JoinRoutePath<Prefix extends string, Path extends string> = Prefix extends 
 type AddAllRoutes<Routes extends RouteMap, Path extends string, Options extends object, Result> =
   AddRoute<AddRoute<AddRoute<AddRoute<AddRoute<AddRoute<AddRoute<Routes, "GET", Path, Options, Result>, "POST", Path, Options, Result>, "PUT", Path, Options, Result>, "PATCH", Path, Options, Result>, "DELETE", Path, Options, Result>, "OPTIONS", Path, Options, Result>, "HEAD", Path, Options, Result>
 
-export class Nelysia<Extensions extends Record<string, unknown> = any, Routes extends RouteMap = {}, Models extends Record<string, unknown> = {}> {
+export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes extends RouteMap = {}, Models extends Record<string, unknown> = {}, MacroNames extends string = never> {
+  /** Type-only route map bridge used by the standalone client package. */
+  declare readonly __nelysiaRouteMap?: Routes
   readonly graph: RouteGraph = { routes: [] }
   readonly prefix: string
   readonly name?: string
@@ -37,32 +42,45 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
   private localHooks: Hook[] = []
   private requestHooks: RequestHook[] = []
   private localRequestHooks: RequestHook[] = []
+  private scopedRequestHooks: RequestHook[] = []
   private globalRequestHooks: RequestHook[] = []
   private parseHooks: ParseHook[] = []
   private localParseHooks: ParseHook[] = []
+  private scopedParseHooks: ParseHook[] = []
   private globalParseHooks: ParseHook[] = []
   private transformHooks: TransformHook[] = []
+  private localTransformHooks: TransformHook[] = []
+  private scopedTransformHooks: TransformHook[] = []
+  private globalTransformHooks: TransformHook[] = []
   private mapResponseHooks: MapResponseHook[] = []
   private localMapResponseHooks: MapResponseHook[] = []
+  private scopedMapResponseHooks: MapResponseHook[] = []
   private globalMapResponseHooks: MapResponseHook[] = []
   private afterResponseHooks: AfterResponseHook[] = []
   private localAfterResponseHooks: AfterResponseHook[] = []
+  private scopedAfterResponseHooks: AfterResponseHook[] = []
   private globalAfterResponseHooks: AfterResponseHook[] = []
   private scopedHooks: Hook[] = []
   private globalHooks: Hook[] = []
   private afterHooks: AfterHook[] = []
   private localAfterHooks: AfterHook[] = []
   private scopedAfterHooks: AfterHook[] = []
+  private globalAfterHooks: AfterHook[] = []
   private errorHandlers: ErrorHandler[] = []
   private localErrorHandlers: ErrorHandler[] = []
   private scopedErrorHandlers: ErrorHandler[] = []
+  private globalErrorHandlers: ErrorHandler[] = []
   private readonly contextValues = new Map<string, unknown>()
+  private readonly stateValues = new Map<string, unknown>()
+  private readonly decorationValues = new Map<string, unknown>()
+  private readonly nonEnumerableDecorations = new Set<string>()
+  private readonly lazyDecorations = new Set<string>()
   private readonly models = new Map<string, Schema | StandardSchema>()
   private readonly macros = new Map<string, MacroDefinition>()
   private contextExtensionHooks: Hook[] = []
   private readonly usedPlugins = new Set<string>()
   private readonly namedPlugins = new Map<string, string>()
-  private readonly moduleDependencies = new Set<Nelysia<any>>()
+  private readonly moduleDependencies = new Set<Nelysia<any, any, any>>()
   private readonly modulePromises: Promise<void>[] = []
   private moduleState: "loaded" | "pending" | "rejected" = "loaded"
   private moduleLoadError?: unknown
@@ -71,6 +89,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
   private readonly fetchMounts: { prefix: string; handler: FetchHandler }[] = []
   private readonly staticRoutes = new Map<string, RouteRecord>()
   private readonly dynamicRoutes = new Map<string, RouteRecord[]>()
+  private readonly mountedRoutes = new Set<RouteRecord>()
   private readonly routeGuardRegistrations: Array<{ guard: RouteGuard; applies: (auth: RouteRecord["auth"]) => boolean }> = []
   /** Public so runtime adapters can skip UUID generation when disabled. */
   readonly requestIdEnabled: boolean
@@ -112,7 +131,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     if (options.as === "local") this.localHooks.push(hook)
     if (options.as === "scoped") this.scopedHooks.push(hook)
     if (options.as === "global") this.globalHooks.push(hook)
-    for (const route of this.graph.routes) route.hooks.push(hook)
+    for (const route of this.routesForScope(options.as)) route.hooks.push(hook)
     return this
   }
 
@@ -124,8 +143,9 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     if (!hook) throw new Error("onRequest requires a hook")
     this.requestHooks.push(hook)
     if (options.as === "local") this.localRequestHooks.push(hook)
+    if (options.as === "scoped") this.scopedRequestHooks.push(hook)
     if (options.as === "global") this.globalRequestHooks.push(hook)
-    for (const route of this.graph.routes) route.requestHooks?.push(hook)
+    for (const route of this.routesForScope(options.as)) route.requestHooks?.push(hook)
     return this
   }
 
@@ -137,21 +157,23 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     if (!hook) throw new Error("onParse requires a hook")
     this.parseHooks.push(hook)
     if (options.as === "local") this.localParseHooks.push(hook)
+    if (options.as === "scoped") this.scopedParseHooks.push(hook)
     if (options.as === "global") this.globalParseHooks.push(hook)
-    for (const route of this.graph.routes) route.parseHooks?.push(hook)
+    for (const route of this.routesForScope(options.as)) route.parseHooks?.push(hook)
     return this
   }
 
   onTransform(hook: TransformHook): this
   onTransform(options: HookOptions, hook: TransformHook): this
   onTransform(optionsOrHook: TransformHook | HookOptions, maybeHook?: TransformHook): this {
+    const options = typeof optionsOrHook === "function" ? {} : optionsOrHook
     const hook = typeof optionsOrHook === "function" ? optionsOrHook : maybeHook
     if (!hook) throw new Error("onTransform requires a hook")
     this.transformHooks.push(hook)
-    if (typeof optionsOrHook !== "function" && optionsOrHook.as === "local") this.localHooks.push(hook)
-    for (const route of this.graph.routes) route.hooks.unshift(hook)
-    if (typeof optionsOrHook !== "function" && optionsOrHook.as === "scoped") this.scopedHooks.push(hook)
-    if (typeof optionsOrHook !== "function" && optionsOrHook.as === "global") this.globalHooks.push(hook)
+    if (options.as === "local") this.localTransformHooks.push(hook)
+    if (options.as === "scoped") this.scopedTransformHooks.push(hook)
+    if (options.as === "global") this.globalTransformHooks.push(hook)
+    for (const route of this.routesForScope(options.as)) route.hooks.unshift(hook)
     return this
   }
 
@@ -163,8 +185,9 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     if (!hook) throw new Error("mapResponse requires a hook")
     this.mapResponseHooks.push(hook)
     if (options.as === "local") this.localMapResponseHooks.push(hook)
+    if (options.as === "scoped") this.scopedMapResponseHooks.push(hook)
     if (options.as === "global") this.globalMapResponseHooks.push(hook)
-    for (const route of this.graph.routes) route.mapResponseHooks?.push(hook)
+    for (const route of this.routesForScope(options.as)) route.mapResponseHooks?.push(hook)
     return this
   }
 
@@ -176,17 +199,32 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     if (!hook) throw new Error("onAfterResponse requires a hook")
     this.afterResponseHooks.push(hook)
     if (options.as === "local") this.localAfterResponseHooks.push(hook)
+    if (options.as === "scoped") this.scopedAfterResponseHooks.push(hook)
     if (options.as === "global") this.globalAfterResponseHooks.push(hook)
-    for (const route of this.graph.routes) route.afterResponseHooks?.push(hook)
+    for (const route of this.routesForScope(options.as)) route.afterResponseHooks?.push(hook)
     return this
   }
 
   as(scope: HookOptions["as"]): this {
     if (scope === "scoped") {
       for (const hook of this.hooks) if (!this.scopedHooks.includes(hook)) this.scopedHooks.push(hook)
+      for (const hook of this.transformHooks) if (!this.scopedTransformHooks.includes(hook)) this.scopedTransformHooks.push(hook)
+      for (const hook of this.requestHooks) if (!this.scopedRequestHooks.includes(hook)) this.scopedRequestHooks.push(hook)
+      for (const hook of this.parseHooks) if (!this.scopedParseHooks.includes(hook)) this.scopedParseHooks.push(hook)
+      for (const hook of this.mapResponseHooks) if (!this.scopedMapResponseHooks.includes(hook)) this.scopedMapResponseHooks.push(hook)
+      for (const hook of this.afterResponseHooks) if (!this.scopedAfterResponseHooks.includes(hook)) this.scopedAfterResponseHooks.push(hook)
+      for (const hook of this.afterHooks) if (!this.scopedAfterHooks.includes(hook)) this.scopedAfterHooks.push(hook)
+      for (const handler of this.errorHandlers) if (!this.scopedErrorHandlers.includes(handler)) this.scopedErrorHandlers.push(handler)
     }
     if (scope === "global") {
       for (const hook of this.hooks) if (!this.globalHooks.includes(hook)) this.globalHooks.push(hook)
+      for (const hook of this.transformHooks) if (!this.globalTransformHooks.includes(hook)) this.globalTransformHooks.push(hook)
+      for (const hook of this.requestHooks) if (!this.globalRequestHooks.includes(hook)) this.globalRequestHooks.push(hook)
+      for (const hook of this.parseHooks) if (!this.globalParseHooks.includes(hook)) this.globalParseHooks.push(hook)
+      for (const hook of this.mapResponseHooks) if (!this.globalMapResponseHooks.includes(hook)) this.globalMapResponseHooks.push(hook)
+      for (const hook of this.afterResponseHooks) if (!this.globalAfterResponseHooks.includes(hook)) this.globalAfterResponseHooks.push(hook)
+      for (const hook of this.afterHooks) if (!this.globalAfterHooks.includes(hook)) this.globalAfterHooks.push(hook)
+      for (const handler of this.errorHandlers) if (!this.globalErrorHandlers.includes(handler)) this.globalErrorHandlers.push(handler)
     }
     return this
   }
@@ -199,7 +237,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     this.afterHooks.push(hook)
     if (typeof optionsOrHook !== "function" && optionsOrHook.as === "local") this.localAfterHooks.push(hook)
     if (typeof optionsOrHook !== "function" && optionsOrHook.as === "scoped") this.scopedAfterHooks.push(hook)
-    for (const route of this.graph.routes) route.afterHooks.push(hook)
+    if (typeof optionsOrHook !== "function" && optionsOrHook.as === "global") this.globalAfterHooks.push(hook)
+    for (const route of this.routesForScope(typeof optionsOrHook === "function" ? undefined : optionsOrHook.as)) route.afterHooks.push(hook)
     return this
   }
 
@@ -211,48 +250,53 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     this.errorHandlers.push(handler)
     if (typeof optionsOrHandler !== "function" && optionsOrHandler.as === "local") this.localErrorHandlers.push(handler)
     if (typeof optionsOrHandler !== "function" && optionsOrHandler.as === "scoped") this.scopedErrorHandlers.push(handler)
-    for (const route of this.graph.routes) route.errorHandlers.push(handler)
+    if (typeof optionsOrHandler !== "function" && optionsOrHandler.as === "global") this.globalErrorHandlers.push(handler)
+    for (const route of this.routesForScope(typeof optionsOrHandler === "function" ? undefined : optionsOrHandler.as)) route.errorHandlers.push(handler)
     return this
   }
 
-  state<K extends string, Value>(name: K, value: Value): Nelysia<Extensions & { store: Record<K, Value> }, Routes, Models> {
+  state<K extends string, Value>(name: K, value: Value): Nelysia<Extensions & { store: Record<K, Value> } & Record<K, Value>, Routes, Models, MacroNames> {
+    this.stateValues.set(name, value)
     this.contextValues.set(name, value)
-    return this as unknown as Nelysia<Extensions & { store: Record<K, Value> }, Routes, Models>
+    return this as unknown as Nelysia<Extensions & { store: Record<K, Value> } & Record<K, Value>, Routes, Models, MacroNames>
   }
 
-  decorate<K extends string, Value>(name: K, value: Value | ((context: Context & Extensions) => Value)): Nelysia<Extensions & Record<K, Value>, Routes, Models> {
+  decorate<K extends string, Value>(name: K, value: Value | ((context: Context & Extensions) => Value), options?: DecorationOptions): Nelysia<Extensions & Record<K, Value>, Routes, Models, MacroNames> {
+    this.decorationValues.set(name, value)
     this.contextValues.set(name, value)
-    return this as unknown as Nelysia<Extensions & Record<K, Value>, Routes, Models>
+    if (options?.enumerable === false) this.nonEnumerableDecorations.add(name)
+    if (options?.lazy === true) this.lazyDecorations.add(name)
+    return this as unknown as Nelysia<Extensions & Record<K, Value>, Routes, Models, MacroNames>
   }
 
-  derive<Added extends Record<string, unknown>>(extension: (context: Context & Extensions) => Added | void | Promise<Added | void>): Nelysia<Extensions & Added, Routes, Models> {
+  derive<Added extends Record<string, unknown>>(extension: (context: Context & Extensions) => Added | void | Promise<Added | void>): Nelysia<Extensions & Added, Routes, Models, MacroNames> {
     this.addContextExtension(extension as ContextExtension)
-    return this as unknown as Nelysia<Extensions & Added, Routes, Models>
+    return this as unknown as Nelysia<Extensions & Added, Routes, Models, MacroNames>
   }
 
-  resolve<Added extends Record<string, unknown>>(extension: (context: Context & Extensions) => Added | void | Promise<Added | void>): Nelysia<Extensions & Added, Routes, Models> {
+  resolve<Added extends Record<string, unknown>>(extension: (context: Context & Extensions) => Added | void | Promise<Added | void>): Nelysia<Extensions & Added, Routes, Models, MacroNames> {
     this.addContextExtension(extension as ContextExtension)
-    return this as unknown as Nelysia<Extensions & Added, Routes, Models>
+    return this as unknown as Nelysia<Extensions & Added, Routes, Models, MacroNames>
   }
 
-  macro(definitions: Record<string, MacroDefinition>): this {
+  macro<Definitions extends Record<string, MacroDefinition>>(definitions: Definitions): Nelysia<Extensions, Routes, Models, MergeMacroNames<MacroNames, Extract<keyof Definitions, string>>> {
     for (const [name, definition] of Object.entries(definitions)) this.macros.set(name, definition)
-    return this
+    return this as unknown as Nelysia<Extensions, Routes, Models, MergeMacroNames<MacroNames, Extract<keyof Definitions, string>>>
   }
 
-  model<Definitions extends Record<string, Schema | StandardSchema>>(models: Definitions): Nelysia<Extensions, Routes, Models & ModelValues<Definitions>> {
+  model<Definitions extends Record<string, Schema | StandardSchema>>(models: Definitions): Nelysia<Extensions, Routes, Models & ModelValues<Definitions>, MacroNames> {
     for (const [name, schema] of Object.entries(models)) {
       if (hasCircularSchemaDefinition(schema)) throw new Error(`Circular model definition: ${name}`)
       const existing = this.models.get(name)
       if (existing !== undefined && stableSchema(existing) !== stableSchema(schema)) throw new Error(`Conflicting model definition: ${name}`)
       this.models.set(name, schema)
     }
-    return this as unknown as Nelysia<Extensions, Routes, Models & ModelValues<Definitions>>
+    return this as unknown as Nelysia<Extensions, Routes, Models & ModelValues<Definitions>, MacroNames>
   }
 
-  guard<Guard extends GuardOptions<Models>, Child extends Nelysia<any, any, any>>(options: Guard, callback: (app: Nelysia) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, ApplyGuard<RoutesOf<Child>, Guard, Models>>, Models & ModelsOf<Child>>
-  guard(options: GuardOptions<Models>, callback: (app: Nelysia) => void): this
-  guard(options: GuardOptions<Models>, callback: (app: Nelysia) => void): this {
+  guard<Guard extends GuardOptions<Models>, Child extends Nelysia<any, any, any>>(options: Guard, callback: (app: Nelysia<any, any, any>) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, ApplyGuard<RoutesOf<Child>, Guard, Models>>, Models & ModelsOf<Child>>
+  guard(options: GuardOptions<Models>, callback: (app: Nelysia<any, any, any>) => void): this
+  guard(options: GuardOptions<Models>, callback: (app: Nelysia<any, any, any>) => void): this {
     const child = new Nelysia({
       bodyLimit: this.bodyLimit,
       trustedProxy: this.trustedProxy,
@@ -272,8 +316,9 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     return this
   }
 
-  use<PluginApp extends Nelysia<any, any, any>>(plugin: PluginApp): Nelysia<Extensions, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>>
-  use<PluginApp extends Nelysia<any, any, any>>(plugin: (app: Nelysia) => PluginApp): Nelysia<Extensions, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>>
+  use<PluginApp extends Nelysia<any, any, any>>(plugin: PluginApp): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>>
+  use<Added extends object>(plugin: NelysiaPlugin<Added>): Nelysia<Extensions & Added, Routes, Models, MacroNames>
+  use<PluginApp extends Nelysia<any, any, any>>(plugin: (app: Nelysia<Extensions, Routes, Models>) => PluginApp): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>>
   use(plugin: LazyPlugin): this
   use(plugin: LazyPlugin): this {
     if (isPromiseLike(plugin)) {
@@ -336,6 +381,29 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     return this
   }
 
+  /** Explicit lazy-plugin spelling. `.use(Promise)` remains supported for v0.x compatibility. */
+  lazy(loader: () => LazyPlugin): this {
+    return this.use(Promise.resolve().then(loader))
+  }
+
+  /** Explicit lazy sub-application spelling with a prefix. */
+  mountLazy(prefix: string, loader: () => Nelysia<any, any, any> | FetchHandler | Promise<Nelysia<any, any, any> | FetchHandler>): this {
+    this.moduleState = "pending"
+    const pending = Promise.resolve().then(loader).then((resolved) => {
+      if (isNelysia(resolved)) this.mount(prefix, resolved)
+      else if (typeof resolved === "function") this.mount(prefix, resolved)
+      else throw new Error("Lazy mount must resolve to a Nelysia instance or Fetch handler")
+    }).then(() => {
+      this.moduleState = "loaded"
+    }, (error) => {
+      this.moduleState = "rejected"
+      this.moduleLoadError = error
+      throw error
+    })
+    this.modulePromises.push(pending)
+    return this
+  }
+
   get modules(): Promise<void> {
     return this.waitForModules()
   }
@@ -356,10 +424,15 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     return this.models
   }
 
-  get<Path extends string, Options extends RouteOptions<Models> = RouteOptions<Models>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "GET", Path, Options, Result, Models>, Models>
-  get<Path extends string, Value>(path: Path, body: Value, options?: RouteOptions<Models>): Nelysia<Extensions, AddRoute<Routes, "GET", Path, RouteOptions<Models>, Value, Models>, Models>
-  get(path: string, handlerOrBody: Handler<any> | string | number | boolean | Record<string, unknown>, options?: RouteOptions): this {
-    const app = this.route("GET", path, typeof handlerOrBody === "function" ? handlerOrBody : () => handlerOrBody, options)
+  /** True when per-request state/decorations must be present for contextful handlers. */
+  get hasContextValues(): boolean {
+    return this.contextValues.size > 0
+  }
+
+  get<Path extends string, Options extends RouteOptions<Models, MacroNames> = RouteOptions<Models, MacroNames>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "GET", Path, Options, Result, Models>, Models, MacroNames>
+  get<Path extends string, Value>(path: Path, body: Value, options?: RouteOptions<Models, MacroNames>): Nelysia<Extensions, AddRoute<Routes, "GET", Path, RouteOptions<Models, MacroNames>, Value, Models>, Models, MacroNames>
+  get(path: string, handlerOrBody: unknown, options?: RouteOptions<Models, MacroNames>): Nelysia<any, any, any, any> {
+    const app = this.route("GET", path, (typeof handlerOrBody === "function" ? handlerOrBody : () => handlerOrBody) as Handler<any>, options)
     if (typeof handlerOrBody !== "function") {
       this.graph.routes[this.graph.routes.length - 1].contextFree = true
       this.graph.routes[this.graph.routes.length - 1].staticValue = handlerOrBody
@@ -372,16 +445,16 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     this.graph.routes[this.graph.routes.length - 1].staticValue = body
     return this
   }
-  post<Path extends string, Options extends RouteOptions<Models> = RouteOptions<Models>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "POST", Path, Options, Result, Models>, Models> { return this.route("POST", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "POST", Path, Options, Result, Models>, Models> }
-  put<Path extends string, Options extends RouteOptions<Models> = RouteOptions<Models>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "PUT", Path, Options, Result, Models>, Models> { return this.route("PUT", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "PUT", Path, Options, Result, Models>, Models> }
-  patch<Path extends string, Options extends RouteOptions<Models> = RouteOptions<Models>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "PATCH", Path, Options, Result, Models>, Models> { return this.route("PATCH", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "PATCH", Path, Options, Result, Models>, Models> }
-  delete<Path extends string, Options extends RouteOptions<Models> = RouteOptions<Models>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "DELETE", Path, Options, Result, Models>, Models> { return this.route("DELETE", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "DELETE", Path, Options, Result, Models>, Models> }
-  head<Path extends string, Options extends RouteOptions<Models> = RouteOptions<Models>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "HEAD", Path, Options, Result, Models>, Models> { return this.route("HEAD", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "HEAD", Path, Options, Result, Models>, Models> }
-  options<Path extends string, Options extends RouteOptions<Models> = RouteOptions<Models>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "OPTIONS", Path, Options, Result, Models>, Models> { return this.route("OPTIONS", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "OPTIONS", Path, Options, Result, Models>, Models> }
+  post<Path extends string, Options extends RouteOptions<Models, MacroNames> = RouteOptions<Models, MacroNames>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "POST", Path, Options, Result, Models>, Models, MacroNames> { return this.route("POST", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "POST", Path, Options, Result, Models>, Models, MacroNames> }
+  put<Path extends string, Options extends RouteOptions<Models, MacroNames> = RouteOptions<Models, MacroNames>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "PUT", Path, Options, Result, Models>, Models, MacroNames> { return this.route("PUT", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "PUT", Path, Options, Result, Models>, Models, MacroNames> }
+  patch<Path extends string, Options extends RouteOptions<Models, MacroNames> = RouteOptions<Models, MacroNames>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "PATCH", Path, Options, Result, Models>, Models, MacroNames> { return this.route("PATCH", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "PATCH", Path, Options, Result, Models>, Models, MacroNames> }
+  delete<Path extends string, Options extends RouteOptions<Models, MacroNames> = RouteOptions<Models, MacroNames>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "DELETE", Path, Options, Result, Models>, Models, MacroNames> { return this.route("DELETE", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "DELETE", Path, Options, Result, Models>, Models, MacroNames> }
+  head<Path extends string, Options extends RouteOptions<Models, MacroNames> = RouteOptions<Models, MacroNames>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "HEAD", Path, Options, Result, Models>, Models, MacroNames> { return this.route("HEAD", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "HEAD", Path, Options, Result, Models>, Models, MacroNames> }
+  options<Path extends string, Options extends RouteOptions<Models, MacroNames> = RouteOptions<Models, MacroNames>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "OPTIONS", Path, Options, Result, Models>, Models, MacroNames> { return this.route("OPTIONS", path, handler, options) as unknown as Nelysia<Extensions, AddRoute<Routes, "OPTIONS", Path, Options, Result, Models>, Models, MacroNames> }
 
-  all<Path extends string, Options extends RouteOptions<Models> = RouteOptions<Models>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddAllRoutes<Routes, Path, Options, Result>, Models> {
+  all<Path extends string, Options extends RouteOptions<Models, MacroNames> = RouteOptions<Models, MacroNames>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddAllRoutes<Routes, Path, Options, Result>, Models, MacroNames> {
     for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]) this.route(method, path, handler, options)
-    return this as unknown as Nelysia<Extensions, AddAllRoutes<Routes, Path, Options, Result>, Models>
+    return this as unknown as Nelysia<Extensions, AddAllRoutes<Routes, Path, Options, Result>, Models, MacroNames>
   }
 
   websocket(path: string, handlers: WebSocketHandlers): this {
@@ -391,13 +464,21 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
 
   mount<Prefix extends string, Child extends Nelysia<any, any, any>>(prefix: Prefix, child: Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, RoutesOf<Child>>>, Models & ModelsOf<Child>>
   mount(prefix: string, handler: FetchHandler): this
-  mount(prefix: string, childOrHandler: Nelysia<any> | FetchHandler): this {
+  mount(prefix: string, childOrHandler: Nelysia<any, any, any> | FetchHandler): this {
     if (typeof childOrHandler === "function") {
       this.fetchMounts.push({ prefix: normalizePrefix(prefix), handler: childOrHandler })
       return this
     }
     const child = childOrHandler
     const base = prefix === "/" ? "" : prefix.replace(/\/$/, "")
+    for (const [name, value] of child.stateValues) {
+      if (!this.stateValues.has(name)) this.stateValues.set(name, value)
+    }
+    for (const [name, value] of child.decorationValues) {
+      if (!this.decorationValues.has(name)) this.decorationValues.set(name, value)
+    }
+    for (const name of child.nonEnumerableDecorations) this.nonEnumerableDecorations.add(name)
+    for (const name of child.lazyDecorations) this.lazyDecorations.add(name)
     for (const [name, value] of child.contextValues) {
       if (!this.contextValues.has(name)) this.contextValues.set(name, value)
     }
@@ -415,7 +496,14 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
         ...route,
         path,
         ...metadata,
-        hooks: uniqueHooks([...this.contextExtensionHooks, ...this.hooks.filter((hook) => !this.localHooks.includes(hook)), ...this.scopedHooks, ...route.hooks]),
+        hooks: uniqueHooks([
+          ...this.contextExtensionHooks,
+          ...this.hooks.filter((hook) => !this.localHooks.includes(hook)),
+          ...this.transformHooks.filter((hook) => !this.localTransformHooks.includes(hook)),
+          ...this.scopedHooks,
+          ...this.scopedTransformHooks,
+          ...route.hooks
+        ]),
         requestHooks: uniqueIdentity([...(route.requestHooks ?? []), ...child.requestHooks, ...this.requestHooks.filter((hook) => !this.localRequestHooks.includes(hook))]),
         parseHooks: uniqueIdentity([...(route.parseHooks ?? []), ...child.parseHooks, ...this.parseHooks.filter((hook) => !this.localParseHooks.includes(hook))]),
         mapResponseHooks: uniqueIdentity([...(route.mapResponseHooks ?? []), ...child.mapResponseHooks, ...this.mapResponseHooks.filter((hook) => !this.localMapResponseHooks.includes(hook))]),
@@ -426,10 +514,13 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
         errorHandlers: uniqueIdentity([...route.errorHandlers, ...child.scopedErrorHandlers, ...this.errorHandlers.filter((handler) => !this.localErrorHandlers.includes(handler)), ...this.scopedErrorHandlers]),
         routeGuards: uniqueIdentity([...(route.routeGuards ?? []), ...this.routeGuardsFor(route.auth)])
       }
-      this.registerRoute(mounted)
+      this.registerRoute(mounted, true)
       mountedRoutes.push(mounted)
     }
     for (const hook of child.scopedHooks) {
+      for (const route of mountedRoutes) if (!route.hooks.includes(hook)) route.hooks.push(hook)
+    }
+    for (const hook of child.scopedTransformHooks) {
       for (const route of mountedRoutes) if (!route.hooks.includes(hook)) route.hooks.push(hook)
     }
     for (const hook of child.globalHooks) {
@@ -438,6 +529,13 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     }
     if (child.globalHooks.length > 0) {
       this.globalHooks.push(...child.globalHooks.filter((hook) => !this.globalHooks.includes(hook)))
+    }
+    for (const hook of child.globalTransformHooks) {
+      if (!this.transformHooks.includes(hook)) this.transformHooks.push(hook)
+      for (const route of this.graph.routes) if (!route.hooks.includes(hook)) route.hooks.push(hook)
+    }
+    if (child.globalTransformHooks.length > 0) {
+      this.globalTransformHooks.push(...child.globalTransformHooks.filter((hook) => !this.globalTransformHooks.includes(hook)))
     }
     for (const hook of child.globalRequestHooks) {
       if (!this.requestHooks.includes(hook)) this.requestHooks.push(hook)
@@ -455,6 +553,14 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
       if (!this.afterResponseHooks.includes(hook)) this.afterResponseHooks.push(hook)
       for (const route of this.graph.routes) if (!route.afterResponseHooks?.includes(hook)) route.afterResponseHooks?.push(hook)
     }
+    for (const hook of child.globalAfterHooks) {
+      if (!this.afterHooks.includes(hook)) this.afterHooks.push(hook)
+      for (const route of this.graph.routes) if (!route.afterHooks.includes(hook)) route.afterHooks.push(hook)
+    }
+    for (const handler of child.globalErrorHandlers) {
+      if (!this.errorHandlers.includes(handler)) this.errorHandlers.push(handler)
+      for (const route of this.graph.routes) if (!route.errorHandlers.includes(handler)) route.errorHandlers.push(handler)
+    }
     for (const ws of child.websocketRoutes) {
       const path = `${base}${ws.path === "/" ? "" : ws.path}`.replace(/\/\/+/g, "/") || "/"
       this.websocketRoutes.push({ path, handlers: ws.handlers })
@@ -462,11 +568,11 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     return this
   }
 
-  group<Prefix extends string, Child extends Nelysia<any, any, any>>(prefix: Prefix, callback: (app: Nelysia) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, RoutesOf<Child>>>, Models & ModelsOf<Child>>
-  group(prefix: string, callback: (app: Nelysia) => void): this
-  group<Prefix extends string, Guard extends GuardOptions<Models>, Child extends Nelysia<any, any, any>>(prefix: Prefix, options: Guard, callback: (app: Nelysia) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, ApplyGuard<RoutesOf<Child>, Guard, Models>>>, Models & ModelsOf<Child>>
-  group(prefix: string, options: GuardOptions<Models>, callback: (app: Nelysia) => void): this
-  group(prefix: string, optionsOrCallback: GuardOptions<Models> | ((app: Nelysia) => void), maybeCallback?: (app: Nelysia) => void): this {
+  group<Prefix extends string, Child extends Nelysia<any, any, any>>(prefix: Prefix, callback: (app: Nelysia<any, any, any>) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, RoutesOf<Child>>>, Models & ModelsOf<Child>>
+  group(prefix: string, callback: (app: Nelysia<any, any, any>) => void): this
+  group<Prefix extends string, Guard extends GuardOptions<Models>, Child extends Nelysia<any, any, any>>(prefix: Prefix, options: Guard, callback: (app: Nelysia<any, any, any>) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, ApplyGuard<RoutesOf<Child>, Guard, Models>>>, Models & ModelsOf<Child>>
+  group(prefix: string, options: GuardOptions<Models>, callback: (app: Nelysia<any, any, any>) => void): this
+  group(prefix: string, optionsOrCallback: GuardOptions<Models> | ((app: Nelysia<any, any, any>) => void), maybeCallback?: (app: Nelysia<any, any, any>) => void): this {
     const child = new Nelysia({
       bodyLimit: this.bodyLimit,
       trustedProxy: this.trustedProxy,
@@ -496,7 +602,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
         port: server.port,
         hostname: resolvedHost,
         url: `http://${resolvedHost}:${server.port}`,
-        server
+        server,
+        stop: () => (server as { stop?: (closeActiveConnections?: boolean) => void }).stop?.(true)
       }
       if (callback) callback(info)
       return server
@@ -513,7 +620,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
             port: p,
             hostname: h,
             url: `http://${h}:${p}`,
-            server: nodeServer
+            server: nodeServer,
+            stop: () => new Promise<void>((resolve, reject) => nodeServer.close((error) => error ? reject(error) : resolve()))
           }
           callback(info)
         })
@@ -525,21 +633,22 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     return attachServerControls(pending)
   }
 
-  async inject(options: InjectOptions = {}): Promise<InjectResponse> {
+  async inject(options: TypedInjectOptions<Routes> = {} as TypedInjectOptions<Routes>): Promise<InjectResponse<InjectResponseBody<Routes>>> {
     await this.waitForModules()
-    let url = options.url ?? options.path ?? "/"
-    if (options.query) {
-      const q = new URLSearchParams(options.query).toString()
+    const input = options as InjectOptions
+    let url = input.url ?? input.path ?? "/"
+    if (input.query) {
+      const q = new URLSearchParams(input.query).toString()
       if (q) url += (url.includes("?") ? "&" : "?") + q
     }
-    const headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers)
-    let body = options.body
+    const headers = input.headers instanceof Headers ? input.headers : new Headers(input.headers)
+    let body = input.body
     const isFormData = typeof FormData !== "undefined" && body instanceof FormData
     if (body !== undefined && !isFormData && typeof body !== "string" && !(body instanceof Uint8Array) && !(body instanceof ReadableStream)) {
       if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8")
     }
     const res = await this.handle({
-      method: options.method ?? "GET",
+      method: input.method ?? "GET",
       url,
       headers,
       body
@@ -549,7 +658,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
       statusCode: res.status,
       headers: res.headers,
       body: res.body,
-      async json<T = unknown>(): Promise<T> {
+      async json<T = InjectResponseBody<Routes>>(): Promise<T> {
         if (typeof res.body === "string") return JSON.parse(res.body) as T
         if (res.body instanceof Response) return (await res.body.json()) as T
         if (res.body instanceof ReadableStream) return (await new Response(res.body).json()) as T
@@ -572,7 +681,19 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     }
   }
 
-  route(method: string, path: string, handler: Handler<any>, options: RouteOptions<Record<string, unknown>> = {}): this {
+  /** Explicit route-map aware alias for callers that want path-specific
+   * response inference at the call site. */
+  async injectTyped<Options extends TypedInjectOptions<Routes>>(options: Options): Promise<InjectResponse<InjectResponseBodyFor<Routes, Options>>> {
+    return this.inject(options as TypedInjectOptions<Routes>) as Promise<InjectResponse<InjectResponseBodyFor<Routes, Options>>>
+  }
+
+  /** Escape hatch for tests and callers that intentionally do not use the
+   * route map, while keeping `inject()` strict for typed applications. */
+  async injectUntyped(options: InjectOptions = {}): Promise<InjectResponse> {
+    return this.inject(options as TypedInjectOptions<Routes>) as Promise<InjectResponse>
+  }
+
+  route(method: string, path: string, handler: Handler<any>, options: RouteOptions<Models, MacroNames> = {}): this {
     const effectivePath = joinPrefix(this.prefix, path)
     const metadata = compilePath(effectivePath)
     if (this.graph.routes.some((route) => route.method === normalizeMethod(method) && route.path === effectivePath)) {
@@ -581,7 +702,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     const macroHooks: Hook[] = []
     const macroSchemas: Partial<Record<"bodySchema" | "paramsSchema" | "querySchema" | "headersSchema" | "responseSchema", Schema | undefined>> = {}
     for (const [name, macro] of this.macros) {
-      if (options[name] !== true) continue
+      if ((options as Record<string, unknown>)[name] !== true) continue
       if (macro.beforeHandle) macroHooks.push(macro.beforeHandle)
       if (macro.body !== undefined) macroSchemas.bodySchema = this.resolveSchema(macro.body)
       if (macro.params !== undefined) macroSchemas.paramsSchema = this.resolveSchema(macro.params)
@@ -623,8 +744,9 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     return this
   }
 
-  private registerRoute(route: RouteRecord): void {
+  private registerRoute(route: RouteRecord, mounted = false): void {
     this.graph.routes.push(route)
+    if (mounted) this.mountedRoutes.add(route)
     if (route.static) {
       this.staticRoutes.set(`${route.method} ${route.path}`, route)
       return
@@ -632,6 +754,11 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     const list = this.dynamicRoutes.get(route.method)
     if (list) list.push(route)
     else this.dynamicRoutes.set(route.method, [route])
+  }
+
+  private routesForScope(scope: HookScope | undefined): RouteRecord[] {
+    if (scope === "local") return this.graph.routes.filter((route) => !this.mountedRoutes.has(route))
+    return this.graph.routes
   }
 
   private createContext(request: RequestData, params: Record<string, string>, search: string, method: string): { context: Context; responseHeaders: Headers } {
@@ -652,26 +779,56 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
       params,
       query: createParsedQuery(search),
       set: { status: undefined, headers: {} },
-      store: Object.fromEntries(this.contextValues),
+      // Canonical state storage is kept separate from decorations. State is
+      // available through `store`; the top-level mirror remains only as a
+      // v0.x compatibility bridge and is intentionally not used by plugins.
+      store: Object.fromEntries(this.stateValues),
       body: request.body,
       headers,
       signal: request.signal ?? defaultSignal,
       cookies: lazyCookies(headers),
       setCookie: (name, value, options) => responseHeaders.append("set-cookie", serializeCookie(name, value, this.secureCookies ? { ...options, secure: options?.secure ?? true } : options)),
       deleteCookie: (name, options) => responseHeaders.append("set-cookie", serializeCookie(name, "", { ...options, maxAge: 0, path: options?.path ?? "/" })),
-      response: (status, body, extraHeaders) => ({ status, body, headers: mergeHeaders(responseHeaders, extraHeaders), [responseMarker]: true }),
+      response: ((bodyOrStatus: unknown, optionsOrBody?: unknown, extraHeaders?: Record<string, string>) => createContextResponse(responseHeaders, bodyOrStatus, optionsOrBody, extraHeaders)) as Context["response"],
       html: (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "text/html; charset=utf-8" }), [responseMarker]: true }),
       text: (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "text/plain; charset=utf-8" }), [responseMarker]: true }),
-      json: (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "application/json; charset=utf-8" }), [responseMarker]: true }),
+      json: (body, statusOrOptions = 200) => {
+        const options = typeof statusOrOptions === "number" ? { status: statusOrOptions } : statusOrOptions
+        return { status: options.status ?? 200, body, headers: mergeHeaders(responseHeaders, mergeHeaders(new Headers({ "content-type": "application/json; charset=utf-8" }), options.headers)), [responseMarker]: true }
+      },
       redirect: (url, status = 302) => ({ status, body: undefined, headers: mergeHeaders(responseHeaders, { location: url }), [responseMarker]: true }),
       header: (name, value) => {
         context.set.headers[name.toLowerCase()] = value
         return context
       }
     }
-    for (const [name, value] of this.contextValues) {
-      if (typeof value === "function") (context as Record<string, unknown>)[name] = (value as (context: Context) => unknown)(context)
-      else (context as Record<string, unknown>)[name] = value
+    for (const [name, value] of this.stateValues) {
+      ;(context as unknown as Record<string, unknown>)[name] = value
+    }
+    for (const [name, value] of this.decorationValues) {
+      const resolve = () => typeof value === "function" ? (value as (context: Context) => unknown)(context) : value
+      if (this.lazyDecorations.has(name)) {
+        let initialized = false
+        let resolved: unknown
+        Object.defineProperty(context, name, {
+          configurable: true,
+          enumerable: !this.nonEnumerableDecorations.has(name),
+          get() {
+            if (!initialized) {
+              resolved = resolve()
+              initialized = true
+            }
+            return resolved
+          }
+        })
+      } else {
+        Object.defineProperty(context, name, {
+          configurable: true,
+          enumerable: !this.nonEnumerableDecorations.has(name),
+          value: resolve(),
+          writable: true
+        })
+      }
     }
     return { context, responseHeaders }
   }
@@ -685,7 +842,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     for (const route of this.graph.routes) route.hooks.splice(this.contextExtensionHooks.length - 1, 0, apply)
   }
 
-  private describeModule(seen: Set<Nelysia<any>>, parent?: string): ModuleGraphNode {
+  private describeModule(seen: Set<Nelysia<any, any, any>>, parent?: string): ModuleGraphNode {
     if (seen.has(this)) return { name: this.name, seed: this.seed, parent, dependencies: [], routeOwnership: [], lifecycleOwnership: 0, loadState: "loaded" }
     const next = new Set(seen).add(this)
     const dependencyNodes = [...this.moduleDependencies].map((dependency) => dependency.describeModule(next, this.name))
@@ -713,7 +870,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     }
   }
 
-  private dependsOn(target: Nelysia<any>, seen = new Set<Nelysia<any>>()): boolean {
+  private dependsOn(target: Nelysia<any, any, any>, seen = new Set<Nelysia<any, any, any>>()): boolean {
     if (this === target) return true
     if (seen.has(this)) return false
     seen.add(this)
@@ -741,7 +898,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     return resolved
   }
 
-  private applyGuard(child: Nelysia<any>, options: GuardOptions<any>): void {
+  private applyGuard(child: Nelysia<any, any, any>, options: GuardOptions<any>): void {
     for (const route of child.graph.routes) {
       if (options.body !== undefined && route.bodySchema === undefined) route.bodySchema = child.resolveSchema(options.body)
       if (options.params !== undefined && route.paramsSchema === undefined) route.paramsSchema = child.resolveSchema(options.params)
@@ -771,22 +928,6 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     }
     const lookupMethod = method === "HEAD" ? "GET" : method
     const normalized = normalizePathname(pathname)
-    // OPTIONS is a cold path: preserve the original 204-with-Allow contract first, unless handled by hooks (e.g. CORS preflight).
-    if (method === "OPTIONS") {
-      const actual = splitSegments(normalized)
-      const allow = allowedMethodsFor(this.graph.routes, actual)
-      if (this.hooks.length > 0) {
-        const { context } = this.createContext(request, {}, search, method)
-        for (const hook of this.hooks) {
-          const result = await hook(context)
-          if (isResponse(result)) return result
-          if (result instanceof Response) return responseFromNative(result, context.set)
-        }
-      }
-      return allow !== "OPTIONS"
-        ? this.response(204, undefined, { allow })
-        : this.response(404, { error: "Not Found" })
-    }
     // Hot path: O(1) static hit, single-split dynamic lookup within one method.
     const directRoute = this.staticRoutes.get(`${lookupMethod} ${normalized}`)
     let route: RouteRecord | undefined
@@ -800,6 +941,19 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
       if (match === undefined) {
         // Cold paths only: 404 / 405. Never scanned on a matched request.
         const allow = allowedMethodsFor(this.graph.routes, actual)
+        if (method === "OPTIONS") {
+          if (this.hooks.length > 0) {
+            const { context } = this.createContext(request, {}, search, method)
+            for (const hook of this.hooks) {
+              const result = await hook(context)
+              if (isResponse(result)) return result
+              if (result instanceof Response) return responseFromNative(result, context.set)
+            }
+          }
+          return allow !== "OPTIONS"
+            ? this.response(204, undefined, { allow })
+            : this.response(404, { error: "Not Found" })
+        }
         if (allow !== "OPTIONS") {
           return this.response(405, { error: "Method Not Allowed" }, { allow })
         }
@@ -864,6 +1018,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
       const result = context.executionControl === undefined
         ? await route.handler(context)
         : await context.executionControl.invoke(() => route.handler(context))
+      if (result instanceof HttpError) throw result
       const effectiveHeaders = Object.keys(context.set.headers).length > 0 ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
        let response = isResponse(result)
         ? (context.set.status !== undefined && result.status === 200 ? { ...result, status: context.set.status, headers: mergeHeaders(result.headers, context.set.headers) } : (Object.keys(context.set.headers).length > 0 ? { ...result, headers: mergeHeaders(result.headers, context.set.headers) } : result))
@@ -886,7 +1041,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
       return response
     } catch (error) {
       await this.telemetry?.onError?.(context, error)
-      const errorStatus = error instanceof HttpError ? error.status : 500
+      const errorStatus = errorStatusOf(error)
       await this.emitTelemetryEvent({ phase: "error", requestId, method, route: route.path, status: errorStatus, durationMs: this.telemetryDuration(startedAt), error })
       await this.exportTelemetrySpan({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: errorStatus, durationMs: hasTelemetry ? performance.now() - startedAt : 0, error })
       context.set.status = errorStatus
@@ -906,7 +1061,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
         }
       }
       if (error instanceof HttpError) {
-        return this.response(errorStatus, { error: error.message })
+        return this.response(errorStatus, error.body ?? { error: error.message })
       }
       throw error
     } finally {
@@ -925,7 +1080,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     const match = direct === undefined ? lookupDynamicRoute(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, splitSegments(normalized)) : undefined
     const route = direct ?? match?.route
     const { context, responseHeaders } = this.createContext(request, match?.params ?? {}, search, method)
-    const errorStatus = error instanceof HttpError ? error.status : 500
+    const errorStatus = errorStatusOf(error)
     context.set.status = errorStatus
     await this.telemetry?.onError?.(context, error)
     await this.exportTelemetrySpan({ name: `${method} ${route?.path ?? pathname}`, requestId: context.requestId, method, route: route?.path ?? pathname, status: errorStatus, durationMs: 0, error })
@@ -940,8 +1095,10 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     return this.response(status, { error: status === 500 ? "Internal Server Error" : error instanceof Error ? error.message : "Bad Request" }, Object.fromEntries(responseHeaders.entries()))
   }
 
-  response(status: number, body: unknown, headers?: Record<string, string>): ResponseData {
-    return { status, body, headers: new Headers(headers), [responseMarker]: true }
+  response(body: unknown, options?: ResponseOptions): ResponseData
+  response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
+  response(bodyOrStatus: unknown, optionsOrBody?: ResponseOptions | unknown, extraHeaders?: Record<string, string>): ResponseData {
+    return createContextResponse(new Headers(), bodyOrStatus, optionsOrBody, extraHeaders)
   }
 
   private async exportTelemetrySpan(span: import("./types.ts").TelemetrySpan): Promise<void> {
@@ -1056,6 +1213,15 @@ function responseFromNative(response: Response, set?: { status?: number; headers
   }
 }
 
+function errorStatusOf(error: unknown): number {
+  if (error instanceof HttpError) return error.status
+  if (typeof error === "object" && error !== null && "status" in error) {
+    const status = (error as { status?: unknown }).status
+    if (typeof status === "number" && Number.isInteger(status) && status >= 400 && status <= 599) return status
+  }
+  return 500
+}
+
 function parseCookies(value: string | null): Record<string, string> {
   if (!value) return {}
   return Object.fromEntries(value.split(";").map((part) => {
@@ -1076,9 +1242,22 @@ function serializeCookie(name: string, value: string, options: CookieOptions = {
   return output
 }
 
-function mergeHeaders(base: Headers, extra?: Record<string, string>): Headers {
+function createContextResponse(base: Headers, bodyOrStatus: unknown, optionsOrBody?: ResponseOptions | unknown, extraHeaders?: Record<string, string>): ResponseData {
+  const bodyFirst = typeof bodyOrStatus !== "number" || (extraHeaders === undefined && isResponseOptions(optionsOrBody))
+  if (!bodyFirst) {
+    return { status: bodyOrStatus as number, body: optionsOrBody, headers: mergeHeaders(base, extraHeaders), [responseMarker]: true }
+  }
+  const options = optionsOrBody as ResponseOptions | undefined
+  return { status: options?.status ?? 200, body: bodyOrStatus, headers: mergeHeaders(base, options?.headers), [responseMarker]: true }
+}
+
+function isResponseOptions(value: unknown): value is ResponseOptions {
+  return typeof value === "object" && value !== null && ("status" in value || "headers" in value)
+}
+
+function mergeHeaders(base: Headers, extra?: HeadersInit): Headers {
   const headers = new Headers(base)
-  for (const [key, value] of Object.entries(extra ?? {})) headers.set(key, value)
+  for (const [key, value] of new Headers(extra)) headers.set(key, value)
   return headers
 }
 
@@ -1090,7 +1269,7 @@ function uniqueIdentity<T>(values: T[]): T[] {
   return [...new Set(values)]
 }
 
-function isNelysia(value: unknown): value is Nelysia {
+function isNelysia(value: unknown): value is Nelysia<any, any, any> {
   return value instanceof Nelysia
 }
 

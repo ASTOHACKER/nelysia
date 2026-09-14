@@ -17,6 +17,9 @@ intentionally narrower than a promise of support for every version of a runtime.
 | Multipart `FormData`/`File` upload | verified | verified |
 | Typed redacted logger plugin | verified | verified |
 | Deadline timeout plugin | verified | verified |
+| Session, roles, and permission contracts | verified | verified |
+| CSRF protection and cache/ETag contracts | verified | verified |
+| Health/readiness checks | verified | verified |
 
 The Fetch-standard adapter is verified with the Request/Response contract and is
 the base for Deno, Cloudflare Workers, Vercel, Astro, Next.js, SvelteKit, and
@@ -62,5 +65,12 @@ is a signal for investigation, not a garbage-collection-proof leak measurement.
 
 The core `oha` load report, JWT security matrix, Bun route fast-path report, and
 1M/10M soak report are recorded in the repository's `docs/` directory. The
+fresh post-roadmap 1M/10M rerun is recorded in
+[`soak-roadmap-rerun-2026-09-14.md`](./soak-roadmap-rerun-2026-09-14.md). The
 separate 24-hour soak is intentionally deferred and has not been run; therefore
 this matrix does not make a production-readiness claim.
+
+The v0.6.0 release includes the post-v0.5.1 typed context, JWT DX, compiler
+specialization, and production subpaths `session`, `roles`, `csrf`, `cache`,
+and `health`. Future additive work remains documented in
+[`roadmap-after-v051.md`](./roadmap-after-v051.md); the v0.5.1 tag remains immutable.

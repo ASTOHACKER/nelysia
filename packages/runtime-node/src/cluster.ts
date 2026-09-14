@@ -29,7 +29,7 @@ export interface ClusterOptions {
  * })
  * ```
  */
-export function serveClustered(createApp: () => Nelysia, options: ClusterOptions): Server | undefined {
+export function serveClustered(createApp: () => Nelysia<any, any, any>, options: ClusterOptions): Server | undefined {
   if (cluster.isPrimary) {
     const count = Math.max(1, options.workers ?? availableParallelism())
     for (let i = 0; i < count; i++) cluster.fork()

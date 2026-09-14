@@ -4,7 +4,7 @@ export interface BetterAuthLike {
   handler(request: Request): Response | Promise<Response>
 }
 
-export function betterAuthPlugin(auth: BetterAuthLike, prefix = "/api/auth"): (app: Nelysia) => Nelysia {
+export function betterAuthPlugin(auth: BetterAuthLike, prefix = "/api/auth"): (app: Nelysia<any, any, any>) => Nelysia<any, any, any> {
   return (app) => {
     app.all(`${prefix}/*`, async (context) => {
       const headers = new Headers(context.request.headers)

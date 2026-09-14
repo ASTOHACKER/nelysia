@@ -1,6 +1,7 @@
 import { createServer } from "node:http"
 import fastify from "fastify"
 import express from "express"
+import { Hono } from "hono"
 import { Nelysia } from "../packages/core/src/index.ts"
 import { createNodeServer } from "../packages/runtime-node/src/server.ts"
 
@@ -35,6 +36,16 @@ if (framework === "nelysia") {
   app.get("/json", (_request, response) => response.json({ message: "hello", value: 42 }))
   app.get("/users/:id", (request, response) => response.json({ id: request.params.id }))
   app.listen(port, "127.0.0.1", () => console.log(`ready:${framework}:${port}`))
+} else if (framework === "hono-node") {
+  const app = new Hono()
+  app.get("/json", (context) => context.json({ message: "hello", value: 42 }))
+  app.get("/users/:id", (context) => context.json({ id: context.req.param("id") }))
+  createServer(async (request, response) => {
+    const target = `http://127.0.0.1:${port}${request.url ?? "/"}`
+    const result = await app.fetch(new Request(target, { method: request.method, headers: request.headers as HeadersInit }))
+    response.writeHead(result.status, Object.fromEntries(result.headers))
+    response.end(new Uint8Array(await result.arrayBuffer()))
+  }).listen(port, () => console.log(`ready:${framework}:${port}`))
 } else {
   throw new Error(`Unknown framework: ${framework}`)
 }

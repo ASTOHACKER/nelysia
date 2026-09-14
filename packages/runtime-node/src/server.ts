@@ -11,7 +11,7 @@ interface PrebuiltStatic {
   bytes: Buffer
 }
 
-export function createNodeServer(app: Nelysia) {
+export function createNodeServer(app: Nelysia<any, any, any>) {
   const hasWebSocket = app.websocketRoutes.length > 0
   const websocketRoutes = new Map(app.websocketRoutes.map((route) => [route.path, route.handlers]))
   // Auto-use the compiled dispatcher for hook-free GET routes. Anything else
@@ -67,12 +67,13 @@ export function createNodeServer(app: Nelysia) {
  * the caller must run the generic app.handle() flow for a miss or generic route.
  * Specialized handlers keep native responses/streams direct and adapt errors on
  * the cold path without invoking the handler a second time. */
-async function tryCompiledGet(app: Nelysia, dispatcher: CompiledDispatcher, prebuilt: Map<CompiledRoute, PrebuiltStatic>, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
+async function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledDispatcher, prebuilt: Map<CompiledRoute, PrebuiltStatic>, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
   const url = request.url ?? "/"
   const query = url.indexOf("?")
   const pathname = (query === -1 ? url : url.slice(0, query)) || "/"
   const found = lookupCompiled(dispatcher, pathname)
   if (found === undefined || found.kind === "generic") return false
+  if (dispatcher.hasContextValues && found.kind === "params") return false
   const requestId = dispatcher.needsRequestId ? randomUUID() : undefined
   if (found.kind === "static-prebuilt") {
     const staticResponse = prebuilt.get(found.entry)!
@@ -96,6 +97,11 @@ async function tryCompiledGet(app: Nelysia, dispatcher: CompiledDispatcher, preb
     result = await result
   } catch (error) {
     const handled = await app.handleAdapterError(error, { method: "GET", url, headers: requestHeaders })
+    await writeResponse(response, handled)
+    return true
+  }
+  if (result instanceof HttpError) {
+    const handled = await app.handleAdapterError(result, { method: "GET", url, headers: requestHeaders })
     await writeResponse(response, handled)
     return true
   }
@@ -148,7 +154,8 @@ function serializeHandlerResult(result: unknown): { bytes: Buffer; contentType?:
   if (typeof result === "string") return { bytes: Buffer.from(result), contentType: "text/plain; charset=utf-8" }
   if (result instanceof Uint8Array) return { bytes: Buffer.from(result), contentType: "text/plain; charset=utf-8" }
   try {
-    return { bytes: Buffer.from(JSON.stringify(result)), contentType: "application/json; charset=utf-8" }
+    const json = JSON.stringify(result)
+    return { bytes: Buffer.from(json === undefined ? "" : json), contentType: "application/json; charset=utf-8" }
   } catch {
     return undefined
   }

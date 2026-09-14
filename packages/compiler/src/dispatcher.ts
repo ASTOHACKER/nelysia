@@ -45,6 +45,9 @@ export interface CompiledDispatcher {
   singleStatic?: CompiledRoute
   singleDynamic?: CompiledRoute
   needsRequestId: boolean
+  /** Contextful generic routes cannot use the minimal dispatcher context when
+   * app-level state/decorations are installed; they must use app.handle(). */
+  hasContextValues: boolean
 }
 
 export type CompiledLookup =
@@ -86,7 +89,7 @@ export function serializeStaticValue(value: unknown): SerializedBody | undefined
   }
 }
 
-export function compileDispatcher(app: Nelysia): CompiledDispatcher {
+export function compileDispatcher(app: Nelysia<any, any, any>): CompiledDispatcher {
   const routes: CompiledRoute[] = app.graph.routes
     .filter(isCompilableRoute)
     .map((route) => {
@@ -119,7 +122,7 @@ export function compileDispatcher(app: Nelysia): CompiledDispatcher {
   const single = routes.length === 1 ? routes[0] : undefined
   const singleStatic = single !== undefined && single.route.static ? single : undefined
   const singleDynamic = single !== undefined && !single.route.static && single.prefixFast !== undefined && single.paramsOnly ? single : undefined
-  return { routes, staticMap, staticFunctionMap, single, singleStatic, singleDynamic, needsRequestId: app.requestIdEnabled }
+  return { routes, staticMap, staticFunctionMap, single, singleStatic, singleDynamic, needsRequestId: app.requestIdEnabled, hasContextValues: app.hasContextValues }
 }
 
 /** Return true only for schemas whose definition is sufficient to reproduce

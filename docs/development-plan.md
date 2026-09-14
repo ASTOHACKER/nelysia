@@ -39,6 +39,12 @@ The compiler may specialize only facts proven by the graph:
 
 No hook is removed based only on whether its return value is consumed. Side effects, early responses, errors, and ordering are part of the contract.
 
+The post-v0.5.1 continuation is maintained in
+[`docs/roadmap-after-v051.md`](./roadmap-after-v051.md). It uses the public
+execution labels `COMPILED`, `SPECIALIZED`, and `GENERIC`, keeps unsupported
+behavior on the generic fallback, and stages 1M/10M/30m/1h/6h evidence before
+the separately deferred 24-hour soak.
+
 ## Next gates
 
 - Add schema contracts and validation parity.

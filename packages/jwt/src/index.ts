@@ -1,6 +1,12 @@
-import type { Context, Nelysia, ResponseData } from "../../core/src/index.ts"
+import type { Context, Nelysia, NelysiaPlugin, ResponseData } from "../../core/src/index.ts"
 
-export interface JwtOptions {
+declare module "../../core/src/types.ts" {
+  interface AuthStrategyRegistry {
+    jwt: JwtPayload
+  }
+}
+
+export interface JwtOptions<Claims extends JwtPayload = JwtPayload> {
   secret: string
   name?: string
   alg?: "HS256"
@@ -18,6 +24,11 @@ export interface JwtPayload {
   exp?: number
   nbf?: number
   iat?: number
+}
+
+export interface JwtContext<Claims extends JwtPayload = JwtPayload> {
+  jwt: JwtPluginInstance<Claims>
+  auth?: Claims
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
@@ -148,32 +159,35 @@ export async function verifyJwt<T extends JwtPayload = JwtPayload>(
   }
 }
 
-export interface JwtPluginInstance {
-  sign(payload: JwtPayload, options?: { expiresIn?: number }): Promise<string>
-  verify<T extends JwtPayload = JwtPayload>(token: string, options?: JwtVerifyOptions): Promise<{ valid: boolean; payload?: T; reason?: string }>
+export interface JwtPluginInstance<Claims extends JwtPayload = JwtPayload> {
+  sign(payload: Claims, options?: { expiresIn?: number }): Promise<string>
+  verify<T extends Claims = Claims>(token: string, options?: JwtVerifyOptions): Promise<{ valid: boolean; payload?: T; reason?: "invalid" | "expired" | "malformed" }>
 }
 
-export function jwt(options: JwtOptions): (app: Nelysia) => Nelysia {
+export type JwtPlugin<Claims extends JwtPayload = JwtPayload> = NelysiaPlugin<JwtContext<Claims>>
+
+export function jwt<Claims extends JwtPayload = JwtPayload>(options: JwtOptions<Claims>): JwtPlugin<Claims> {
   if (typeof options.secret !== "string" || options.secret.length === 0) throw new Error("jwt secret must not be empty")
   if (options.expiresIn !== undefined && (!Number.isFinite(options.expiresIn) || options.expiresIn <= 0)) throw new Error("jwt expiresIn must be positive")
   const headerName = (options.headerName ?? "authorization").toLowerCase()
   const keyPromise = importHmacKey(options.secret)
   const verifyOptions: JwtVerifyOptions = { issuer: options.issuer, audience: options.audience }
 
-  const pluginInstance: JwtPluginInstance = {
-    async sign(payload: JwtPayload, signOptions?: { expiresIn?: number }): Promise<string> {
+  const pluginInstance: JwtPluginInstance<Claims> = {
+    async sign(payload: Claims, signOptions?: { expiresIn?: number }): Promise<string> {
       const key = await keyPromise
       return signJwt(payload, key, { expiresIn: signOptions?.expiresIn ?? options.expiresIn })
     },
-    async verify<T extends JwtPayload = JwtPayload>(token: string, verifyOverrides?: JwtVerifyOptions) {
+    async verify<T extends Claims = Claims>(token: string, verifyOverrides?: JwtVerifyOptions) {
       const key = await keyPromise
       return verifyJwt<T>(token, key, verifyOverrides ?? verifyOptions)
     }
   }
 
-  return (app: Nelysia) => {
+  return ((app: Nelysia<any, any, any>) => {
     // Attach jwt instance to app
     ;(app as unknown as Record<string, unknown>)[options.name ?? "jwt"] = pluginInstance
+    app.decorate("jwt", pluginInstance, { enumerable: false, lazy: true })
 
     // Register before-hook specifically for routes declared with auth: "jwt" or auth: true
     const authHook = async (context: Context): Promise<ResponseData | void> => {
@@ -197,12 +211,12 @@ export function jwt(options: JwtOptions): (app: Nelysia) => Nelysia {
         })
       }
 
-      context.auth = verification.payload
+      context.auth = verification.payload as Claims | undefined
     }
 
     // Register a route-scoped guard instead of wrapping every protected handler.
-    app.registerRouteGuard(authHook, (authSetting) => authSetting === "jwt" || authSetting === true || (typeof authSetting === "object" && authSetting !== null))
+    app.registerRouteGuard(authHook, (authSetting) => authSetting === "jwt" || authSetting === true || (typeof authSetting === "object" && authSetting !== null && authSetting.strategy === "jwt"))
 
-    return app
-  }
+    return app as Nelysia<any, any, any>
+  }) as JwtPlugin<Claims>
 }

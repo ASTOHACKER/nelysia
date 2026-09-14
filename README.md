@@ -10,12 +10,12 @@
 
 ## Install
 
-> **Current release:** `@narudom96/nelysia@0.5.1` is available as a GitHub Release
-> tarball. The v0.5 core and JWT benchmark evidence gates are recorded; the separate
+> **Current release:** `@narudom96/nelysia@0.6.0` is available as a GitHub Release
+> tarball. The v0.6 additive core, DX, and production-module checks are recorded; the separate
 > 24-hour production-readiness soak is intentionally deferred, and npm publication is pending.
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.5.1/narudom96-nelysia-0.5.1.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.6.0/narudom96-nelysia-0.6.0.tgz
 npm install ./nelysia.tgz
 ```
 
@@ -23,7 +23,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (works once a v0.5.1 package is published)
+# registry install (works once a v0.6.0 package is published)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -40,7 +40,7 @@ Use this while the package is not yet (or whenever it is not) on the npm registr
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.5.1/narudom96-nelysia-0.5.1.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.6.0/narudom96-nelysia-0.6.0.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -49,7 +49,7 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.5.1/narudom96-nelysia-0.5.1.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.6.0/narudom96-nelysia-0.6.0.tgz
 ```
 
 Replace `v0.5.1` / the filename with the latest release you see on the releases page.
@@ -61,7 +61,7 @@ import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
   .use(cors())
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.5.1!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.6.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "all"
@@ -83,12 +83,14 @@ bun run app.ts       # Bun 1.4+
 Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@narudom96/nelysia/runtime-fetch`, `@narudom96/nelysia/runtime-vercel`, and `@narudom96/nelysia/runtime-cloudflare`.
 
 **Full Documentation / คู่มือการใช้งานอย่างละเอียด:**
+- [Documentation Map (จุดเริ่มต้นและแผนผังเอกสาร)](./docs/README.md)
 - [System Architecture Blueprint (โครงสร้างสถาปัตยกรรม)](./docs/ARCHITECTURE.md)
 - [Feature Modules and Composition](./docs/feature-modules.md)
 - [Comprehensive Documentation (English)](./docs/DOCUMENTATION_EN.md)
 - [คู่มือการใช้งานอย่างละเอียด (ภาษาไทย)](./docs/DOCUMENTATION_TH.md)
 - [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
 - [Release Notes / Changelog](./CHANGELOG.md)
+- [Roadmap หลัง v0.5.1](./docs/roadmap-after-v051.md)
 
 ### What's included in v0.5.1
 - **Bun zero-argument route fast path**: static function routes now use `static-sync` in single- and multi-route dispatchers; `.getStatic()` remains the separate `static-prebuilt` tier.
@@ -124,7 +126,7 @@ The recorded release evidence is available in the [core load report](./docs/benc
 
 | # | Superpower / จุดเด่น | Description / รายละเอียด |
 | :---: | :--- | :--- |
-| **1** | **4-Tier AOT Compiler** | `static-prebuilt` and `static-sync` routes → fast path. Param routes → direct URL extraction. Complex routes → generic fallback. |
+| **1** | **3-Lane AOT Execution** | Public lanes are `COMPILED`, `SPECIALIZED`, and `GENERIC`; `static-prebuilt` and `static-sync` are internal compiled subtiers. |
 | **2** | **95,173 req/s — Raw Bun parity snapshot** | Historical ten-round local `oha` snapshot: Nelysia **95,173** vs Raw Bun **95,306 req/s**, zero failures; compare like-for-like run sets in the report. |
 | **3** | **V8 Stays in Fast Lane** | Stable context shape keeps the inline cache monomorphic. |
 | **4** | **Node.js and Bun, No Polyfills** | Native `node:http` and `Bun.serve` runtimes. |
@@ -166,8 +168,34 @@ The v0.5 feature-set 30s × 7 core benchmark evidence is recorded in
 The v0.5.1 Bun route fast-path evidence is recorded in
 [`docs/benchmark-route-fast-path-v051-2026-09-14.md`](./docs/benchmark-route-fast-path-v051-2026-09-14.md).
 
+The post-roadmap benchmark smoke data is recorded in
+[`docs/benchmark-roadmap-smoke-2026-09-14.md`](./docs/benchmark-roadmap-smoke-2026-09-14.md).
+
 The v0.5 JWT public/protected security evidence is recorded in
 [`docs/benchmark-jwt-v05-2026-09-14.md`](./docs/benchmark-jwt-v05-2026-09-14.md).
+
+### Post-v0.5.1 DX and production modules
+
+The next additive roadmap is documented in
+[`docs/roadmap-after-v051.md`](./docs/roadmap-after-v051.md). The following
+subpaths are available in the current worktree and are covered by the package
+export/import checks:
+
+```ts
+import { session } from "@narudom96/nelysia/session"
+import { roles } from "@narudom96/nelysia/roles"
+import { csrf } from "@narudom96/nelysia/csrf"
+import { cache } from "@narudom96/nelysia/cache"
+import { health } from "@narudom96/nelysia/health"
+```
+
+The CLI also provides `routes`, `doctor`, `create`, and `dev` in addition to
+`inspect`, `build`, `generate`, and `client`. These additive APIs are included
+in the v0.6.0 release; future work toward v0.7–v0.9 remains on the roadmap.
+
+Executable examples are available for [basic](./examples/hello/index.ts),
+[JWT](./examples/jwt/index.ts), [upload](./examples/upload/index.ts), and
+[typed client](./examples/typed-client/client.ts) usage.
 
 Runtime support and verification commands are tracked in [`docs/compatibility.md`](./docs/compatibility.md).
 

@@ -7,7 +7,7 @@ export interface DrizzleRouteOptions<Database> {
   query(database: Database, context: Context): unknown | Promise<unknown>
 }
 
-export function drizzleRoute<Database>(options: DrizzleRouteOptions<Database>): (app: Nelysia) => Nelysia {
+export function drizzleRoute<Database>(options: DrizzleRouteOptions<Database>): (app: Nelysia<any, any, any>) => Nelysia<any, any, any> {
   return (app) => {
     app.get(options.path ?? "/db", (context) => options.query(options.db, context))
     return app

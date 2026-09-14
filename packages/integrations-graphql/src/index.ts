@@ -7,7 +7,7 @@ export interface GraphQLOptions {
   context?(context: unknown): unknown | Promise<unknown>
 }
 
-export function graphqlPlugin(options: GraphQLOptions): (app: Nelysia) => Nelysia {
+export function graphqlPlugin(options: GraphQLOptions): (app: Nelysia<any, any, any>) => Nelysia<any, any, any> {
   const path = options.path ?? "/graphql"
   return (app) => {
     app.post(path, async (context) => {

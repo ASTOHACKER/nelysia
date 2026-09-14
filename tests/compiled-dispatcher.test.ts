@@ -7,7 +7,7 @@ import { createBunHandler } from "../packages/runtime-bun/src/server.ts"
 import { createFetchHandler } from "../packages/runtime-fetch/src/server.ts"
 import { createNodeServer } from "../packages/runtime-node/src/server.ts"
 
-function buildApp(): Nelysia {
+function buildApp(): Nelysia<any, any, any> {
   return new Nelysia({ requestId: false })
     .getStatic("/json", { ok: true })
     .get("/text", "hello")

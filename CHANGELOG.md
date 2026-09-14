@@ -4,6 +4,30 @@ All notable changes to Nelysia are documented here. Benchmark figures are
 release evidence for the stated host and workload, not universal performance
 claims.
 
+## [0.6.0] — 2026-09-15
+
+This release adds the post-v0.5.1 typed DX, lifecycle, compiler diagnostics,
+CLI, and production-module foundations. The v0.5.1 tag remains immutable.
+
+### Added
+
+- Strict public context/route types, typed macro keys, route-aware inject
+  inference, and `createClient<typeof app>()` inference.
+- Canonical `context.store` and decoration storage separation with v0.x
+  compatibility mirrors, lifecycle scope coverage, lazy modules, and explicit
+  OPTIONS precedence.
+- Public execution-lane diagnostics: `COMPILED`, `SPECIALIZED`, and `GENERIC`.
+- CLI commands `routes`, `doctor`, `create`, and `dev`.
+- Production subpaths for `session`, `roles`, `csrf`, `cache`, and `health`.
+- Fresh 1M/10M soak evidence with zero functional failures.
+
+### Verification status
+
+Node/Bun tests, typecheck, package build/imports, deployment smoke (5/5),
+framework smoke (5/5), documentation check (25 exports), and security audit
+pass. The 24-hour soak remains intentionally deferred; this release makes no
+production-readiness claim for that deferred gate.
+
 ## [0.5.1] — 2026-09-14
 
 The current GitHub Release package. The v0.5.0 feature set is included, along

@@ -5,7 +5,8 @@ import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { generateFeatureModule } from "../packages/cli/src/index.ts"
+import { createProject, doctor, formatRoutes, generateFeatureModule } from "../packages/cli/src/index.ts"
+import { Nelysia } from "../packages/core/src/index.ts"
 
 const execFileAsync = promisify(execFile)
 
@@ -58,4 +59,26 @@ test("CLI reports invalid arguments with a non-zero exit code", async () => {
       return true
     }
   )
+})
+
+test("routes and doctor commands expose public execution lanes", async () => {
+  const app = new Nelysia()
+    .get("/health", () => "ok")
+    .get("/users/:id", ({ params }) => params.id)
+  const routes = formatRoutes(app)
+  assert.match(routes, /GET\s+\/health\s+COMPILED/)
+  assert.match(routes, /GET\s+\/users\/:id\s+SPECIALIZED/)
+  const report = await doctor(app)
+  assert.equal(report.ok, true)
+  assert.match(report.output, /Nelysia Doctor/)
+  assert.match(report.output, /2 total/)
+})
+
+test("create command scaffolds an isolated project", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nelysia-create-cli-"))
+  const files = await createProject("demo-api", root)
+  assert.deepEqual(files, ["package.json", "tsconfig.json", "src/app.ts"])
+  assert.match(await readFile(join(root, "demo-api", "src/app.ts"), "utf8"), /export const app/)
+  await assert.rejects(() => createProject("demo-api", root), /Refusing to overwrite/)
+  await rm(root, { recursive: true, force: true })
 })

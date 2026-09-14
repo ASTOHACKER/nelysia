@@ -1,4 +1,4 @@
-import type { Nelysia, RouteExecutionControl } from "../../core/src/index.ts"
+import type { Nelysia, NelysiaPlugin, RouteExecutionControl } from "../../core/src/index.ts"
 
 export interface TimeoutOptions {
   timeoutMs?: number
@@ -6,14 +6,16 @@ export interface TimeoutOptions {
   message?: string
 }
 
-export function timeout(options: TimeoutOptions = {}): (app: Nelysia) => Nelysia {
+export type TimeoutPlugin = NelysiaPlugin
+
+export function timeout(options: TimeoutOptions = {}): TimeoutPlugin {
   const timeoutMs = options.timeoutMs ?? 30_000
   const status = options.status ?? 504
   const message = options.message ?? "Request timed out"
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("timeout timeoutMs must be positive")
   if (!Number.isInteger(status) || status < 400 || status > 599) throw new Error("timeout status must be an HTTP error status")
 
-  return (app) => app.onBeforeHandle((context) => {
+  return ((app: Nelysia<any, any, any>) => app.onBeforeHandle((context) => {
     const controller = new AbortController()
     const parentSignal = context.signal
     const abortFromParent = () => controller.abort(parentSignal.reason)
@@ -41,5 +43,5 @@ export function timeout(options: TimeoutOptions = {}): (app: Nelysia) => Nelysia
     }
     context.signal = controller.signal
     context.executionControl = control
-  })
+  })) as TimeoutPlugin
 }

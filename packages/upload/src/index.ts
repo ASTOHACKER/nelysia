@@ -1,4 +1,4 @@
-import { HttpError, type Context, type Nelysia, type UploadedFile } from "../../core/src/index.ts"
+import { HttpError, type Context, type Nelysia, type NelysiaPlugin, type UploadedFile } from "../../core/src/index.ts"
 
 export interface UploadStorage {
   store(file: UploadedFile, context: Context): unknown | Promise<unknown>
@@ -11,6 +11,12 @@ export interface UploadOptions {
   fields?: string[]
   storage?: UploadStorage
 }
+
+export interface UploadContext {
+  files?: Record<string, UploadedFile[]>
+}
+
+export type UploadPlugin = NelysiaPlugin<UploadContext>
 
 export function memoryStorage(): UploadStorage {
   return { store: (file) => file.file }
@@ -42,14 +48,14 @@ export function diskStorage(root: string): UploadStorage {
   }
 }
 
-export function upload(options: UploadOptions = {}): (app: Nelysia) => Nelysia {
+export function upload(options: UploadOptions = {}): UploadPlugin {
   const maxFileSize = options.maxFileSize ?? 10 * 1024 * 1024
   const maxFiles = options.maxFiles ?? 10
   const allowedFields = options.fields === undefined ? undefined : new Set(options.fields)
   if (!Number.isFinite(maxFileSize) || maxFileSize < 1) throw new Error("upload maxFileSize must be positive")
   if (!Number.isInteger(maxFiles) || maxFiles < 1) throw new Error("upload maxFiles must be a positive integer")
 
-  return (app) => app.onBeforeHandle(async (context) => {
+  return ((app: Nelysia<any, any, any>) => app.onBeforeHandle(async (context) => {
     if (!(context.body instanceof FormData)) return
     const files: Record<string, UploadedFile[]> = {}
     const stored: Array<{ value: unknown; context: Context }> = []
@@ -77,5 +83,5 @@ export function upload(options: UploadOptions = {}): (app: Nelysia) => Nelysia {
       }
       throw error
     }
-  })
+  })) as UploadPlugin
 }
