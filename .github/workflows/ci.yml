@@ -19,6 +19,11 @@ jobs:
       - uses: denoland/setup-deno@v2
       - run: npm ci --legacy-peer-deps
       - run: npm run package:build
+      - name: Install framework fixture dependencies
+        run: |
+          for fixture in astro nextjs nuxt sveltekit tanstack-start; do
+            npm install --prefix "examples/$fixture" --ignore-scripts --legacy-peer-deps
+          done
       - run: npm run typecheck
       - run: npm test
       - run: bun test
