@@ -184,7 +184,7 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v0.1.4!</h1>"))
+  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v0.4.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "default",
@@ -213,7 +213,7 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v0.1.4!</h1>
+# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v0.4.0!</h1>
 
 curl "http://localhost:3000/users/42?filter=active"
 # ผลลัพธ์: {"id":"42","filter":"active","timestamp":1726180000000}
@@ -1356,7 +1356,7 @@ npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
 # ถ้า port เริ่มต้น 4321 ถูกใช้งานอยู่:
-BENCH_PORT=4331 npm run benchmark:oha
+BENCH_PORT=4341 npm run benchmark:oha
 
 # Router scale (ต้นทุน lookup ของ generic path เทียบกับขนาดตาราง route)
 node --experimental-strip-types benchmarks/router-scale.ts
@@ -1375,9 +1375,10 @@ npm run release:check
 
 ### ผล `oha` ล่าสุดในเครื่อง local (2026-09-14)
 
-ทุก workload ใช้ `oha 1.16.0`, concurrency 50, 5 วินาทีต่อ sample,
-3 รอบ และไม่มี request ล้มเหลว ตัวเลขเป็น median throughput จาก workspace
-v0.4.0 ปัจจุบัน:
+ทุก workload ใช้ `oha 1.16.0`, concurrency 50, 3 วินาทีต่อ sample,
+10 รอบ และไม่มี request ล้มเหลว ตัวเลขเป็น median throughput จาก workspace
+v0.4.0 ปัจจุบัน เครื่องทดสอบใช้ AMD Ryzen 5 5600 (6 cores / 12 threads),
+Bun 1.4.0 และ Node.js v26.8.1:
 
 | Workload ฝั่ง Node | Raw Node | Nelysia | Fastify | Express |
 | :--- | ---: | ---: | ---: | ---: |

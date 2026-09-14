@@ -2,6 +2,11 @@
 
 Latest 10-round local load-generator run for the current v0.4.0 workspace. Each case used `oha 1.16.0`, 50 concurrent workers, 3 seconds per sample, 10 rounds, and zero failed requests. Values below are median throughput.
 
+Environment: AMD Ryzen 5 5600 (6 cores / 12 threads), Bun 1.4.0, and Node.js
+v26.8.1. These are local directional measurements, not universal framework
+rankings; rerun on a quiet, production-like host before publishing performance
+claims.
+
 ## Node.js
 
 | Workload | Raw Node | Nelysia | Fastify | Express |

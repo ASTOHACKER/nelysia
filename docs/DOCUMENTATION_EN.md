@@ -186,7 +186,7 @@ Always export the `app` instance so the compiler and CLI can inspect and build y
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.1.4!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.4.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "default",
@@ -215,7 +215,7 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# Output: <h1>Hello from Nelysia v0.1.4!</h1>
+# Output: <h1>Hello from Nelysia v0.4.0!</h1>
 
 curl "http://localhost:3000/users/42?filter=active"
 # Output: {"id":"42","filter":"active","timestamp":1726180000000}
@@ -529,7 +529,7 @@ In v0.1.4+, Nelysia provides dedicated shorthands to return strongly typed respo
 
 ```ts
 app
-  .get("/landing", ({ html }) => html("<h1>Welcome to Nelysia v0.1.4</h1>"))
+  .get("/landing", ({ html }) => html("<h1>Welcome to Nelysia v0.4.0</h1>"))
   .get("/robots.txt", ({ text }) => text("User-agent: *\nDisallow: /private"))
   .get("/old-path", ({ redirect }) => redirect("/new-path", 301))
   .get("/api/ping", (ctx) => {
@@ -1461,7 +1461,7 @@ npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
 # If the default base port 4321 is occupied:
-BENCH_PORT=4331 npm run benchmark:oha
+BENCH_PORT=4341 npm run benchmark:oha
 
 # Router scale (generic-path lookup cost vs table size)
 node --experimental-strip-types benchmarks/router-scale.ts
@@ -1473,17 +1473,18 @@ ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 
 Each workload used `oha 1.16.0`, 50 concurrent workers, 3 seconds per sample,
 10 rounds, and zero failed requests. Values are median throughput from the
-current v0.4.0 workspace.
+current v0.4.0 workspace. The host was an AMD Ryzen 5 5600 (6 cores / 12
+threads), with Bun 1.4.0 and Node.js v26.8.1.
 
 | Node workload | Raw Node | Nelysia | Fastify | Express |
 | :--- | ---: | ---: | ---: | ---: |
-| JSON (`GET /json`) | 44,527 req/s | 25,445 req/s | 38,498 req/s | 20,798 req/s |
-| Dynamic params (`GET /users/:id`) | 47,511 req/s | 39,764 req/s | 38,459 req/s | 20,231 req/s |
+| JSON (`GET /json`) | 47,572 req/s | 27,451 req/s | 38,879 req/s | 21,130 req/s |
+| Dynamic params (`GET /users/:id`) | 47,607 req/s | 40,919 req/s | 38,846 req/s | 20,527 req/s |
 
 | Bun workload | Raw Bun | Nelysia | Elysia | Other baseline |
 | :--- | ---: | ---: | ---: | :--- |
-| Static JSON (`GET /json`) | 93,288 req/s | 85,455 req/s | 84,788 req/s | Standard Bun 43,974 |
-| Dynamic params (`GET /users/:id`) | 80,616 req/s | 83,145 req/s | 81,773 req/s | Standard Bun 44,339 |
+| Static JSON (`GET /json`) | 95,306 req/s | 95,173 req/s | 76,062 req/s | Route Compiled 44,153 |
+| Dynamic params (`GET /users/:id`) | 82,904 req/s | 83,855 req/s | 82,816 req/s | Standard Bun 41,945 |
 
 Interpretation: in the 10-round run, Bun static Nelysia was effectively tied
 with raw Bun (-0.1%) and 25.1% above Elysia; Bun dynamic was 1.1% above raw Bun

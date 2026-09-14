@@ -10,12 +10,12 @@
 
 ## Install
 
-> **Current installation note:** `npm install @narudom96/nelysia` does NOT work yet (npm account
-> suspension until Sep 16 — then the registry install below takes over).
-> **Until then, do THIS instead** (2 commands, same result):
+> **Current installation note:** `@narudom96/nelysia@0.4.0` is available from the
+> GitHub Release tarball below. The npm registry package is not published yet.
+> **Until then, use the release artifact** (2 commands, same package contents):
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.4/narudom96-nelysia-0.1.4.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.4.0/narudom96-nelysia-0.4.0.tgz
 npm install ./nelysia.tgz
 ```
 
@@ -23,7 +23,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (works once v0.1.4 is published — replaces the 2 lines above)
+# registry install (works once v0.4.0 is published — replaces the 2 lines above)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -35,12 +35,12 @@ npm install better-auth      # for @narudom96/nelysia/better-auth
 ### Install from GitHub Releases (no registry needed)
 
 Every release at <https://github.com/ASTOHACKER/nelysia/releases> ships a ready-to-install
-tarball (`narudom96-nelysia-<version>.tgz`, prebuilt `dist-package` inside, 99 files).
+tarball (`narudom96-nelysia-<version>.tgz`, with the prebuilt `dist-package` inside).
 Use this while the package is not yet (or whenever it is not) on the npm registry:
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.4/narudom96-nelysia-0.1.4.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.4.0/narudom96-nelysia-0.4.0.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -49,10 +49,10 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.1.4/narudom96-nelysia-0.1.4.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.4.0/narudom96-nelysia-0.4.0.tgz
 ```
 
-Replace `v0.1.4` / the filename with the latest release you see on the releases page.
+Replace `v0.4.0` / the filename with the latest release you see on the releases page.
 
 ```ts
 // app.ts
@@ -280,6 +280,21 @@ npm run benchmark:jwt
 # Full suite across Bun and Node.js
 npm run benchmark:oha
 ```
+
+Latest local `oha` snapshot (10 rounds, 3 seconds per sample, concurrency 50,
+zero failures):
+
+| Workload | Raw runtime | Nelysia | Peer baseline |
+| :--- | ---: | ---: | ---: |
+| Bun static JSON | 95,306 req/s | 95,173 req/s | Elysia 76,062 |
+| Bun dynamic params | 82,904 req/s | 83,855 req/s | Elysia 82,816 |
+| Node JSON | 47,572 req/s | 27,451 req/s | Fastify 38,879; Express 21,130 |
+| Node dynamic params | 47,607 req/s | 40,919 req/s | Fastify 38,846; Express 20,527 |
+
+Environment: AMD Ryzen 5 5600 (6 cores / 12 threads), Bun 1.4.0, Node.js
+v26.8.1, and oha 1.16.0. These are local directional measurements; see the
+[full benchmark report](./docs/benchmark-oha-2026-09-14.md) for methodology,
+previous runs, and variance notes.
 
 Invalid input returns `400`; a request body larger than the configured `bodyLimit` returns `413`.
 
