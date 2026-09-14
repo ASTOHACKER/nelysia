@@ -120,7 +120,7 @@ The completed core load evidence is in [`benchmark-oha-v05-2026-09-14.md`](./ben
 - [x] Single-route and multi-route three-tier Bun benchmark fixtures are available
 - [x] Dispatcher, parity, fallback, and no-double-execution tests are covered
 - [x] 30s × 7 route benchmark evidence recorded for both route sets
-- [ ] v0.5.1 GitHub tag/release created after the patch gate passes
+- [x] v0.5.1 GitHub tag/release and package tarball created after the patch gate passed
 
 The patch must not move or overwrite the v0.5.0 tag. The route benchmark gate is
 tracked separately in [`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md)

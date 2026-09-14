@@ -11,11 +11,11 @@
 ## Install
 
 > **Current development note:** the workspace is implementing `@narudom96/nelysia@0.5.1`.
-> The latest immutable GitHub artifact remains v0.4.0 until the v0.5.0 release gates
-> are complete; npm publication is still pending registry availability.
+> The v0.5.1 Bun route-compiled patch artifact is available on GitHub; the separate
+> v0.5.0 JWT and long-soak gates remain open, and npm publication is still pending.
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.4.0/narudom96-nelysia-0.4.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.5.1/narudom96-nelysia-0.5.1.tgz
 npm install ./nelysia.tgz
 ```
 
@@ -40,7 +40,7 @@ Use this while the package is not yet (or whenever it is not) on the npm registr
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.4.0/narudom96-nelysia-0.4.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.5.1/narudom96-nelysia-0.5.1.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -49,7 +49,7 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.4.0/narudom96-nelysia-0.4.0.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.5.1/narudom96-nelysia-0.5.1.tgz
 ```
 
 Replace `v0.4.0` / the filename with the latest release you see on the releases page.
