@@ -22,4 +22,3 @@ examples/prisma/generated/
 .env
 .env.local
 coverage/
-apps/flowly/uploads/
