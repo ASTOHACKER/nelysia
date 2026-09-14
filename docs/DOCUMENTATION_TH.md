@@ -1,6 +1,6 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 0.4.0 (เวอร์ชันปัจจุบันของ workspace)
+> **เวอร์ชัน:** 0.5.1 (package และ GitHub Release ปัจจุบัน)
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
 
@@ -83,16 +83,17 @@
 
 ### รวม 10 สุดยอดสรรพคุณและจุดเด่นระดับเทพของ Nelysia (Why Nelysia?)
 
-#### 1. คอมไพเลอร์แยก 3 เลน (AOT 3-Lane)
-Nelysia วิเคราะห์ Route ทั้งหมดล่วงหน้าตั้งแต่เปิดเซิร์ฟเวอร์ แล้วแยกออกเป็น 3 เลนตามความซับซ้อน:
-- **เลน 1 (COMPILED)**: รูทคงที่ — ตอบกลับทันทีจาก Raw Buffer ไม่สร้าง Object ใดๆ ไม่มี Overhead ใดๆ
-- **เลน 2 (SPECIALIZED)**: รูทมี param เช่น `/users/:id` — ดึงค่าตรงจาก URL ข้ามการ Parse Cookie/Query ที่ไม่ได้ใช้
-- **เลน 3 (GENERIC)**: รูทซับซ้อนที่มี Middleware, Validation, Body Parsing ทำงานเต็ม Pipeline
+#### 1. คอมไพเลอร์ 4 ระดับ พร้อม fast-path (AOT 4-Tier)
+Nelysia วิเคราะห์ Route ทั้งหมดล่วงหน้าตั้งแต่เปิดเซิร์ฟเวอร์ แล้วจัดเป็น 4 ระดับตามพฤติกรรมที่พิสูจน์ได้:
+- **ระดับ 1 (`static-prebuilt`)**: response จาก `getStatic()` ถูก serialize ครั้งเดียวและไม่สร้าง request context ปกติ
+- **ระดับ 2 (`static-sync`)**: handler `.get()` แบบไม่มี argument ที่รองรับ ใช้ `staticFunctionMap` และ fast serializer
+- **ระดับ 3 (`SPECIALIZED`)**: รูทมี param เช่น `/users/:id` ดึงค่าตรงจาก URL
+- **ระดับ 4 (`GENERIC`)**: รูทที่มี middleware, validation, body parsing หรือ behavior ที่ไม่รองรับ ใช้ full pipeline
 
 ผลลัพธ์: แต่ละ Request ใช้พลังงานพอดีกับสิ่งที่ต้องการ ไม่เปลือง ไม่เสียเวลา
 
-#### 2. 95,173 req/s — สูสีกับ Raw Bun
-รอบ 10 ครั้งล่าสุดวัด Bun static JSON ได้ **95,173 req/s** ที่ concurrency 50
+#### 2. 95,173 req/s — parity snapshot กับ Raw Bun
+compatibility snapshot ที่บันทึกไว้ 10 รอบวัด Bun static JSON ได้ **95,173 req/s** ที่ concurrency 50
 เทียบ Raw `Bun.serve` ที่ **95,306 req/s** และไม่มี request ล้มเหลว รายงานเก็บ
 รอบก่อน ๆ ไว้ให้ดู variance ด้วย ส่วนตัวเลข TechEmpower plaintext เดิมเป็น
 historical snapshot เพราะใช้ harness คนละชุด
@@ -155,6 +156,9 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
     "./plugins": "./dist-package/packages/plugins/src/index.js",
     "./observability": "./dist-package/packages/observability/src/index.js",
     "./runtime-fetch": "./dist-package/packages/runtime-fetch/src/server.js",
+    "./runtime-node": "./dist-package/packages/runtime-node/src/server.js",
+    "./runtime-bun": "./dist-package/packages/runtime-bun/src/server.js",
+    "./runtime-node-cluster": "./dist-package/packages/runtime-node/src/cluster.js",
     "./graphql": "./dist-package/packages/integrations-graphql/src/index.js",
     "./drizzle": "./dist-package/packages/integrations-drizzle/src/index.js",
     "./prisma": "./dist-package/packages/integrations-prisma/src/index.js",
@@ -163,7 +167,11 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
     "./runtime-cloudflare": "./dist-package/packages/runtime-cloudflare/src/index.js",
     "./compiler": "./dist-package/packages/compiler/src/index.js",
     "./openapi": "./dist-package/packages/openapi/src/index.js",
-    "./client": "./dist-package/packages/client/src/index.js"
+    "./client": "./dist-package/packages/client/src/index.js",
+    "./jwt": "./dist-package/packages/jwt/src/index.js",
+    "./upload": "./dist-package/packages/upload/src/index.js",
+    "./logger": "./dist-package/packages/logger/src/index.js",
+    "./timeout": "./dist-package/packages/timeout/src/index.js"
   }
 }
 ```
@@ -184,7 +192,7 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v0.4.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v0.5.1!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "default",
@@ -213,7 +221,7 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v0.4.0!</h1>
+# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v0.5.1!</h1>
 
 curl "http://localhost:3000/users/42?filter=active"
 # ผลลัพธ์: {"id":"42","filter":"active","timestamp":1726180000000}
@@ -1054,6 +1062,8 @@ Nelysia มาพร้อมกับโมดูล JWT อย่างเป�
 - **0 Auth Overhead**: Route ทั่วไปที่ไม่ได้ประกาศ `{ auth: "jwt" }` จะไม่มีการแตะ `Authorization` header หรือเสีย CPU cycle ใดๆ เลย
 - **Fast-Verify Path**: Route ที่กำหนด `{ auth: "jwt" }` จะถูกตรวจสอบผ่าน pre-imported `CryptoKey` ในระดับความเร็วสูงทันทีก่อนส่งต่อไปยัง handler
 - **Auto 401 Rejection**: หากไม่มี Token, Token ผิดรูปแบบ หรือ Token หมดอายุ ระบบจะตอบกลับ `401 Unauthorized` ทันที
+- **Strict Algorithm**: รองรับเฉพาะ `HS256` เท่านั้น และปฏิเสธ `none`, algorithm confusion, token segment ที่ผิดรูป, signature ที่ไม่ถูกต้อง และ JSON ที่ parse ไม่ได้
+- **Optional Claims**: ตั้งค่า `issuer` และ `audience` ได้โดยไม่เปลี่ยน behavior เดิมเมื่อไม่ระบุ และระบบจะตรวจ `exp` กับ `nbf` เมื่อมีอยู่ใน token
 
 ```ts
 import { Nelysia } from "@narudom96/nelysia"
@@ -1147,10 +1157,11 @@ nelysia client src/app.ts --out src/generated/nelysia-client.ts --force
 ## 16. ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)
 
 ### การจัดหมวดหมู่ Route
-เมื่อผ่านคอมไพเลอร์ Route แต่ละเส้นทางจะถูกวิเคราะห์ออกเป็น 3 ระดับ:
-1. **`COMPILED`**: สำหรับเส้นทางที่เป็นค่าคงที่ (Static Value) และไม่มี Hook ใดๆ จะตอบสนองด้วยความเร็วสูงสุด
-2. **`SPECIALIZED`**: สำหรับเส้นทางที่มี Parameter แต่ไม่ต้องใช้ Cookie/Query
-3. **`GENERIC`**: สำหรับเส้นทางที่มี Middleware ซับซ้อนหรือการตรวจสอบความถูกต้องหลายขั้นตอน
+เมื่อผ่านคอมไพเลอร์ Route แต่ละเส้นทางจะถูกวิเคราะห์เป็นระดับที่ชัดเจน:
+1. **`static-prebuilt`**: `getStatic()` serialize response เป็น bytes ตั้งแต่เริ่มต้นและไม่สร้าง request context
+2. **`static-sync`**: `.get()` แบบไม่มี argument ที่ผลลัพธ์อยู่ใน subset ที่รองรับ จะ lookup ผ่าน `staticFunctionMap` และข้าม request-context allocation
+3. **`SPECIALIZED`**: สำหรับเส้นทางที่มี Parameter แต่ไม่ต้องใช้ Cookie/Query
+4. **`GENERIC`**: สำหรับเส้นทางที่มี Middleware, schema, custom serializer หรือ behavior ที่คอมไพเลอร์สร้างไม่ได้ โดยจะ fallback พร้อม diagnostic
 
 ### Standalone Generation (เส้นทางที่รองรับ)
 
@@ -1341,14 +1352,14 @@ policy และ deployment binding ยังขึ้นกับการต�
 
 ## 19. การทดสอบประสิทธิภาพและ Soak Testing
 
-### สัญญา production ใน v0.5.0
+### สัญญา production ใน v0.5.0 (รวมอยู่ใน package v0.5.1)
 
 workspace v0.5.0 เพิ่ม JWT route guard แบบ HS256 ที่ strict, generated
 validation สำหรับ built-in schema subset ที่พิสูจน์ได้ และ subpath ใน package
 เดียวกันคือ `@narudom96/nelysia/upload`, `@narudom96/nelysia/logger` และ
 `@narudom96/nelysia/timeout` ส่วน Standard Schema transform/custom runtime,
 native response และ stream ที่ generate ไม่ได้จะ fallback ไป generic path เสมอ
-ดูคำสั่ง release gate ได้ที่ [`v0.5-release-gates.md`](./v0.5-release-gates.md)
+ดูคำสั่ง release gate และสถานะ evidence ได้ที่ [`v0.5-release-gates.md`](./v0.5-release-gates.md)
 
 ### patch v0.5.1: Bun route-compiled fast path
 
@@ -1371,6 +1382,9 @@ npm run benchmark:teb:verify
 # JWT Authentication Benchmark (Nelysia vs Elysia vs Hono)
 npm run benchmark:jwt
 
+# Release security evidence: public/protected และ invalid-token matrix (30s × 7)
+npm run benchmark:jwt:release
+
 # Full Load Test ด้วย oha (Bun + Node.js)
 npm run benchmark:oha
 npm run benchmark:oha:bun
@@ -1388,21 +1402,23 @@ ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 npm run soak
 npm run soak:1m
 npm run soak:10m
+# gate แยกสำหรับ production readiness; ตั้งใจเลื่อนไว้ก่อน
 npm run soak:24h
 
 # Soak ยาว (เช่น 1M requests บนตาราง 200 routes)
 SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak
 
-# รัน gate รวมทั้งหมด (typecheck + tests + soak + deno + audit)
-npm run release:check
+# รัน gate รวมของ v0.5 (ไม่รวม benchmark ยาวและ soak 24 ชั่วโมง)
+npm run release:check:v05
 ```
 
-### ผล `oha` ล่าสุดในเครื่อง local (2026-09-14)
+### compatibility snapshot ที่บันทึกไว้จาก `oha` 10 รอบ (2026-09-14)
 
 ทุก workload ใช้ `oha 1.16.0`, concurrency 50, 3 วินาทีต่อ sample,
-10 รอบ และไม่มี request ล้มเหลว ตัวเลขเป็น median throughput จาก workspace
-v0.4.0 ปัจจุบัน เครื่องทดสอบใช้ AMD Ryzen 5 5600 (6 cores / 12 threads),
-Bun 1.4.0 และ Node.js v26.8.1:
+10 รอบ และไม่มี request ล้มเหลว ตัวเลขเป็น historical compatibility snapshot
+ที่เก็บแยกจาก release evidence ของ v0.5.1 เครื่อง snapshot ใช้ AMD Ryzen 5 5600
+(6 cores / 12 threads), Bun 1.4.0 และ Node.js v26.8.1 ส่วน release report
+แบบ 30 วินาที × 7 ใช้ Node.js v26.8.2:
 
 | Workload ฝั่ง Node | Raw Node | Nelysia | Fastify | Express |
 | :--- | ---: | ---: | ---: | ---: |
@@ -1420,6 +1436,14 @@ Node dynamic ต่ำกว่า Raw Node 14.0% แต่สูงกว่า
 Raw Node 42.3% นี่เป็น directional result จากเครื่อง local ไม่ใช่การจัดอันดับสากล
 รายละเอียดคำสั่งและ environment อยู่ที่
 [`docs/benchmark-oha-2026-09-14.md`](./benchmark-oha-2026-09-14.md)
+
+หลักฐาน release ที่รันเสร็จแล้วอยู่ที่
+[`benchmark-oha-v05-2026-09-14.md`](./benchmark-oha-v05-2026-09-14.md),
+[`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md) และ
+[`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md)
+ส่วนหลักฐาน soak 1M/10M อยู่ที่
+[`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md) ส่วน 24 ชั่วโมงเป็น gate
+แยกสำหรับ production readiness และยังตั้งใจเลื่อนไว้ก่อน
 
 ### การเทียบกับ benchmark เดิมแบบ runner เดียวกัน
 
@@ -1476,7 +1500,7 @@ Nelysia ได้รับแรงบันดาลใจจาก Developer E
 | **การต่อ Sub-App** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Nelysia แยกหน้าที่ชัดเจน: `.use()` ใช้สำหรับ Plugin Function `(app) => void` เท่านั้น, ส่วนซับแอพแยกไฟล์ใช้ `.mount()` |
 | **การจัดกลุ่ม Route** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | ไวยากรณ์เหมือนกัน โดย group ใน Nelysia จะสืบทอด Lifecycle Hooks (`onBeforeHandle`) จากกลุ่มแม่โดยตรง |
 | **Guards & Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Nelysia ใช้ Hook ปกติผ่าน group เพื่อให้ AOT Dispatch Compiler วิเคราะห์เส้นทางและคอมไพล์ได้เร็วแม่นยำ |
-| **Route ค่าคงที่ (Static)** | รันผ่าน dynamic handler ปกติ `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` หรือส่ง static data | **AOT Tier 1 (COMPILED)**: คอมไพล์เป็น Bytes เตรียมไว้ล่วงหน้า ตอบกลับทันทีโดยไม่สร้าง context object (เร็วกว่า ~1.8 เท่า) |
+| **Route ค่าคงที่ (Static)** | รันผ่าน dynamic handler ปกติ `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` หรือ `.get('/ping', () => 'pong')` ที่รองรับ | `getStatic()` เป็น `static-prebuilt`; `.get()` แบบไม่มี argument ที่รองรับเป็น `static-sync` ผ่าน `staticFunctionMap` ส่วนผลลัพธ์ที่ไม่รองรับจะ fallback ไป generic |
 | **รันบน Node.js** | เน้น Bun; บน Node.js ต้องใช้ `@bogeychan/elysia-polyfill` | รองรับทั้ง **Node.js 22+** (`node:http`) และ **Bun 1.4+** เป็น First-class | ทำงานบน Node.js ได้เนทีฟ 100% ไม่ต้องลง polyfill หรือ adapter เสริม |
 | **Multi-Core Scaling** | ต้องใช้ Cluster ภายนอก (เช่น PM2) | `serveClustered(app, { port, instances: 'max' })` | มีตัวจัดการ Node.js Cluster Fork ในตัว พร้อมจัดการ Graceful Shutdown |
 | **Schema Validation** | TypeBox (`t`) เป็นหลัก | Built-in `t` + **Standard Schema v1** | รองรับทั้ง `t` ในตัว และใช้ Zod, Valibot, ArkType ได้ทันทีโดยไม่ต้องลงปลั๊กอินแปลง |
@@ -1538,8 +1562,11 @@ app.group('/admin', (admin) => {
 // Elysia: ผ่านกระบวนการ Handler ปกติ
 app.get('/health', () => ({ status: 'ok' }))
 
-// Nelysia: ใช้ AOT Tier 1 (COMPILED) ไร้ Overhead
+// Nelysia: explicit prebuilt (`static-prebuilt`)
 app.getStatic('/health', { status: 'ok' })
+
+// Nelysia: zero-argument specialized static function (`static-sync`)
+app.get('/health', () => ({ status: 'ok' }))
 ```
 
 
@@ -1550,10 +1577,11 @@ app.getStatic('/health', { status: 'ok' })
 อยากให้ route ร้อนวิ่งบน fast path ทำตามนี้:
 
 1. **ใช้ `getStatic()` สำหรับ response คงที่** — body ถูก serialize ครั้งเดียวตอน startup แล้ว serve เป็น bytes สำเร็จรูป
-2. **handler ของ route ร้อนขอแค่ params** — `({ params }) => …` จะข้ามการ parse query/cookie/header ทันทีที่ destructure `query`/`headers`/`cookies` จะตกไป generic path (ถูก แต่ช้ากว่า)
-3. **อย่าใส่ hooks/schema บน route ร้อน** — hook หรือ schema ใดๆ จะคัด route นั้นออกจาก dispatcher
-4. **อ่านข้อมูลที่ใช้ GET** — มีแค่ route `GET` เท่านั้นที่ถูก compile (`HEAD` ใช้ route `GET` ผ่าน generic path)
-5. **ปิดสิ่งที่ไม่ใช้** — `new Nelysia({ requestId: false })` ข้ามการสร้าง UUID และ header `x-request-id`; ไม่ใส่ `telemetry` ก็ไม่เสียค่า `performance.now()`
+2. **ใช้ `.get()` แบบไม่มี argument ที่รองรับสำหรับ response แบบ static-sync** — handler ใช้ `staticFunctionMap` และไม่สร้าง request context; ผลลัพธ์ที่ไม่รองรับจะ fallback ไป generic
+3. **handler ของ route ร้อนขอแค่ params** — `({ params }) => …` จะข้ามการ parse query/cookie/header ทันทีที่ destructure `query`/`headers`/`cookies` จะตกไป generic path (ถูก แต่ช้ากว่า)
+4. **อย่าใส่ hooks/schema บน route ร้อน** — hook หรือ schema ใดๆ จะคัด route นั้นออกจาก dispatcher
+5. **อ่านข้อมูลที่ใช้ GET** — มีแค่ route `GET` เท่านั้นที่ถูก compile (`HEAD` ใช้ route `GET` ผ่าน generic path)
+6. **ปิดสิ่งที่ไม่ใช้** — `new Nelysia({ requestId: false })` ข้ามการสร้าง UUID และ header `x-request-id`; ไม่ใส่ `telemetry` ก็ไม่เสียค่า `performance.now()`
 
 ตรวจสอบด้วย inspector และ router-scale:
 
@@ -1569,14 +1597,14 @@ ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 
 ## 22. เช็กลิสต์ Deploy ขึ้น Production
 
-- [x] `npm run release:check` ผ่าน (typecheck + tests Node/Bun + soak + Deno check + audit)
+- [x] `npm run release:check:v05` ผ่านสำหรับ release gate ที่ไม่รวม 24 ชั่วโมง (typecheck + tests + package/import/deployment checks + soak 1M/10M + Deno + audit)
 - [x] `npm run framework:check` ผ่าน หลังติดตั้ง dependency ของ fixture ทั้ง 5 ตัว
 - [ ] ดู coverage ของ dispatcher: build แล้วอ่าน `NELY003` ใน `dist/manifest.json` — route ร้อนควรอยู่บน fast path
 - [ ] ตั้ง `bodyLimit` ให้พอดี payload ใหญ่สุด; `trustedProxy: false` ไว้ trừคุม proxy เอง
 - [ ] มี endpoint `/health` และต่อ `gracefulShutdown(server, timeout)` กับ `SIGTERM`
 - [ ] ขยายด้วย `serveClustered()` (Node) หรือ autoscaling ของ platform; ยืนยันการ wiring `PORT` env
 - [ ] Deploy ผ่าน `Dockerfile` ที่มีให้ (`docker build -t nelysia:local .`) หรือ release tarball
-- [ ] รัน soak ยาว (`SOAK_ITERATIONS=1000000`) และ benchmark 10 รอบบน hardware ใกล้เคียง production ก่อนประกาศตัวเลขสำหรับ deployment
+- [ ] รัน soak 24 ชั่วโมงแยกต่างหากบน hardware ใกล้เคียง production ก่อนประกาศ production readiness; ตอนนี้ตั้งใจเลื่อนไว้ก่อน
 
 ---
 

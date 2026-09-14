@@ -21,10 +21,10 @@ Nelysia is a compiler-first, high-throughput TypeScript backend framework. It tr
 ## Positioning
 
 Unlike Elysia (which is Bun-first and has runtime JIT compilation overhead) or Express/Fastify (which require manual TypeScript glue and middleware ceremony), Nelysia delivers:
-1. Faster than Elysia: +7.0% higher static throughput and +3.1% higher dynamic throughput on Bun in verified 10-round benchmarks.
+1. Workload-specific performance evidence: release reports publish the runner, fixture, runtime, hardware, concurrency, duration, percentiles, and failure count; they do not make a universal speed ranking.
 2. Native Node 22+ Zero-Build: Native execution via Node --experimental-strip-types without ts-node, tsx, or esbuild bundlers.
 3. Universal Web Standards: Operates across Bun, Node cluster, Cloudflare Workers, and Vercel Edge with unified Request/Response context.
-4. Compiler-First Architecture: Pre-analyzes routes into deterministic arrays and O(1) radix lookups, eliminating regex backtracking and middleware waterfall costs.
+4. Compiler-First Architecture: Pre-analyzes routes into deterministic \`static-prebuilt\`, \`static-sync\`, \`SPECIALIZED\`, and \`GENERIC\` tiers, with explicit fallback for unsupported behavior.
 
 ## Operating Context
 
@@ -45,9 +45,10 @@ The documentation website (docs/index.html) is accessed by engineers evaluating 
 
 ## Evidence on Hand
 
-- Verified 10-round benchmark results comparing Bun native, Nelysia, Elysia, Fastify, and Express across static and dynamic routes.
-- Full test suite passing across Node 22+ and Bun.
-- Production modules in packages/* including @narudom96/nelysia, @narudom96/nelysia/client, @narudom96/nelysia/openapi, @narudom96/nelysia/observability.
+- Current v0.5.1 GitHub Release tarball with the v0.5 feature set and Bun route fast-path patch.
+- Release evidence reports for core load, JWT security, route classification, and 1M/10M request-count soaks.
+- Full test, package-import, deployment-smoke, documentation, and audit gates passing on the recorded host; the 24-hour soak remains intentionally deferred.
+- Production modules in packages/* including \`@narudom96/nelysia/client\`, \`openapi\`, \`observability\`, \`jwt\`, \`upload\`, \`logger\`, and \`timeout\` subpaths.
 
 ## Product Principles
 

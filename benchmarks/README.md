@@ -37,7 +37,8 @@ This compares a raw `Bun.serve()` handler, Nelysia's explicit `getStatic()` comp
 
 Dedicated load-generator benchmarking using [`oha`](https://github.com/hatoo/oha):
 
-The latest recorded run is documented in [`docs/benchmark-oha-2026-09-14.md`](../docs/benchmark-oha-2026-09-14.md).
+The compatibility snapshot is documented in [`docs/benchmark-oha-2026-09-14.md`](../docs/benchmark-oha-2026-09-14.md).
+The release-gate results are documented in [`docs/benchmark-oha-v05-2026-09-14.md`](../docs/benchmark-oha-v05-2026-09-14.md).
 
 The latest run uses `oha 1.16.0`, 50 concurrent workers, 3 seconds per sample,
 10 rounds, and zero failed requests. It reports separate JSON/static and dynamic
@@ -56,8 +57,14 @@ npm run benchmark:oha:bun
 # Run Node suite only
 npm run benchmark:oha:node
 
+# Run the v0.5 release load gate (30 seconds × 7, concurrency 50)
+npm run benchmark:oha:release
+
 # Run JWT suite
 npm run benchmark:jwt
+
+# Run the reproducible JWT release gate (30 seconds × 7 per scenario)
+npm run benchmark:jwt:release
 
 # Run TechEmpower suite
 npm run benchmark:teb
@@ -92,6 +99,15 @@ The zero-argument tier is compared with the standard Bun adapter in the same
 fixture. A result below the 10% median improvement threshold is recorded as
 correctness-only with no performance claim; historical benchmark numbers are not
 combined with this report.
+
+The JWT release runner uses Bun 1.4.0 and `oha 1.16.0`, with a separate 1-second
+warmup before each 30-second measured sample. It tests public, valid, missing,
+invalid, and expired JWT requests at concurrency 50 for 7 samples per framework
+and scenario. The recorded report is
+[`docs/benchmark-jwt-v05-2026-09-14.md`](../docs/benchmark-jwt-v05-2026-09-14.md).
+All 105 measured samples in the recorded run returned their expected status with
+zero failures. This is correctness and same-runner evidence, not a universal
+performance ranking.
 
 Router scale benchmark (generic path, single `app.handle()` lookup cost as the table grows):
 

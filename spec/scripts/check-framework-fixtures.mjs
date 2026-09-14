@@ -45,7 +45,7 @@ async function stop(child) {
 }
 
 async function smoke(fixture) {
-  const cwd = new URL(`../examples/${fixture.name}/`, import.meta.url)
+  const cwd = new URL(`../../examples/${fixture.name}/`, import.meta.url)
   await access(new URL("node_modules/", cwd)).catch(() => {
     throw new Error(`${fixture.name} dependencies are missing; run npm install in examples/${fixture.name}`)
   })

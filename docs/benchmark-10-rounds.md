@@ -1,6 +1,6 @@
 # Ten-Round Historical Benchmark
 
-Measured locally with 10 repeats, 1 second per repeat, 10 concurrent workers, and zero failures. This is the historical baseline; the current headline results are in the TechEmpower Round 22 tables in the main documentation.
+Measured locally with 10 repeats, 1 second per repeat, 10 concurrent workers, and zero failures. This is the historical baseline; current v0.5.1 release evidence is documented separately in the dedicated 30-second × 7 reports.
 
 ## Node
 

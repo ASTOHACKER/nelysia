@@ -33,7 +33,7 @@ Nelysia was designed with a familiar chainable DX inspired by Elysia, but with k
 | **Sub-Apps** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Clean separation: `use()` is strictly for plugin functions `(app) => app \| void`; `mount()` is for routing trees. |
 | **Route Grouping** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | Identical DX. Group inherits parent lifecycle hooks (`onBeforeHandle`, etc.). |
 | **Guards / Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Explicit lifecycle hooks ensure predictable AOT dispatch compiler paths. |
-| **Static Routes** | Generic handler `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` | **Tier 1 (COMPILED)**: Serialized once at startup, zero per-request allocation or context creation (~1.8x faster). |
+| **Static Routes** | Generic handler `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` or `app.get('/ping', () => 'pong')` | `getStatic()` is **`static-prebuilt`** (serialized once). A supported zero-argument `.get()` is **`static-sync`** and skips request-context allocation; unsupported handlers fall back to generic execution. |
 | **Node.js Support** | Bun-first; requires `@bogeychan/elysia-polyfill` on Node.js | Native Node.js 22+ (`node:http`) + native Bun (`Bun.serve`) | Zero polyfill overhead. First-class citizen on both platforms. |
 | **Multi-Core Scaling** | Requires external cluster manager (PM2) | `serveClustered(app, { port, instances: 'max' })` | Built-in Node.js cluster fork manager with graceful shutdown. |
 | **Schema Validation** | TypeBox (`t`) | Built-in `t` + Standard Schema v1 (Zod, Valibot, ArkType) | Universal schema support without extra bridge plugins. |
@@ -94,11 +94,13 @@ app.group('/admin', (admin) => {
 // Elysia: Runs through normal handler pipeline
 app.get('/health', () => ({ status: 'ok' }))
 
-// Nelysia: Zero-overhead AOT pre-serialized bytes
+// Nelysia: Explicit prebuilt bytes (`static-prebuilt`)
 app.getStatic('/health', { status: 'ok' })
+
+// Nelysia: zero-argument handler (`static-sync` when the result is supported)
+app.get('/health', () => ({ status: 'ok' }))
 ```
 
 ## Compatibility Rule
 
 Migration examples describe the supported Nelysia contract. They do not promise that framework-specific middleware, decorators, or plugins can be copied without adaptation.
-

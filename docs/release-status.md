@@ -101,7 +101,7 @@ fixture dependencies.
 - [x] 30s × 7 JWT public/protected security benchmark evidence recorded
 - [x] 1M and 10M soak reports recorded on the release candidate
 - [ ] 24-hour soak report recorded before production-readiness announcement
-- [ ] v0.5.0 GitHub Release and tarball created after all gates pass
+- [x] v0.5.0 feature set shipped in the backward-compatible v0.5.1 GitHub Release/tarball; no separate v0.5.0 tag was created
 - [ ] npm publication after registry account is available
 
 The technical implementation is present in the current workspace, but unchecked
@@ -127,11 +127,15 @@ announcement until that separate gate is completed.
 - [x] 30s × 7 route benchmark evidence recorded for both route sets
 - [x] v0.5.1 GitHub tag/release and package tarball created after the patch gate passed
 
-The patch must not move or overwrite the v0.5.0 tag. The route benchmark gate is
+No v0.5.0 tag was created or moved; the v0.5.1 patch tag is immutable. The route benchmark gate is
 tracked separately in [`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md)
 and does not make a universal claim against Raw Bun, Elysia, or historical runners.
+The JWT evidence gate is recorded in [`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md).
 
-## v0.4.0 verification record (2026-09-14)
+## Archived v0.4.0 verification record (2026-09-14)
+
+The following table is retained for historical traceability. It is superseded
+by the current v0.5.1 release evidence above.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |

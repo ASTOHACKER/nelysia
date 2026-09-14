@@ -11,22 +11,24 @@
 <body><main>
   <a class="back" href="index.html">← Back to documentation</a>
   <h1>Verified <em>results.</em></h1>
-  <p>Latest 10-round local measurements for the v0.4.0 workspace. These results are reproducible observations, not universal performance claims; preceding runs are retained in the linked report to show variance.</p>
-  <div class="meta"><span class="tag">2026-09-14</span><span class="tag">Bun 1.4.0</span><span class="tag">Node v26.8.1</span><span class="tag">Linux x64</span><span class="tag">oha 1.16.0</span></div>
+  <p>Verified results for the current v0.5.1 package. The compatibility table below preserves the 10-round snapshot; release-gate evidence uses separate 30-second × 7 reports. These are reproducible observations, not universal performance claims.</p>
+  <div class="meta"><span class="tag">2026-09-14</span><span class="tag">v0.5.1</span><span class="tag">Bun 1.4.0</span><span class="tag">Node v26.8.2</span><span class="tag">Linux x64</span><span class="tag">oha 1.16.0</span></div>
 
   <h2>Correctness and release gates</h2>
   <div class="table"><table><thead><tr><th>Gate</th><th>Result</th><th>Evidence</th></tr></thead><tbody>
     <tr><td>TypeScript typecheck</td><td>PASS</td><td><code>npm run typecheck</code></td></tr>
-    <tr><td>Node test suite</td><td>PASS</td><td>139 tests, 0 failures</td></tr>
-    <tr><td>Bun test suite</td><td>PASS</td><td>139 tests, 0 failures</td></tr>
-    <tr><td>Fresh package imports</td><td>PASS</td><td>17 exports on Node, Bun, and Deno</td></tr>
+    <tr><td>Node test suite</td><td>PASS</td><td>149 tests, 0 failures</td></tr>
+    <tr><td>Bun test suite</td><td>PASS</td><td>149 tests, 0 failures</td></tr>
+    <tr><td>Fresh package imports</td><td>PASS</td><td>20 exports on Node, Bun, and Deno</td></tr>
     <tr><td>Framework fixtures</td><td>PASS</td><td>5/5 build + live HTTP smoke</td></tr>
-    <tr><td>Soak test</td><td>PASS</td><td>20,000 requests, 0 failures</td></tr>
+    <tr><td>1M / 10M request-count soak</td><td>PASS</td><td>0 failures, clean exit</td></tr>
+    <tr><td>JWT security matrix</td><td>PASS</td><td>105 samples, 0 failures, expected statuses</td></tr>
+    <tr><td>24-hour soak</td><td>DEFERRED</td><td>Not run by design</td></tr>
     <tr><td>Security audit</td><td>PASS</td><td>0 vulnerabilities</td></tr>
   </tbody></table></div>
 
-  <h2>Latest <code>oha</code> throughput</h2>
-  <p>Every row used 50 concurrent workers, 3 seconds per sample, 10 rounds, and zero failed requests. Values are median requests per second.</p>
+  <h2>Compatibility <code>oha</code> throughput snapshot</h2>
+  <p>Every row used 50 concurrent workers, 3 seconds per sample, 10 rounds, and zero failed requests. The retained compatibility snapshot used Node.js v26.8.1; do not combine these values arithmetically with the v0.5.1 30-second × 7 release reports, which used Node.js v26.8.2.</p>
   <div class="table"><table><thead><tr><th>Workload</th><th>Raw baseline</th><th>Nelysia</th><th>Peer</th><th>Relative result</th></tr></thead><tbody>
     <tr><td>Node JSON <code>GET /json</code></td><td>47,572</td><td>27,451</td><td>Fastify 38,879</td><td>Nelysia is the Node JSON optimization target</td></tr>
     <tr><td>Node dynamic <code>GET /users/:id</code></td><td>47,607</td><td>40,919</td><td>Fastify 38,846</td><td>+5.3% vs Fastify</td></tr>
@@ -34,14 +36,19 @@
     <tr><td>Bun dynamic <code>GET /users/:id</code></td><td>82,904</td><td>83,855</td><td>Elysia 82,816</td><td>+1.1% vs raw Bun; +1.3% vs Elysia</td></tr>
   </tbody></table></div>
 
-  <div class="callout"><b>How to read this</b><br>Static Bun execution is at raw-Bun parity in this run. Dynamic Bun is within a few percent of its peers. Node JSON is still the clearest remaining performance target. Benchmark values are local and sensitive to runtime, dependencies, CPU, kernel, and load-generator settings.</div>
+  <div class="callout"><b>Release evidence</b><br><a href="benchmark-oha-v05-2026-09-14.md">Core load report</a> · <a href="benchmark-jwt-v05-2026-09-14.md">JWT security report</a> · <a href="benchmark-route-fast-path-v051-2026-09-14.md">Bun route report</a> · <a href="soak-v05-2026-09-14.md">1M/10M soak report</a><br><br>The 24-hour soak remains intentionally deferred, so these results do not announce production readiness. Benchmark values are local and sensitive to runtime, dependencies, CPU, kernel, and load-generator settings.</div>
 
   <h2>Reproduce</h2>
   <pre>npm run benchmark:oha:node
-npm run benchmark:oha:bun
+	npm run benchmark:oha:bun
+	npm run benchmark:jwt:release
+
+# Bun route fast-path fixtures
+BENCH_ROUTE_SET=single npm run benchmark:oha:route:release
+BENCH_ROUTE_SET=multi npm run benchmark:oha:route:release
 
 # Ecosystem fixture gate (install each examples/* fixture first)
 npm run framework:check</pre>
-  <p>For the same-runner historical comparison, see <a href="benchmark-oha-2026-09-14.md">the current report</a> and <a href="benchmark-10-rounds.md">the historical ten-round report</a>.</p>
+  <p>For the compatibility snapshot and same-runner historical comparison, see <a href="benchmark-oha-2026-09-14.md">the compatibility report</a> and <a href="benchmark-10-rounds.md">the historical ten-round report</a>.</p>
   <div class="foot">Nelysia benchmark report · Generated from the current workspace.</div>
 </main></body></html>

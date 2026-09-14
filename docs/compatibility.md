@@ -1,8 +1,9 @@
 # Compatibility Matrix
 
-This matrix records verified behavior in the current workspace. It is intentionally narrower than a promise of support for every version of a runtime.
+This matrix records verified behavior in the current `v0.5.1` workspace. It is
+intentionally narrower than a promise of support for every version of a runtime.
 
-| Capability | Node 26.8.1 | Bun 1.4.0 |
+| Capability | Node 26.8.2 | Bun 1.4.0 |
 | --- | --- | --- |
 | HTTP routing | verified | verified |
 | JSON body parsing | verified | verified |
@@ -45,7 +46,7 @@ npm run typecheck
 npm test
 bun test
 npm run soak
-npm run release:check
+npm run release:check:v05
 npm run framework:check
 npm run package:imports
 npm run deployment:smoke
@@ -56,3 +57,10 @@ npm run soak:10m
 The v0.5 soak runner reports exact request count, failures, runtime errors,
 throughput, periodic heap/RSS samples, and before/after deltas. Heap/RSS delta
 is a signal for investigation, not a garbage-collection-proof leak measurement.
+
+## Release evidence status
+
+The core `oha` load report, JWT security matrix, Bun route fast-path report, and
+1M/10M soak report are recorded in the repository's `docs/` directory. The
+separate 24-hour soak is intentionally deferred and has not been run; therefore
+this matrix does not make a production-readiness claim.

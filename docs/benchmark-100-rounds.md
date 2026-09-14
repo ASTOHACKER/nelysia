@@ -27,9 +27,9 @@ Evaluating static pre-serialized response delivery with zero per-request allocat
 | Elysia | 16,256 | 0.61 ms | 0.27 ms | 0 / 100 | Baseline |
 
 ### Key Observations
-- **Nelysia leads Elysia by +8.1%** on median throughput (17,572 req/s vs 16,256 req/s).
-- **Lower latency**: Nelysia delivers a lower median average latency (0.56 ms vs 0.61 ms for Elysia).
-- **Matches / exceeds raw Bun**: By reusing prebuilt responses via `.clone()` and bypassing runtime route parsing, Nelysia slightly edges out standard manual `Bun.serve` routing.
+- **Nelysia leads Elysia by +8.1%** on median throughput (17,572 req/s vs 16,256 req/s) in this historical runner.
+- **Lower latency**: Nelysia delivers a lower median average latency (0.56 ms vs 0.61 ms for Elysia) in this historical runner.
+- **Near the raw Bun baseline**: By reusing prebuilt responses via `.clone()` and bypassing runtime route parsing, Nelysia was close to standard manual `Bun.serve` routing in this archived workload.
 
 ---
 

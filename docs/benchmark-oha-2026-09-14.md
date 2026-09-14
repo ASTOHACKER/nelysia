@@ -1,6 +1,10 @@
 # `oha` Benchmark Report — 2026-09-14
 
-Latest 10-round local load-generator run for the current v0.4.0 workspace. Each case used `oha 1.16.0`, 50 concurrent workers, 3 seconds per sample, 10 rounds, and zero failed requests. Values below are median throughput.
+Recorded 10-round compatibility snapshot from the v0.4.0 workspace. Each case
+used `oha 1.16.0`, 50 concurrent workers, 3 seconds per sample, 10 rounds, and
+zero failed requests. Values below are median throughput. The current v0.5
+release-gate evidence is recorded separately in
+[`benchmark-oha-v05-2026-09-14.md`](./benchmark-oha-v05-2026-09-14.md).
 
 Environment: AMD Ryzen 5 5600 (6 cores / 12 threads), Bun 1.4.0, and Node.js
 v26.8.1. These are local directional measurements, not universal framework

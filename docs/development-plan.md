@@ -1,5 +1,12 @@
 # Nelysia Development Plan
 
+This document preserves the original development boundaries. The current
+implementation and release evidence are tracked in
+[`docs/release-status.md`](./release-status.md) and
+[`docs/v0.5-release-gates.md`](./v0.5-release-gates.md); the v0.5.1 package has
+already completed the historical next gates below except for the intentionally
+deferred 24-hour soak and npm publication.
+
 ## Current strategy
 
 Nelysia is developed in this order:

@@ -18,13 +18,13 @@ graph TD
 
     subgraph L2["Layer 2: Compiler & Analysis Subsystem (AOT / CLI)"]
         Inspector["Route Graph Analyzer & Inspector"]
-        Classifier["Execution Classifier (COMPILED / SPECIALIZED / GENERIC)"]
+        Classifier["Execution Classifier (static-prebuilt / static-sync / SPECIALIZED / GENERIC)"]
         Codegen["Standalone Code Generator & Matcher"]
         Manifest["Build Manifest & Content-Addressed Cache"]
     end
 
     subgraph L3["Layer 3: Core Routing & Validation Engine"]
-        StaticMap["Static Route Hash Map (O(1))"]
+        StaticMap["Static Route Hash Map + staticFunctionMap (O(1))"]
         ParamMatcher["Segment Parameter Matcher"]
         MethodGuard["Protocol Standards (405, Allow Header, HEAD, OPTIONS)"]
         ValidatorEngine["Standard Schema Validation Engine"]
@@ -48,9 +48,9 @@ graph TD
     subgraph L6["Layer 6: Ecosystem & Integrations"]
         OpenAPI["OpenAPI 3.1 & Redoc UI"]
         Telemetry["Observability & OTLP HTTP Exporter"]
-        Plugins["Plugins (rateLimit, staticFile, compression)"]
-        Integrations["Integrations (GraphQL, Drizzle ORM, Client SDK)"]
-        Frameworks["Full-Stack (Next.js, Nuxt, Astro, SvelteKit)"]
+        Plugins["Plugins (JWT, upload, logger, timeout, rateLimit, staticFile, compression)"]
+        Integrations["Integrations (OpenAPI, GraphQL, Drizzle, Prisma, Better Auth, Client SDK)"]
+        Frameworks["Full-Stack + Edge (Next.js, Nuxt, Astro, SvelteKit, TanStack, Deno, Cloudflare, Vercel)"]
     end
 
     L1 --> L2
@@ -105,16 +105,18 @@ Named modules are deduplicated by `name` and `seed`. Lazy modules are awaited wi
 ```mermaid
 flowchart TD
     Route[ลงทะเบียน Route] --> CheckStatic{เป็น Static Path<br>และไม่มี Hooks?}
-    CheckStatic -- ใช่ --> CheckContext{ไม่มีการใช้<br>Context Object?}
-    CheckContext -- ใช่ --> Tier1[COMPILED TIER<br>Fast Path ไม่จองหน่วยความจำ Context]
-    CheckContext -- ไม่ใช่ --> Tier2[SPECIALIZED TIER<br>ตัดการ Parse Cookie/Query ออก]
-    CheckStatic -- ไม่ใช่ --> Tier3[GENERIC TIER<br>รันผ่าน Full Lifecycle Pipeline]
+    CheckStatic -- getStatic --> Tier1[static-prebuilt<br>Pre-serialized bytes]
+    CheckStatic -- zero-arg .get --> Tier2[static-sync<br>staticFunctionMap]
+    CheckStatic -- dynamic/unsupported --> CheckParam{มี Params-only<br>และเข้าเงื่อนไข?}
+    CheckParam -- ใช่ --> Tier3[SPECIALIZED TIER<br>ตัดการ Parse Cookie/Query ออก]
+    CheckParam -- ไม่ใช่ --> Tier4[GENERIC TIER<br>รันผ่าน Full Lifecycle Pipeline]
 ```
 
-* **การจัดระดับการรัน (3 Execution Tiers):**
-  1. **`COMPILED`:** สำหรับ Static Routes ที่คืนค่าคงที่ (เช่น `app.getStatic("/ping", "pong")`) ระบบจะสร้างทางลัดที่ตอบกลับทันทีโดยไม่สร้าง Context Object ใหม่ ($O(1)$)
-  2. **`SPECIALIZED`:** เส้นทางที่มี Parameter แต่ไม่มีการใช้ Cookie หรือ Query ที่ซับซ้อน จะสกัดเฉพาะตัวแปรใน Path โดยไม่เสียเวลา Parse ส่วนอื่น
-  3. **`GENERIC`:** เส้นทางที่มี Dynamic Middleware, Hooks, หรือ Schema ซับซ้อน จะทำงานบน Generic Pipeline อย่างปลอดภัย
+* **การจัดระดับการรัน (4 Execution Tiers):**
+  1. **`static-prebuilt`:** Static Routes ที่คืนค่าคงที่ผ่าน `app.getStatic("/ping", "pong")` จะ serialize เป็น bytes ล่วงหน้าและตอบกลับโดยไม่สร้าง Context Object
+  2. **`static-sync`:** Zero-argument `.get("/ping", () => "pong")` ที่ผลลัพธ์อยู่ใน supported subset จะ lookup ผ่าน `staticFunctionMap` และข้าม request-context allocation; native `Response`, stream, หรือ error ใช้ adapter/fallback ที่เหมาะสม
+  3. **`SPECIALIZED`:** เส้นทางที่มี Parameter แต่ไม่มีการใช้ Cookie หรือ Query ที่ซับซ้อน จะสกัดเฉพาะตัวแปรใน Path โดยไม่เสียเวลา Parse ส่วนอื่น
+  4. **`GENERIC`:** เส้นทางที่มี Dynamic Middleware, Hooks, หรือ Schema ซับซ้อน จะทำงานบน Generic Pipeline อย่างปลอดภัย
 * **CLI Engine (`nelysia inspect` / `nelysia build`):**
   - วิเคราะห์ Route Graph และส่งออกเป็นรายงานความพร้อมในการ Optimize
   - สร้างไฟล์ Standalone Server (`dist/server.bun.ts` หรือ `dist/server.node.ts`)

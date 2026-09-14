@@ -1,13 +1,13 @@
 import { readFile } from "node:fs/promises"
 
-const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"))
+const packageJson = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 const docs = await Promise.all([
-  readFile(new URL("../README.md", import.meta.url), "utf8"),
-  readFile(new URL("../docs/DOCUMENTATION_EN.md", import.meta.url), "utf8"),
-  readFile(new URL("../docs/DOCUMENTATION_TH.md", import.meta.url), "utf8"),
-  readFile(new URL("../docs/ARCHITECTURE.md", import.meta.url), "utf8"),
-  readFile(new URL("../docs/release-status.md", import.meta.url), "utf8"),
-  readFile(new URL("../docs/index.html", import.meta.url), "utf8")
+  readFile(new URL("../../README.md", import.meta.url), "utf8"),
+  readFile(new URL("../../docs/DOCUMENTATION_EN.md", import.meta.url), "utf8"),
+  readFile(new URL("../../docs/DOCUMENTATION_TH.md", import.meta.url), "utf8"),
+  readFile(new URL("../../docs/ARCHITECTURE.md", import.meta.url), "utf8"),
+  readFile(new URL("../../docs/release-status.md", import.meta.url), "utf8"),
+  readFile(new URL("../../docs/index.html", import.meta.url), "utf8")
 ])
 const text = docs.join("\n")
 const failures = []

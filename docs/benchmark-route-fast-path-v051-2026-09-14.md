@@ -68,6 +68,7 @@ slash, multi-route lookup, native responses, streams, errors, and no
 double-execution behavior. This is a same-runner patch result, not a universal
 claim that Nelysia is faster than Raw Bun or Elysia.
 
-The v0.5.0 tag and release are unchanged. This patch report does not close the
-separate v0.5.0 JWT benchmark, 24-hour soak, GitHub release, or npm publication
-gates.
+No v0.5.0 tag was created or moved; the shipped patch tag and release are
+v0.5.1. This patch report does not close the separate 24-hour soak or npm
+publication gates. The completed JWT benchmark
+evidence is recorded in [`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md).

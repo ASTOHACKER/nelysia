@@ -1,5 +1,10 @@
 # Nelysia P2 Roadmap
 
+This is the historical milestone plan. The v0.2–v0.4 implementation status
+and the current v0.5.1 release gates are maintained in
+[`docs/release-status.md`](./release-status.md); do not use this roadmap alone
+as a current checklist.
+
 P2 starts after the v0.1 Definition of Done. It is split into finite releases so advanced work does not destabilize the completed core.
 
 ## v0.2 Production Expansion

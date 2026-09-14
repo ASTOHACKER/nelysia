@@ -1,6 +1,6 @@
 # Nelysia: Comprehensive Technical Documentation
 
-> **Version:** 0.4.0 (Current workspace release)
+> **Version:** 0.5.1 (Current package and GitHub Release)
 > **Target Runtimes:** Bun 1.4+, Node.js 22+, and Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **Language:** TypeScript / JavaScript (ESM)
 
@@ -84,16 +84,17 @@
 
 ### The 10 Superpowers of Nelysia (Why Nelysia Wins)
 
-#### 1. 3-Lane AOT Compiler
-Nelysia analyzes every route before the first request arrives. Instead of running everything through the same middleware chain, it puts each route in the right lane:
-- **Lane 1 (COMPILED)**: Static endpoints → pre-serialized raw buffer. Zero per-request object allocation, zero context overhead.
-- **Lane 2 (SPECIALIZED)**: Param routes like `/users/:id` → parameters extracted directly from the URL buffer, bypassing cookie/query parsing entirely.
-- **Lane 3 (GENERIC)**: Complex routes with middleware, schema validation, body parsing — full pipeline, exactly when needed.
+#### 1. 4-Tier AOT Compiler
+Nelysia analyzes every route before the first request arrives. Instead of running everything through the same middleware chain, it puts each route in the right tier:
+- **Tier 1 (`static-prebuilt`)**: `getStatic()` responses are serialized once and served without normal request-context allocation.
+- **Tier 2 (`static-sync`)**: Supported zero-argument `.get()` handlers use the compiled `staticFunctionMap` and fast serializer.
+- **Tier 3 (`SPECIALIZED`)**: Param routes like `/users/:id` extract parameters directly from the URL buffer.
+- **Tier 4 (`GENERIC`)**: Complex routes with middleware, schema validation, body parsing, or unsupported behavior use the full pipeline.
 
 Result: every request uses only the power it actually needs.
 
-#### 2. 95,173 req/s — Raw Bun parity
-The latest 10-round run measured **95,173 req/s** for Bun static JSON at 50
+#### 2. 95,173 req/s — Raw Bun parity snapshot
+The recorded 10-round compatibility snapshot measured **95,173 req/s** for Bun static JSON at 50
 concurrent workers, versus **95,306 req/s** for raw `Bun.serve`, with zero failed
 requests. The benchmark report retains the preceding run sets and explains the
 short-run variance; the older TechEmpower plaintext snapshot uses a different
@@ -157,6 +158,9 @@ The published compiler helpers are available from `@narudom96/nelysia/compiler`,
     "./plugins": "./dist-package/packages/plugins/src/index.js",
     "./observability": "./dist-package/packages/observability/src/index.js",
     "./runtime-fetch": "./dist-package/packages/runtime-fetch/src/server.js",
+    "./runtime-node": "./dist-package/packages/runtime-node/src/server.js",
+    "./runtime-bun": "./dist-package/packages/runtime-bun/src/server.js",
+    "./runtime-node-cluster": "./dist-package/packages/runtime-node/src/cluster.js",
     "./graphql": "./dist-package/packages/integrations-graphql/src/index.js",
     "./drizzle": "./dist-package/packages/integrations-drizzle/src/index.js",
     "./prisma": "./dist-package/packages/integrations-prisma/src/index.js",
@@ -165,7 +169,11 @@ The published compiler helpers are available from `@narudom96/nelysia/compiler`,
     "./runtime-cloudflare": "./dist-package/packages/runtime-cloudflare/src/index.js",
     "./compiler": "./dist-package/packages/compiler/src/index.js",
     "./openapi": "./dist-package/packages/openapi/src/index.js",
-    "./client": "./dist-package/packages/client/src/index.js"
+    "./client": "./dist-package/packages/client/src/index.js",
+    "./jwt": "./dist-package/packages/jwt/src/index.js",
+    "./upload": "./dist-package/packages/upload/src/index.js",
+    "./logger": "./dist-package/packages/logger/src/index.js",
+    "./timeout": "./dist-package/packages/timeout/src/index.js"
   }
 }
 ```
@@ -186,7 +194,7 @@ Always export the `app` instance so the compiler and CLI can inspect and build y
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.4.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.5.1!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "default",
@@ -215,7 +223,7 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# Output: <h1>Hello from Nelysia v0.4.0!</h1>
+# Output: <h1>Hello from Nelysia v0.5.1!</h1>
 
 curl "http://localhost:3000/users/42?filter=active"
 # Output: {"id":"42","filter":"active","timestamp":1726180000000}
@@ -529,7 +537,7 @@ In v0.1.4+, Nelysia provides dedicated shorthands to return strongly typed respo
 
 ```ts
 app
-  .get("/landing", ({ html }) => html("<h1>Welcome to Nelysia v0.4.0</h1>"))
+  .get("/landing", ({ html }) => html("<h1>Welcome to Nelysia v0.5.1</h1>"))
   .get("/robots.txt", ({ text }) => text("User-agent: *\nDisallow: /private"))
   .get("/old-path", ({ redirect }) => redirect("/new-path", 301))
   .get("/api/ping", (ctx) => {
@@ -1129,6 +1137,8 @@ Nelysia includes an official, zero-dependency JWT authentication module built di
 - **0 Auth Overhead**: Routes without `{ auth: "jwt" }` incur zero authentication overhead—the authorization header is never inspected.
 - **Fast-Verify Path**: Routes configured with `{ auth: "jwt" }` verify tokens against pre-imported `CryptoKey` instances in microseconds.
 - **Auto 401 Rejection**: Malformed, missing, or expired tokens immediately return `401 Unauthorized`.
+- **Strict algorithm policy**: Only `HS256` is accepted; `none`, algorithm-confusion, malformed-segment, invalid-signature, and invalid-JSON tokens are rejected.
+- **Optional claim checks**: `issuer` and `audience` can be configured without changing default behavior when omitted. `exp` and `nbf` are enforced when present.
 
 ```ts
 import { Nelysia } from "@narudom96/nelysia"
@@ -1207,10 +1217,11 @@ Nelysia includes an ahead-of-time compiler and CLI tool: `nelysia`.
 
 ### Route Classification
 
-The compiler classifies every route into three execution tiers:
-1. **`COMPILED`**: Static route with context-free value or zero context dependency. Maximum possible throughput.
-2. **`SPECIALIZED`**: Known route structure where only parameter decoding is needed.
-3. **`GENERIC`**: Route uses dynamic hooks, schemas, cookies, or opaque handlers.
+The compiler classifies every route into explicit execution tiers:
+1. **`static-prebuilt`**: `getStatic()` response serialized once at startup and served without request-context creation.
+2. **`static-sync`**: supported zero-argument `.get()` handler indexed by the compiled dispatcher; plain values, strings, bytes, native `Response`, and streams preserve their documented result contract.
+3. **`SPECIALIZED`**: Known route structure where only parameter decoding is needed.
+4. **`GENERIC`**: Route uses dynamic hooks, schemas, cookies, custom serialization, or opaque handlers; unsupported compiler cases fall back here with diagnostics.
 
 ### Inspecting Route Analysis
 
@@ -1220,9 +1231,12 @@ nelysia inspect ./src/app.ts
 
 Example Output:
 ```text
-GET /
-  Execution: COMPILED
+GET /health
+  Execution: static-prebuilt
   Reason: Explicit static response
+GET /json
+  Execution: static-sync
+  Reason: Zero-argument handler; static function map
 GET /users/:id
   Execution: SPECIALIZED
   Reason: Static route metadata; context retained
@@ -1444,7 +1458,7 @@ configuration concerns.
 
 Nelysia includes automated micro-benchmarks and memory soak runners.
 
-### v0.5.0 production contracts
+### v0.5.0 production contracts (shipped in package v0.5.1)
 
 The v0.5.0 workspace adds strict HS256 JWT route guards, deterministic generated
 validation for the supported built-in schema subset, and three same-package
@@ -1477,6 +1491,9 @@ npm run benchmark:teb:verify
 # JWT Authentication Benchmark (Nelysia vs Elysia vs Hono)
 npm run benchmark:jwt
 
+# Release security evidence: public/protected and invalid-token matrix (30s × 7)
+npm run benchmark:jwt:release
+
 # Full Load Test with oha (Bun + Node.js)
 npm run benchmark:oha
 npm run benchmark:oha:bun
@@ -1491,12 +1508,13 @@ ROUTES=100 node --experimental-strip-types benchmarks/router-scale.ts
 ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 ```
 
-### Latest local `oha` results — 10-round run (2026-09-14)
+### Recorded compatibility snapshot — 10-round run (2026-09-14)
 
 Each workload used `oha 1.16.0`, 50 concurrent workers, 3 seconds per sample,
-10 rounds, and zero failed requests. Values are median throughput from the
-current v0.4.0 workspace. The host was an AMD Ryzen 5 5600 (6 cores / 12
-threads), with Bun 1.4.0 and Node.js v26.8.1.
+10 rounds, and zero failed requests. These values are a historical compatibility
+snapshot retained separately from the v0.5.1 release evidence. The snapshot
+host was an AMD Ryzen 5 5600 (6 cores / 12 threads), with Bun 1.4.0 and
+Node.js v26.8.1; the dedicated release reports use Node.js v26.8.2.
 
 | Node workload | Raw Node | Nelysia | Fastify | Express |
 | :--- | ---: | ---: | ---: | ---: |
@@ -1515,6 +1533,14 @@ Fastify, while Node JSON was 42.3% below raw Node. These are local directional
 observations, not universal framework rankings. Full command output and environment notes are recorded in
 [`docs/benchmark-oha-2026-09-14.md`](./benchmark-oha-2026-09-14.md).
 
+The completed v0.5 release evidence is recorded in
+[`benchmark-oha-v05-2026-09-14.md`](./benchmark-oha-v05-2026-09-14.md),
+[`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md), and
+[`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md).
+The 1M and 10M request-count soak evidence is in
+[`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md). The 24-hour soak is a
+separate production-readiness gate and is intentionally deferred.
+
 ### Historical TechEmpower snapshot
 
 The older TechEmpower Round 22 snapshot (100,471 req/s plaintext and 99,103
@@ -1532,6 +1558,7 @@ table) paths to verify memory stability and detect heap/RSS drift:
 npm run soak
 npm run soak:1m
 npm run soak:10m
+# Separate production-readiness gate; intentionally deferred for now
 npm run soak:24h
 # Longer run (e.g. multi-minute soak with 1M requests over 200 routes)
 SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak
@@ -1592,7 +1619,7 @@ Nelysia was designed with a familiar chainable DX inspired by Elysia, but introd
 | **Sub-Apps** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Distinct separation: `use()` is strictly for plugin functions `(app) => app \| void`; `mount()` is for routing trees. |
 | **Route Grouping** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | Identical DX. Nested groups inherit parent lifecycle hooks (`onBeforeHandle`, etc.). |
 | **Guards / Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Explicit group hooks maintain predictable AOT dispatch compiler analysis. |
-| **Static Endpoints** | Generic dynamic handler `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` or static data | **AOT Tier 1 (COMPILED)**: Pre-serialized to raw bytes at startup; zero per-request allocation or context creation (~1.8x faster). |
+| **Static Endpoints** | Generic dynamic handler `app.get('/ping', () => 'pong')` | `app.getStatic('/ping', 'pong')` or supported zero-argument `.get('/ping', () => 'pong')` | `getStatic()` is `static-prebuilt`; supported zero-argument `.get()` is `static-sync` through `staticFunctionMap`. Unsupported results fall back to generic execution. |
 | **Node.js Support** | Bun-first; requires `@bogeychan/elysia-polyfill` on Node.js | Native Node.js 22+ (`node:http`) & Bun 1.4+ (`Bun.serve`) | First-class citizen on both platforms with 0 polyfill overhead. |
 | **Multi-Core Scaling** | Requires external cluster manager (PM2) | `serveClustered(app, { port, instances: 'max' })` | Native Node.js cluster fork management built-in with graceful shutdown. |
 | **Schema Validation** | TypeBox (`t`) | Built-in `t` + **Standard Schema v1** (Zod, Valibot, ArkType) | Universal schema support without extra bridge plugins. |
@@ -1666,10 +1693,11 @@ app.getStatic('/health', { status: 'ok' })
 Hot routes should land on the compiled fast path. The rules are simple:
 
 1. **Prefer `getStatic()` for constant responses** — the body is serialized once at startup and served as prebuilt bytes (`Response.clone()` on Bun/Fetch, `Buffer` + `content-length` on Node).
-2. **Keep hot dynamic handlers params-only** — `({ params }) => …` skips query/cookie/header parsing. As soon as a handler destructures `query`, `headers`, or `cookies`, it runs on the generic path (correct, just slower).
-3. **Keep hooks and schemas off hot routes** — any `onBeforeHandle`/`onAfterHandle`/`onError` or `body`/`params`/`query`/`headers`/`response` schema excludes the route from the dispatcher.
-4. **Use `GET` for cacheable reads** — only `GET` routes are compiled; `HEAD` reuses the `GET` route through the generic path.
-5. **Disable what you don't use** — `new Nelysia({ requestId: false })` skips per-request UUID generation and the `x-request-id` header; no `telemetry` means no `performance.now()` timing.
+2. **Use supported zero-argument `.get()` for computed static-sync responses** — the handler uses `staticFunctionMap` and avoids request-context allocation; unsupported return behavior falls back to generic execution.
+3. **Keep hot dynamic handlers params-only** — `({ params }) => …` skips query/cookie/header parsing. As soon as a handler destructures `query`, `headers`, or `cookies`, it runs on the generic path (correct, just slower).
+4. **Keep hooks and schemas off hot routes** — any `onBeforeHandle`/`onAfterHandle`/`onError` or `body`/`params`/`query`/`headers`/`response` schema excludes the route from the dispatcher.
+5. **Use `GET` for cacheable reads** — only `GET` routes are compiled; `HEAD` reuses the `GET` route through the generic path.
+6. **Disable what you don't use** — `new Nelysia({ requestId: false })` skips per-request UUID generation and the `x-request-id` header; no `telemetry` means no `performance.now()` timing.
 
 Verify with the inspector and the router-scale runner:
 
@@ -1685,14 +1713,14 @@ Per-request cost ranking (most to least expensive): JSON body parsing → schema
 
 ## 22. Production Deployment Checklist
 
-- [x] `npm run release:check` passes (typecheck + Node/Bun tests + soak + Deno check + audit).
+- [x] `npm run release:check:v05` passes for the non-24-hour release gates (typecheck + Node/Bun tests + package/import/deployment checks + 1M/10M soak + Deno check + audit).
 - [x] `npm run framework:check` passes after installing the five framework fixtures.
 - [ ] Check dispatcher coverage: build and read `NELY003` in `dist/manifest.json` — hot routes should be on the fast path.
 - [ ] Set `bodyLimit` for your largest payload; keep `trustedProxy: false` unless you control the proxy.
 - [ ] Expose a `/health` endpoint and wire `gracefulShutdown(server, timeout)` on `SIGTERM`.
 - [ ] Scale with `serveClustered()` (Node) or platform autoscaling; confirm `PORT` env wiring.
 - [ ] Deploy via the provided `Dockerfile` (`docker build -t nelysia:local .`) or the release tarball.
-- [ ] Run a long soak (`SOAK_ITERATIONS=1000000`) and a 10-round benchmark on production-like hardware before publishing deployment claims.
+- [ ] Run the separate 24-hour soak on production-like hardware before announcing production readiness; it is intentionally deferred.
 
 ---
 

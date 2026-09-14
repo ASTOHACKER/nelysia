@@ -10,9 +10,9 @@
 
 ## Install
 
-> **Current development note:** the workspace is implementing `@narudom96/nelysia@0.5.1`.
-> The v0.5.1 Bun route-compiled patch artifact is available on GitHub; the separate
-> v0.5.0 JWT and long-soak gates remain open, and npm publication is still pending.
+> **Current release:** `@narudom96/nelysia@0.5.1` is available as a GitHub Release
+> tarball. The v0.5 core and JWT benchmark evidence gates are recorded; the separate
+> 24-hour production-readiness soak is intentionally deferred, and npm publication is pending.
 
 ```bash
 curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.5.1/narudom96-nelysia-0.5.1.tgz
@@ -52,7 +52,7 @@ On a standard npm setup the two steps collapse into one:
 npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.5.1/narudom96-nelysia-0.5.1.tgz
 ```
 
-Replace `v0.4.0` / the filename with the latest release you see on the releases page.
+Replace `v0.5.1` / the filename with the latest release you see on the releases page.
 
 ```ts
 // app.ts
@@ -88,21 +88,26 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 - [Comprehensive Documentation (English)](./docs/DOCUMENTATION_EN.md)
 - [คู่มือการใช้งานอย่างละเอียด (ภาษาไทย)](./docs/DOCUMENTATION_TH.md)
 - [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
+- [Release Notes / Changelog](./CHANGELOG.md)
 
-### What's New in v0.5.1 (implementation branch)
+### What's included in v0.5.1
 - **Bun zero-argument route fast path**: static function routes now use `static-sync` in single- and multi-route dispatchers; `.getStatic()` remains the separate `static-prebuilt` tier.
 - **Native result parity**: `Response`, `ReadableStream`, response metadata, and handler errors are handled once without re-running the handler.
 - **Route benchmark taxonomy**: the release runner separates prebuilt, zero-argument specialized, and params-only workloads with matched single/multi-route fixtures.
 - **Strict JWT route guards**: internal metadata registry, HS256-only verification, optional issuer/audience checks, and no auth work on public routes.
 - **Generated schema fast path**: deterministic built-in params/query/header/response schemas use generated validators; Standard Schema and custom behavior fall back to generic execution with diagnostics.
 - **Production plugins**: `@narudom96/nelysia/upload`, `@narudom96/nelysia/logger`, and `@narudom96/nelysia/timeout` provide multipart storage, redacted typed logging, and deadline cancellation contracts.
-- **Release evidence runners**: `benchmark:oha:release`, `soak:1m`, `soak:10m`, and `soak:24h` record reproducible environment, latency, failures, and memory samples.
+- **Release evidence runners**: `benchmark:oha:release`, `benchmark:jwt:release`, `soak:1m`, `soak:10m`, and `soak:24h` record reproducible environment, latency, failures, and memory samples.
 
-### v0.4.0 highlights
+The recorded release evidence is available in the [core load report](./docs/benchmark-oha-v05-2026-09-14.md),
+[JWT security report](./docs/benchmark-jwt-v05-2026-09-14.md), and
+[Bun route fast-path report](./docs/benchmark-route-fast-path-v051-2026-09-14.md).
+
+### v0.4.0 historical highlights
 - **Official `@narudom96/nelysia/jwt`**: Native Web Crypto HMAC-SHA256 JWT auth with zero external dependencies and zero-overhead routing for unauthenticated routes.
 - **Zero-Port Testing API (`app.inject`)**: Fast in-memory HTTP request injection for unit and integration testing without binding network sockets.
 - **TechEmpower Round 22 Benchmark Suite**: Verified 100% compliant with TechEmpower specifications — **99k+ req/s** on JSON and **100k+ req/s** on Plaintext.
-- **Latest `oha` snapshot**: A 10-round Bun static JSON run measured **95,173 req/s** at concurrency 50 with zero failures; Raw Bun measured **95,306 req/s**. The report records prior run sets and variance.
+- **Recorded `oha` snapshot**: A historical 10-round Bun static JSON run measured **95,173 req/s** at concurrency 50 with zero failures; Raw Bun measured **95,306 req/s**. Release-gate measurements are documented separately and use 30 seconds × 7 samples.
 - **Runnable ecosystem fixtures**: Astro, Next.js, Nuxt/Nitro, SvelteKit, and TanStack Start now have native route wiring, framework manifests, production builds, and live HTTP smoke coverage.
 - **Standard Path and Node.js Engine Optimization**: Lazy context getters, zero-copy Node headers, and lazy 405 checks pushing Node.js throughput to **~34,800 req/s**.
 - **Response Shorthands**: `context.html()`, `context.text()`, `context.json()`, and `context.redirect()`.
@@ -119,8 +124,8 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 
 | # | Superpower / จุดเด่น | Description / รายละเอียด |
 | :---: | :--- | :--- |
-| **1** | **3-Lane AOT Compiler** | Static routes → raw buffer (zero overhead). Param routes → direct URL extraction. Complex routes → full pipeline. |
-| **2** | **95,173 req/s — Raw Bun parity** | Ten-round local `oha` snapshot: Nelysia **95,173** vs Raw Bun **95,306 req/s**, zero failures; compare run sets in the report. |
+| **1** | **4-Tier AOT Compiler** | `static-prebuilt` and `static-sync` routes → fast path. Param routes → direct URL extraction. Complex routes → generic fallback. |
+| **2** | **95,173 req/s — Raw Bun parity snapshot** | Historical ten-round local `oha` snapshot: Nelysia **95,173** vs Raw Bun **95,306 req/s**, zero failures; compare like-for-like run sets in the report. |
 | **3** | **V8 Stays in Fast Lane** | Stable context shape keeps the inline cache monomorphic. |
 | **4** | **Node.js and Bun, No Polyfills** | Native `node:http` and `Bun.serve` runtimes. |
 | **5** | **Multi-Core — No PM2 Needed** | `serveClustered()` uses every available CPU core. |
@@ -133,31 +138,36 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 ---
 
 
-This repository currently contains the first vertical slice:
+The repository now contains the completed v0.5 feature set shipped in the v0.5.1
+GitHub Release, while the separate 24-hour production-readiness gate remains
+intentionally deferred:
 
 - deterministic route matching with params
 - request-local context
 - reference execution path
 - Node HTTP adapter
-- compiler metadata and conservative specialization decisions
+- compiler metadata, generated schema fast paths, and conservative fallback diagnostics
 - differential tests for reference and compiled execution
 
 The feature parity roadmap is tracked in [`docs/elysia-parity.md`](./docs/elysia-parity.md).
 
-The first release has a finite scope. Its completion criteria and deferred work are tracked in [`docs/v0.1-definition-of-done.md`](./docs/v0.1-definition-of-done.md).
+The original v0.1 completion criteria remain archived in [`docs/v0.1-definition-of-done.md`](./docs/v0.1-definition-of-done.md).
 
 Future P2 milestones are tracked in [`docs/p2-roadmap.md`](./docs/p2-roadmap.md).
 
 Live implementation status is tracked in [`docs/release-status.md`](./docs/release-status.md).
 
-The v0.5.0 release gate and known limitations are documented in
+The v0.5 release gates and known limitations are documented in
 [`docs/v0.5-release-gates.md`](./docs/v0.5-release-gates.md).
 
-The v0.5.0 30s × 7 core benchmark evidence is recorded in
+The v0.5 feature-set 30s × 7 core benchmark evidence is recorded in
 [`docs/benchmark-oha-v05-2026-09-14.md`](./docs/benchmark-oha-v05-2026-09-14.md).
 
 The v0.5.1 Bun route fast-path evidence is recorded in
 [`docs/benchmark-route-fast-path-v051-2026-09-14.md`](./docs/benchmark-route-fast-path-v051-2026-09-14.md).
+
+The v0.5 JWT public/protected security evidence is recorded in
+[`docs/benchmark-jwt-v05-2026-09-14.md`](./docs/benchmark-jwt-v05-2026-09-14.md).
 
 Runtime support and verification commands are tracked in [`docs/compatibility.md`](./docs/compatibility.md).
 
@@ -169,7 +179,8 @@ Open the complete static documentation at [`docs/index.html`](./docs/index.html)
 
 Latest verified test and benchmark results: [`docs/benchmark-results.html`](./docs/benchmark-results.html).
 
-Latest `oha` load-generator report: [`docs/benchmark-oha-2026-09-14.md`](./docs/benchmark-oha-2026-09-14.md).
+Current v0.5 release `oha` report: [`docs/benchmark-oha-v05-2026-09-14.md`](./docs/benchmark-oha-v05-2026-09-14.md).
+The separate compatibility snapshot is [`docs/benchmark-oha-2026-09-14.md`](./docs/benchmark-oha-2026-09-14.md).
 
 Ten-round benchmark report: [`docs/benchmark-10-rounds.md`](./docs/benchmark-10-rounds.md).
 One-hundred-round benchmark report: [`docs/benchmark-100-rounds.md`](./docs/benchmark-100-rounds.md).
@@ -308,7 +319,7 @@ npm run benchmark:oha:release
 BENCH_ROUTE_SET=single npm run benchmark:oha:route:release
 BENCH_ROUTE_SET=multi npm run benchmark:oha:route:release
 
-# Staged soak gates (24h is intentionally a separate production-readiness run)
+# Staged soak gates (24h is intentionally deferred and remains a separate production-readiness run)
 npm run soak:1m
 npm run soak:10m
 npm run soak:24h
@@ -324,10 +335,11 @@ zero failures):
 | Node JSON | 47,572 req/s | 27,451 req/s | Fastify 38,879; Express 21,130 |
 | Node dynamic params | 47,607 req/s | 40,919 req/s | Fastify 38,846; Express 20,527 |
 
-Environment: AMD Ryzen 5 5600 (6 cores / 12 threads), Bun 1.4.0, Node.js
-v26.8.1, and oha 1.16.0. These are local directional measurements; see the
-[full benchmark report](./docs/benchmark-oha-2026-09-14.md) for methodology,
-previous runs, and variance notes.
+Environment for this compatibility snapshot: AMD Ryzen 5 5600 (6 cores / 12
+threads), Bun 1.4.0, Node.js v26.8.1, and oha 1.16.0. These are local
+directional measurements; release-gate results are in the [v0.5 report](./docs/benchmark-oha-v05-2026-09-14.md),
+and the snapshot methodology, previous runs, and variance notes are in the
+[compatibility report](./docs/benchmark-oha-2026-09-14.md).
 
 Invalid input returns `400`; a request body larger than the configured `bodyLimit` returns `413`.
 

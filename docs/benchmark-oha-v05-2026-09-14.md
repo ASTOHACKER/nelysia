@@ -1,6 +1,7 @@
-# v0.5.0 Release Benchmark Evidence — 2026-09-14
+# v0.5 Release-Set Benchmark Evidence — 2026-09-14
 
-This report uses the new release runner with a warmup excluded from measurement,
+This report covers the v0.5.0 feature set as shipped in the v0.5.1 package and
+uses the new release runner with a warmup excluded from measurement,
 30 seconds per sample, 7 measured samples, concurrency 50, and `oha 1.16.0`.
 Environment: AMD Ryzen 5 5600 (6 cores / 12 threads), Linux, Node.js v26.8.2,
 Bun 1.4.0. Every reported target completed with 100% success and zero failures.
@@ -40,10 +41,13 @@ as a regression signal and should be investigated on the historical runner and
 release hardware before making a performance claim.
 
 The JWT release command is separate because public, valid, missing, invalid, and
-expired-token requests have different security costs:
+expired-token requests have different security costs. Its completed evidence is
+recorded in [`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md):
+105 measured samples, zero failures, and all expected statuses.
 
 ```bash
 npm run benchmark:jwt:release
 ```
 
-The full JWT 30s × 7 evidence and the 24-hour soak remain release-candidate gates.
+The 24-hour soak remains the separate outstanding production-readiness gate and
+is intentionally deferred.

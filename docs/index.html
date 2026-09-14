@@ -1476,7 +1476,7 @@
 
       <div class="version-pill">
         <span class="version-dot"></span>
-        <span>v0.4.0 • Ecosystem Ready</span>
+        <span>v0.5.1 • Current Release</span>
       </div>
 
       <nav class="nav" aria-label="Documentation navigation">
@@ -1543,7 +1543,7 @@
       </nav>
 
       <div class="side-foot">
-        <div>Nelysia v0.4.0</div>
+        <div>Nelysia v0.5.1</div>
         <div style="margin-top: 4px;">Simple by default.<br>Specialized to run.</div>
       </div>
     </aside>
@@ -1592,8 +1592,8 @@
             </div>
             <div class="hero-badge" style="margin-bottom: 0;">
               <span class="hero-badge-dot"></span>
-              <span data-lang="en">v0.4.0 • Ecosystem Release Candidate</span>
-              <span data-lang="th">v0.4.0 • Ecosystem Release Candidate</span>
+              <span data-lang="en">v0.5.1 • Current Release</span>
+              <span data-lang="th">v0.5.1 • รุ่นปัจจุบัน</span>
             </div>
           </div>
           
@@ -1616,14 +1616,14 @@
             </a>
             <a href="https://github.com/ASTOHACKER/nelysia" target="_blank" rel="noreferrer" class="btn btn-secondary">
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path></svg>
-              <span>GitHub (v0.4.0)</span>
+              <span>GitHub (v0.5.1)</span>
             </a>
           </div>
 
           <div class="tags">
-            <span class="tag good">v0.4.0 Ecosystem Ready</span>
+            <span class="tag good">v0.5.1 Release</span>
             <span class="tag">Node.js 22+ Zero-Build</span>
-            <span class="tag">Bun 1.4+ (+7.0% Speed)</span>
+            <span class="tag">Bun 1.4+ Fast Paths</span>
             <span class="tag">Standard Schema v1</span>
             <span class="tag">OpenAPI 3.1 & Swagger</span>
             <span class="tag">Web Standards</span>
@@ -1734,16 +1734,16 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
 
           <div class="grid">
             <div class="tile">
-              <b data-lang="en">1. 3-Lane AOT Compiler</b>
-              <b data-lang="th">1. คอมไพเลอร์แยก 3 เลน</b>
-              <p data-lang="en">Static routes → raw buffer (no overhead). Param routes → direct URL extraction. Complex routes → full pipeline. Right engine for every request, zero waste.</p>
-              <p data-lang="th">รูทคงที่ → ตอบกลับทันทีไม่สร้าง Context. รูทมี param → ดึงค่าตรงจาก URL. รูทซับซ้อน → Full pipeline. ประหยัดทุกรอบ ไม่เสียพลังงานเกินจำเป็น</p>
+              <b data-lang="en">1. 4-Tier AOT Compiler</b>
+              <b data-lang="th">1. คอมไพเลอร์ 4 ระดับ</b>
+              <p data-lang="en">Static values use <code>static-prebuilt</code>, supported zero-argument functions use <code>static-sync</code>, params use direct URL extraction, and complex behavior falls back to the generic pipeline.</p>
+              <p data-lang="th">ค่าคงที่ใช้ <code>static-prebuilt</code>, ฟังก์ชันไม่มี argument ที่รองรับใช้ <code>static-sync</code>, route มี param ดึงตรงจาก URL และ behavior ซับซ้อน fallback ไป generic pipeline</p>
             </div>
             <div class="tile">
-                  <b data-lang="en">2. 95,173 req/s — Raw Bun parity</b>
-                  <b data-lang="th">2. 95,173 req/s — สูสีกับ Raw Bun</b>
-                  <p data-lang="en">Ten-round local <code>oha</code> snapshot measured 95,173 req/s for Bun static JSON vs 95,306 for raw Bun, with zero failures.</p>
-                  <p data-lang="th">ผล <code>oha</code> 10 รอบวัด Bun static JSON ได้ 95,173 req/s เทียบ Raw Bun 95,306 req/s และไม่มี request ล้มเหลว</p>
+                  <b data-lang="en">2. 95,173 req/s — Raw Bun parity snapshot</b>
+                  <b data-lang="th">2. 95,173 req/s — parity snapshot กับ Raw Bun</b>
+                  <p data-lang="en">The recorded ten-round local <code>oha</code> snapshot measured 95,173 req/s for Bun static JSON vs 95,306 for raw Bun, with zero failures.</p>
+                  <p data-lang="th">compatibility snapshot <code>oha</code> 10 รอบวัด Bun static JSON ได้ 95,173 req/s เทียบ Raw Bun 95,306 req/s และไม่มี request ล้มเหลว</p>
             </div>
             <div class="tile">
               <b data-lang="en">3. V8 Stays in Fast Lane</b>
@@ -1803,7 +1803,7 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
                 <span data-lang="en">Interactive AOT Compiler Simulator</span>
                 <span data-lang="th">เครื่องมือจำลอง AOT Compiler Specialization แบบ Interactive</span>
               </div>
-                  <span class="badge-win">AOT Engine v0.4.0</span>
+                  <span class="badge-win">AOT Engine v0.5.1</span>
             </div>
             <div class="sim-body">
               <p style="margin-top: 0;" data-lang="en">Select a route pattern below to observe how Nelysia's AOT dispatcher analyzes AST shapes and assigns execution tiers at boot time:</p>
@@ -1828,7 +1828,7 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
               <div class="sim-metrics-grid">
                 <div class="sim-metric-tile">
                   <div class="sim-metric-label"><span data-lang="en">Execution Tier</span><span data-lang="th">ลำดับ TIER</span></div>
-                  <div class="sim-metric-val" id="sim-tier" style="color: var(--accent);">COMPILED</div>
+                  <div class="sim-metric-val" id="sim-tier" style="color: var(--accent);">static-prebuilt</div>
                 </div>
                 <div class="sim-metric-tile">
                   <div class="sim-metric-label"><span data-lang="en">Latency</span><span data-lang="th">LATENCY</span></div>
@@ -2014,9 +2014,9 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
 
           <div class="grid">
             <div class="tile">
-              <b>COMPILED PATH</b>
-              <p data-lang="en">Static routes with constant values bypass context allocation and run directly at maximum possible throughput.</p>
-              <p data-lang="th">เส้นทางที่เป็นค่าคงที่ (Static Value) จะข้ามขั้นตอนการสร้าง Context ทั้งหมด ตอบสนองได้ด้วยความเร็วสูงสุดระดับเนทีฟ</p>
+              <b>STATIC FAST PATH</b>
+              <p data-lang="en">Explicit static values use <code>static-prebuilt</code>; supported zero-argument functions use <code>static-sync</code>. Both bypass normal context allocation.</p>
+              <p data-lang="th">ค่าคงที่ใช้ <code>static-prebuilt</code>; ฟังก์ชันไม่มี argument ที่รองรับใช้ <code>static-sync</code> และทั้งคู่ข้ามการสร้าง Context ปกติ</p>
             </div>
             <div class="tile">
               <b>SPECIALIZED PATH</b>
@@ -2169,14 +2169,14 @@ app.<span class="fn">post</span>(<span class="str">"/users"</span>, ({ body }) =
 npm install @narudom96/nelysia
 
 <span class="com"># …or from a GitHub Release tarball (no registry needed)</span>
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.4.0/narudom96-nelysia-0.4.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.5.1/narudom96-nelysia-0.5.1.tgz
 npm install ./nelysia.tgz</code></pre>
           </div>
 
           <div class="callout info">
             <b>Releases Page</b>
-            <span data-lang="en">Every release at <code>github.com/ASTOHACKER/nelysia/releases</code> ships a prebuilt tarball (<code>dist-package</code> inside) — replace <code>v0.4.0</code> with the latest version you see there. Full steps in the README.</span>
-            <span data-lang="th">ทุก release ที่ <code>github.com/ASTOHACKER/nelysia/releases</code> มี tarball พร้อมใช้ (<code>dist-package</code> อยู่ในนั้น) — เปลี่ยน <code>v0.4.0</code> เป็นเวอร์ชันล่าสุดที่เห็น ขั้นตอนเต็มอยู่ใน README</span>
+            <span data-lang="en">Every release at <code>github.com/ASTOHACKER/nelysia/releases</code> ships a prebuilt tarball (<code>dist-package</code> inside) — replace <code>v0.5.1</code> with the latest version you see there. Full steps in the README.</span>
+            <span data-lang="th">ทุก release ที่ <code>github.com/ASTOHACKER/nelysia/releases</code> มี tarball พร้อมใช้ (<code>dist-package</code> อยู่ในนั้น) — เปลี่ยน <code>v0.5.1</code> เป็นเวอร์ชันล่าสุดที่เห็น ขั้นตอนเต็มอยู่ใน README</span>
           </div>
         </section>
 
@@ -2199,7 +2199,7 @@ npm install ./nelysia.tgz</code></pre>
             <pre><code><span class="kw">import</span> { Nelysia } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
 
 <span class="kw">export const</span> app = <span class="kw">new</span> <span class="fn">Nelysia</span>()
-  .<span class="fn">get</span>(<span class="str">"/"</span>, ({ html }) =&gt; html(<span class="str">"&lt;h1&gt;Hello from Nelysia v0.4.0!&lt;/h1&gt;"</span>))
+  .<span class="fn">get</span>(<span class="str">"/"</span>, ({ html }) =&gt; html(<span class="str">"&lt;h1&gt;Hello from Nelysia v0.5.1!&lt;/h1&gt;"</span>))
   .<span class="fn">get</span>(<span class="str">"/users/:id"</span>, ({ params, query }) =&gt; ({
     id: params.id,
     filter: query.filter ?? <span class="str">"default"</span>,
@@ -2248,16 +2248,16 @@ curl http://localhost:3000/users/42</code></pre>
               <div class="api-meta-bar">
                 <span class="api-status-pill s200" id="api-status-pill">200 OK</span>
                 <span>Latency: <b id="api-latency-val" style="color: var(--accent);">0.33 ms</b></span>
-                <span>Server: <b style="color: var(--cyan);">Nelysia v0.4.0</b></span>
-                <span>Tier: <b id="api-tier-badge" style="color: var(--accent-hover);">COMPILED</b></span>
+                <span>Server: <b style="color: var(--cyan);">Nelysia v0.5.1</b></span>
+                <span>Tier: <b id="api-tier-badge" style="color: var(--accent-hover);">GENERIC</b></span>
               </div>
               <div class="api-json-view" id="api-response-view">HTTP/1.1 200 OK
 Content-Type: text/html; charset=utf-8
 x-request-id: req_nel_982f1b4a
 x-powered-by: Nelysia
-server-timing: total;dur=0.33;desc="AOT Tier 1"
+server-timing: total;dur=0.33;desc="Generic Pipeline"
 
-&lt;h1&gt;Hello from Nelysia v0.4.0!&lt;/h1&gt;</div>
+&lt;h1&gt;Hello from Nelysia v0.5.1!&lt;/h1&gt;</div>
             </div>
           </div>
         </section>
@@ -2936,7 +2936,8 @@ app.<span class="fn">get</span>(<span class="str">"/redirect"</span>, () =&gt; {
                              ▼
 ┌──────────────────────────────────────────────────────────┐
 │ 2. AOT Route Dispatcher ($O(1)$ Deterministic Match)     │
-│    • COMPILED PATH    ➔ Instant Pre-serialized Response  │
+│    • STATIC-PREBUILT   ➔ Instant Pre-serialized Response  │
+│    • STATIC-SYNC       ➔ Zero-arg Function Fast Path      │
 │    • SPECIALIZED PATH ➔ Slices Params from URL direct    │
 │    • GENERIC PATH     ➔ Enters Full Lifecycle Pipeline   │
 └────────────────────────────┬─────────────────────────────┘
@@ -3852,8 +3853,12 @@ console.<span class="fn">log</span>(<span class="kw">await</span> res.<span clas
               </thead>
               <tbody>
                 <tr>
-                  <td class="status">COMPILED</td>
-                  <td><span data-lang="en">Context-free static response; maximum possible throughput.</span><span data-lang="th">เส้นทางค่าคงที่ ตอบสนองได้ทันทีโดยไม่ต้องสร้าง Context</span></td>
+                  <td class="status">static-prebuilt</td>
+                  <td><span data-lang="en">Explicit <code>getStatic()</code> response serialized at startup; no request-context creation.</span><span data-lang="th">response จาก <code>getStatic()</code> ถูก serialize ตั้งแต่เริ่มต้นและไม่สร้าง request context</span></td>
+                </tr>
+                <tr>
+                  <td class="status">static-sync</td>
+                  <td><span data-lang="en">Supported zero-argument <code>.get()</code> handler indexed by <code>staticFunctionMap</code>.</span><span data-lang="th">handler <code>.get()</code> แบบไม่มี argument ที่รองรับ ใช้ <code>staticFunctionMap</code></span></td>
                 </tr>
                 <tr>
                   <td class="status">SPECIALIZED</td>
@@ -4126,10 +4131,18 @@ npm run benchmark:teb:verify
 <span class="com"># Official JWT Authentication Benchmark</span>
 npm run benchmark:jwt
 
+<span class="com"># Release JWT security evidence (30 seconds × 7, concurrency 50)</span>
+npm run benchmark:jwt:release
+
 <span class="com"># High-throughput load testing with oha (Bun + Node.js)</span>
 npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
+npm run benchmark:oha:release
+
+<span class="com"># Bun route fast-path evidence (run both matched route sets)</span>
+BENCH_ROUTE_SET=single npm run benchmark:oha:route:release
+BENCH_ROUTE_SET=multi npm run benchmark:oha:route:release
 
 <span class="com"># Reproduce the recorded oha settings</span>
 BENCH_DURATION_SEC=<span class="num">3</span> BENCH_CONCURRENCY=<span class="num">50</span> BENCH_ROUNDS=<span class="num">10</span> BENCH_PORT=<span class="num">4341</span> npm run benchmark:oha
@@ -4139,14 +4152,19 @@ node --experimental-strip-types benchmarks/router-scale.ts
 ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --experimental-strip-types benchmarks/router-scale.ts
 
 <span class="com"># Run Soak test (static + dynamic, heap/RSS delta check)</span>
-npm run soak</code></pre>
+npm run soak
+npm run soak:1m
+npm run soak:10m
+
+<span class="com"># Separate 24-hour production-readiness gate (intentionally deferred)</span>
+npm run soak:24h</code></pre>
           </div>
 
           <p data-lang="en">
-            <strong>Latest 10-round local <code>oha</code> snapshot (2026-09-14):</strong> <code>oha 1.16.0</code>, concurrency 50, 3 seconds per sample, 10 rounds, zero failures.
+            <strong>Compatibility snapshot (2026-09-14):</strong> <code>oha 1.16.0</code>, concurrency 50, 3 seconds per sample, 10 rounds, zero failures. The release-gate reports below use 30 seconds × 7.
           </p>
           <p data-lang="th">
-            <strong>ผล <code>oha</code> 10 รอบล่าสุด (2026-09-14):</strong> <code>oha 1.16.0</code>, concurrency 50, วัดรอบละ 3 วินาที 10 รอบ และไม่มี request ล้มเหลว
+            <strong>Compatibility snapshot (2026-09-14):</strong> <code>oha 1.16.0</code>, concurrency 50, วัดรอบละ 3 วินาที 10 รอบ และไม่มี request ล้มเหลว โดย release-gate ใช้ 30 วินาที × 7
           </p>
 
           <div class="table-box">
@@ -4191,6 +4209,14 @@ npm run soak</code></pre>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div class="callout info">
+            <b>v0.5.1 release evidence</b>
+            <span data-lang="en">The current release has recorded core load, JWT security, Bun route fast-path, and 1M/10M soak evidence. Open the <a href="benchmark-oha-v05-2026-09-14.md">core report</a>, <a href="benchmark-jwt-v05-2026-09-14.md">JWT report</a>, <a href="benchmark-route-fast-path-v051-2026-09-14.md">route report</a>, and <a href="soak-v05-2026-09-14.md">soak report</a>.</span>
+            <span data-lang="th">release ปัจจุบันมีหลักฐาน core load, JWT security, Bun route fast-path และ soak 1M/10M แล้ว ดู <a href="benchmark-oha-v05-2026-09-14.md">core report</a>, <a href="benchmark-jwt-v05-2026-09-14.md">JWT report</a>, <a href="benchmark-route-fast-path-v051-2026-09-14.md">route report</a> และ <a href="soak-v05-2026-09-14.md">soak report</a> ได้ที่นี่</span>
+            <p data-lang="en">The 24-hour soak remains intentionally deferred, so these measurements do not announce production readiness.</p>
+            <p data-lang="th">การทดสอบ 24 ชั่วโมงยังเลื่อนไว้ก่อน ดังนั้นผลชุดนี้ยังไม่ใช่การประกาศ production readiness</p>
           </div>
 
           <p data-lang="en" style="color: var(--text-dim);">The former 100,471 req/s TechEmpower plaintext figure is a historical snapshot with a different harness. Do not compare it arithmetically with this latest table; see <code>docs/benchmark-oha-2026-09-14.md</code> for the same-runner trend check.</p>
@@ -4265,8 +4291,8 @@ npm run soak</code></pre>
                 <tr>
                   <td><b>Static Responses</b></td>
                   <td>Generic handler pipeline</td>
-                  <td class="lead-col"><span class="badge-win"><code>app.getStatic('/ping', 'pong')</code></span></td>
-                  <td><span data-lang="en">AOT Tier 1 (COMPILED): Pre-serialized bytes, 0 context allocation (~1.8x faster)</span><span data-lang="th">แปลงเป็นไบต์ล่วงหน้า ไม่สร้าง Context ในแต่ละ Request (เร็วกว่า ~1.8 เท่า)</span></td>
+                  <td class="lead-col"><span class="badge-win"><code>app.getStatic('/ping', 'pong')</code></span><br><code>app.get('/ping', () =&gt; 'pong')</code></td>
+                  <td><span data-lang="en"><code>getStatic()</code> is <code>static-prebuilt</code>; supported zero-argument <code>.get()</code> is <code>static-sync</code>. Unsupported results fall back to generic execution.</span><span data-lang="th"><code>getStatic()</code> คือ <code>static-prebuilt</code>; `.get()` แบบไม่มี argument ที่รองรับคือ <code>static-sync</code> ส่วนผลลัพธ์ที่ไม่รองรับจะ fallback ไป generic</span></td>
                 </tr>
                 <tr>
                   <td><b>Node.js Runtime</b></td>
@@ -4308,8 +4334,8 @@ npm run soak</code></pre>
             </div>
             <div class="tile">
               <b>3. CONSTANT FAST-PATH</b>
-              <p data-lang="en"><b>Elysia:</b> <code>app.get('/ok', () => 'ok')</code><br><b>Nelysia:</b> <code>app.getStatic('/ok', 'ok')</code> (Tier 1 AOT)</p>
-              <p data-lang="th"><b>Elysia:</b> <code>app.get('/ok', () => 'ok')</code><br><b>Nelysia:</b> <code>app.getStatic('/ok', 'ok')</code> (AOT Tier 1 เร็วสุด)</p>
+              <p data-lang="en"><b>Elysia:</b> <code>app.get('/ok', () => 'ok')</code><br><b>Nelysia:</b> <code>app.getStatic('/ok', 'ok')</code> (<code>static-prebuilt</code>) or <code>app.get('/ok', () => 'ok')</code> (<code>static-sync</code>)</p>
+              <p data-lang="th"><b>Elysia:</b> <code>app.get('/ok', () => 'ok')</code><br><b>Nelysia:</b> <code>app.getStatic('/ok', 'ok')</code> (<code>static-prebuilt</code>) หรือ <code>app.get('/ok', () => 'ok')</code> (<code>static-sync</code>)</p>
             </div>
           </div>
         </section>
@@ -4336,6 +4362,10 @@ npm run soak</code></pre>
                 <tr>
                   <td><code>getStatic()</code> <span data-lang="en">for constants</span><span data-lang="th">สำหรับค่าคงที่</span></td>
                   <td><span data-lang="en">Body serialized once, served as prebuilt bytes.</span><span data-lang="th">serialize ครั้งเดียว serve เป็น bytes สำเร็จรูป</span></td>
+                </tr>
+                <tr>
+                  <td><code>() =&gt; value</code> <span data-lang="en">zero-argument handlers</span><span data-lang="th">handler ไม่มี argument</span></td>
+                  <td><span data-lang="en">Supported results use <code>static-sync</code>; unsupported results fall back to generic execution.</span><span data-lang="th">ผลลัพธ์ที่รองรับใช้ <code>static-sync</code>; ที่ไม่รองรับ fallback ไป generic</span></td>
                 </tr>
                 <tr>
                   <td><code>({ params }) =&gt; …</code> <span data-lang="en">handlers</span><span data-lang="th">handler แบบ params-only</span></td>
@@ -4377,13 +4407,13 @@ ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --ex
                 </tr>
               </thead>
               <tbody>
-                <tr><td>☑</td><td><code>npm run release:check</code> <span data-lang="en">passes.</span><span data-lang="th">ผ่าน</span></td></tr>
+                <tr><td>☑</td><td><code>npm run release:check:v05</code> <span data-lang="en">passes for the non-24-hour release gates.</span><span data-lang="th">ผ่านสำหรับ release gate ที่ไม่รวม 24 ชั่วโมง</span></td></tr>
                 <tr><td>☑</td><td><code>npm run framework:check</code> <span data-lang="en">passes for all five framework fixtures after their dependencies are installed.</span><span data-lang="th">ผ่านสำหรับ framework fixture ทั้ง 5 ตัวหลังติดตั้ง dependency แล้ว</span></td></tr>
                 <tr><td>☐</td><td><span data-lang="en">Hot routes on fast path — check <code>NELY003</code> in <code>dist/manifest.json</code>.</span><span data-lang="th">route ร้อนอยู่บน fast path — ดู <code>NELY003</code> ใน <code>dist/manifest.json</code></span></td></tr>
                 <tr><td>☐</td><td><code>bodyLimit</code> <span data-lang="en">fits largest payload;</span> <code>trustedProxy</code> <span data-lang="en">only behind your proxy.</span><span data-lang="th">พอดี payload ใหญ่สุด; เปิด <code>trustedProxy</code> เฉพาะหลัง proxy ตัวเอง</span></td></tr>
                 <tr><td>☐</td><td><code>/health</code> <span data-lang="en">endpoint +</span> <code>gracefulShutdown</code> <span data-lang="en">on SIGTERM.</span><span data-lang="th">มี endpoint และต่อ shutdown กับ SIGTERM</span></td></tr>
                 <tr><td>☐</td><td><code>serveClustered()</code> <span data-lang="en">or autoscaling;</span> <code>PORT</code> <span data-lang="en">wired.</span><span data-lang="th">ขยายด้วย cluster/autoscaling; wiring <code>PORT</code> ครบ</span></td></tr>
-                <tr><td>☐</td><td><span data-lang="en">Long soak + 10-round benchmark on production-like hardware.</span><span data-lang="th">soak ยาว + benchmark 10 รอบบน hardware ใกล้ production</span></td></tr>
+                <tr><td>☐</td><td><span data-lang="en">24-hour soak on production-like hardware before announcing production readiness.</span><span data-lang="th">soak 24 ชั่วโมงบน hardware ใกล้ production ก่อนประกาศ production readiness</span></td></tr>
               </tbody>
             </table>
           </div>
@@ -4430,11 +4460,18 @@ bun test
 npm run soak
 npm run deno:check
 npm audit
+npm run package:imports
+npm run docs:check
+npm run deployment:smoke
+npm run benchmark:oha:release
+npm run benchmark:jwt:release
+BENCH_ROUTE_SET=single npm run benchmark:oha:route:release
+BENCH_ROUTE_SET=multi npm run benchmark:oha:route:release
 npm run build -- ./examples/hello/app.ts --target bun
 npm run build -- ./examples/hello/app.ts --target node
 
-<span class="com"># Everything above in one gate:</span>
-npm run release:check
+<span class="com"># Core verification gate (long benchmarks and 24h soak are separate):</span>
+npm run release:check:v05
 npm run framework:check</code></pre>
           </div>
 
@@ -4471,18 +4508,15 @@ npm run framework:check</code></pre>
                   <td><code>npm run prisma:generate / prisma:smoke</code></td>
                   <td><span data-lang="en">Generate the Prisma client; push schema to SQLite and run the smoke test.</span><span data-lang="th">generate Prisma client; push schema ลง SQLite และรัน smoke test</span></td>
                 </tr>
-                <tr>
-                  <td><code>npm run ai:example</code></td>
-                </tr>
               </tbody>
             </table>
           </div>
 
           <p data-lang="en">
-            Published imports resolve to compiled output — <code>nelysia</code> → <code>dist-package/packages/core/src/index.js</code>, <code>nelysia/plugins</code>, <code>nelysia/observability</code>, <code>nelysia/runtime-fetch</code>, <code>nelysia/graphql</code>, <code>nelysia/drizzle</code>, <code>nelysia/prisma</code>, <code>nelysia/better-auth</code>, <code>nelysia/runtime-vercel</code>, <code>nelysia/runtime-cloudflare</code>, <code>nelysia/compiler</code>, <code>nelysia/openapi</code>, <code>nelysia/client</code>. Inside this monorepo, import from <code>packages/*/src/*.ts</code> source paths directly.
+            Published imports resolve to compiled output — <code>nelysia</code> → <code>dist-package/packages/core/src/index.js</code>, plus <code>plugins</code>, <code>observability</code>, <code>runtime-fetch</code>, <code>runtime-node</code>, <code>runtime-bun</code>, <code>runtime-node-cluster</code>, <code>graphql</code>, <code>drizzle</code>, <code>prisma</code>, <code>better-auth</code>, <code>runtime-vercel</code>, <code>runtime-cloudflare</code>, <code>compiler</code>, <code>openapi</code>, <code>client</code>, <code>jwt</code>, <code>upload</code>, <code>logger</code>, and <code>timeout</code>. Inside this monorepo, import from <code>packages/*/src/*.ts</code> source paths directly.
           </p>
           <p data-lang="th">
-            import ที่ publish แล้วชี้ไปไฟล์ build — <code>nelysia</code> → <code>dist-package/packages/core/src/index.js</code> รวมถึง <code>nelysia/plugins</code>, <code>nelysia/observability</code>, <code>nelysia/runtime-fetch</code>, <code>nelysia/graphql</code>, <code>nelysia/drizzle</code>, <code>nelysia/prisma</code>, <code>nelysia/better-auth</code>, <code>nelysia/runtime-vercel</code>, <code>nelysia/runtime-cloudflare</code>, <code>nelysia/compiler</code>, <code>nelysia/openapi</code>, <code>nelysia/client</code>             ส่วนใน monorepo นี้ให้ import จาก source <code>packages/*/src/*.ts</code> ตรงๆ
+            import ที่ publish แล้วชี้ไปไฟล์ build — <code>nelysia</code> → <code>dist-package/packages/core/src/index.js</code> รวมถึง <code>plugins</code>, <code>observability</code>, <code>runtime-fetch</code>, <code>runtime-node</code>, <code>runtime-bun</code>, <code>runtime-node-cluster</code>, <code>graphql</code>, <code>drizzle</code>, <code>prisma</code>, <code>better-auth</code>, <code>runtime-vercel</code>, <code>runtime-cloudflare</code>, <code>compiler</code>, <code>openapi</code>, <code>client</code>, <code>jwt</code>, <code>upload</code>, <code>logger</code> และ <code>timeout</code> ส่วนใน monorepo นี้ให้ import จาก source <code>packages/*/src/*.ts</code> ตรงๆ
           </p>
 
           <div class="footer">
@@ -4682,7 +4716,7 @@ npm run framework:check</code></pre>
         step1: 'Route AST: Constant Literal Detected',
         step2: 'Context Bypass: Context Creation Excluded',
         step3: 'Target Buffer: Pre-serialized to raw bytes',
-        tier: 'COMPILED',
+        tier: 'static-prebuilt',
         tierColor: 'var(--accent)',
         lat: '0.32 ms',
         alloc: '0 B (Zero-Alloc)',
@@ -4759,8 +4793,8 @@ npm run framework:check</code></pre>
         status: '200 OK',
         sClass: 's200',
         lat: '0.33 ms',
-        tier: 'COMPILED',
-        body: 'HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\nx-request-id: req_nel_982f1b4a\nx-powered-by: Nelysia\nserver-timing: total;dur=0.33;desc="AOT Tier 1"\n\n<h1>Hello from Nelysia v0.4.0!</h1>'
+        tier: 'GENERIC',
+        body: 'HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\nx-request-id: req_nel_982f1b4a\nx-powered-by: Nelysia\nserver-timing: total;dur=0.33;desc="Generic Pipeline"\n\n<h1>Hello from Nelysia v0.5.1!</h1>'
       },
       user: {
         method: 'GET',
@@ -4775,7 +4809,7 @@ npm run framework:check</code></pre>
         status: '200 OK',
         sClass: 's200',
         lat: '0.32 ms',
-        tier: 'COMPILED',
+        tier: 'static-prebuilt',
         body: 'HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\nx-request-id: req_nel_1f77d61b\nx-powered-by: Nelysia\nserver-timing: total;dur=0.32;desc="AOT Tier 1 Zero-Alloc"\n\n{\n  "status": "ok",\n  "uptime": 4218.42\n}'
       },
       'post-user': {
