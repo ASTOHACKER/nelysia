@@ -11,8 +11,10 @@
   },
   "include": ["packages/**/*.ts", "tests/**/*.ts", "examples/**/*.ts"],
   "exclude": [
-    "examples/nuxt/nuxt.config.ts",
-    "examples/sveltekit/vite.config.ts",
-    "examples/tanstack-start/vite.config.ts"
+    "examples/astro/**",
+    "examples/nextjs/**",
+    "examples/nuxt/**",
+    "examples/sveltekit/**",
+    "examples/tanstack-start/**"
   ]
 }
