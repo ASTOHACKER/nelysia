@@ -2,16 +2,36 @@ import { HttpError, type Nelysia } from "../../core/src/app.ts"
 import { compileDispatcher, fastPathname, lookupCompiled, type CompiledDispatcher } from "../../compiler/src/dispatcher.ts"
 import { responseMarker } from "../../core/src/types.ts"
 
-export function createFetchHandler(app: Nelysia): (request: Request) => Promise<Response> {
+export interface FetchRequestContext {
+  env?: unknown
+  executionContext?: unknown
+}
+
+export function createFetchHandler(app: Nelysia): (request: Request, context?: FetchRequestContext) => Promise<Response> {
   // Auto-use the compiled dispatcher for hook-free GET routes; everything else
   // flows through the generic adapter below (same contract, same fallbacks).
-  const dispatcher = app.telemetry !== undefined ? undefined : compileDispatcher(app)
-  return async (request) => {
-    if (dispatcher !== undefined && request.method === "GET") {
+  let dispatcher: CompiledDispatcher | undefined
+  let dispatcherReady: Promise<void> | undefined
+  const getDispatcher = async (): Promise<CompiledDispatcher | undefined> => {
+    if (dispatcherReady === undefined) dispatcherReady = app.modules.then(() => {
+      if (app.telemetry === undefined) dispatcher = compileDispatcher(app)
+    })
+    await dispatcherReady
+    return dispatcher
+  }
+  return async (request, context) => {
+    if (dispatcher !== undefined && context === undefined && request.method === "GET") {
       const fast = await tryCompiledGet(dispatcher, request)
       if (fast !== undefined) return fast
+    } else if (context === undefined && request.method === "GET") {
+      let ready: CompiledDispatcher | undefined
+      try { ready = await getDispatcher() } catch { return genericFetch(app, request, context) }
+      if (ready !== undefined) {
+        const fast = await tryCompiledGet(ready, request)
+        if (fast !== undefined) return fast
+      }
     }
-    return genericFetch(app, request)
+    return genericFetch(app, request, context)
   }
 }
 
@@ -64,7 +84,7 @@ function isResponseData(value: unknown): value is { status: number; headers: Hea
   return typeof value === "object" && value !== null && (value as { [key: symbol]: unknown })[responseMarker] === true
 }
 
-async function genericFetch(app: Nelysia, request: Request): Promise<Response> {
+async function genericFetch(app: Nelysia, request: Request, context?: FetchRequestContext): Promise<Response> {
   try {
     let body: unknown
     if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
@@ -75,14 +95,18 @@ async function genericFetch(app: Nelysia, request: Request): Promise<Response> {
         try { body = JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }
       }
     }
-    const result = await app.handle({ method: request.method, url: request.url, headers: request.headers, body })
+    const result = await app.handle({ method: request.method, url: request.url, headers: request.headers, body, ...context })
     if (result.body instanceof Response) return result.body
     if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers: result.headers })
     const output = typeof result.body === "string" ? result.body : result.body === undefined ? null : JSON.stringify(result.body)
     if (result.body !== undefined && result.body !== null && typeof result.body !== "string") result.headers.set("content-type", "application/json; charset=utf-8")
     return new Response(output, { status: result.status, headers: result.headers })
   } catch (error) {
-    const status = error instanceof HttpError ? error.status : 500
-    return Response.json({ error: status === 500 ? "Internal Server Error" : error instanceof Error ? error.message : "Bad Request" }, { status })
+    const result = await app.handleAdapterError(error, { method: request.method, url: request.url, headers: request.headers, ...context })
+    if (result.body instanceof Response) return result.body
+    if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers: result.headers })
+    const output = typeof result.body === "string" ? result.body : result.body === undefined ? null : JSON.stringify(result.body)
+    if (result.body !== undefined && result.body !== null && typeof result.body !== "string") result.headers.set("content-type", "application/json; charset=utf-8")
+    return new Response(output, { status: result.status, headers: result.headers })
   }
 }

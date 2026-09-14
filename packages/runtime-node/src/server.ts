@@ -16,7 +16,7 @@ export function createNodeServer(app: Nelysia) {
   const websocketRoutes = new Map(app.websocketRoutes.map((route) => [route.path, route.handlers]))
   // Auto-use the compiled dispatcher for hook-free GET routes. Anything else
   // (misses, non-GET, schemas, hooks, telemetry) flows through app.handle().
-  const dispatcher = app.telemetry !== undefined ? undefined : compileDispatcher(app)
+  const dispatcher = app.telemetry !== undefined || app.hasGlobalLifecycle ? undefined : compileDispatcher(app)
   const prebuilt = new Map<CompiledRoute, PrebuiltStatic>()
   if (dispatcher !== undefined) {
     for (const entry of dispatcher.routes) {
@@ -38,13 +38,12 @@ export function createNodeServer(app: Nelysia) {
         ? await readBody(request, Number(headers.get("content-length") ?? 0), app.bodyLimit, headers.get("content-type"))
         : undefined
       const requestId = app.requestIdEnabled ? randomUUID() : undefined
-       const data: RequestData = { method, url: request.url ?? "/", requestId, remoteAddress: request.socket.remoteAddress, headers, body }
+       const data: RequestData = { method, url: request.url ?? "/", requestId: headers.get("x-request-id") ?? requestId, remoteAddress: request.socket.remoteAddress, headers, body }
       const result = await app.handle(data)
       await writeResponse(response, result, method === "HEAD")
     } catch (error) {
-      const status = error instanceof HttpError ? error.status : 500
-      const message = status === 500 ? "Internal Server Error" : error instanceof Error ? error.message : "Bad Request"
-      await writeResponse(response, { status, headers: new Headers(), body: { error: message } }, request.method === "HEAD")
+      const result = await app.handleAdapterError(error, { method: request.method ?? "GET", url: request.url ?? "/", headers: new Headers(request.headers as Record<string, string>) })
+      await writeResponse(response, result, request.method === "HEAD")
     }
   })
   if (!hasWebSocket) return server

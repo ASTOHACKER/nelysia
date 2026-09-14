@@ -1,15 +1,14 @@
-# TanStack Start Fetch Contract
+# TanStack Start API Integration
 
-`src/routes/api/nelysia.ts` exports the Fetch boundary for a TanStack Start
-server route:
+`src/routes/api/nelysia.ts` exports a TanStack Start `Route` with native server
+handlers:
 
 ```ts
-export const fetchHandler = createFetchHandler(app)
+export const Route = createFileRoute('/api/nelysia')({
+  server: { handlers: { GET: ({ request }) => fetchHandler(request) } }
+})
 ```
 
-This is intentionally not a drop-in TanStack Start route. It does not include
-TanStack Start, TanStack Router, or a router/deployment dependency, nor does it
-call `createFileRoute` or configure a server function. The handler only promises
-the Web Fetch `Request`/`Response` contract; router context, middleware,
-streaming policy, SSR, platform bindings, and WebSocket upgrades are not
-covered. Run the repository's deterministic contract test with `npm test`.
+This directory includes a runnable `package.json` fixture with TanStack Start,
+React, and the local Nelysia package. Run `npm install && npm run dev` here.
+Router middleware, SSR, and deployment bindings remain application-specific.

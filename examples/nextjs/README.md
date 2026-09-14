@@ -1,14 +1,13 @@
-# Next.js Fetch Contract
+# Next.js App Router Integration
 
-`app/api/nelysia/route.ts` shows the App Router method contract:
+`app/api/nelysia/route.ts` is an App Router route exporting all supported HTTP
+methods through the Web-standard handler:
 
 ```ts
-export const GET = createFetchHandler(app)
+export const GET = fetchHandler
+export const POST = fetchHandler
 ```
 
-This is a source example, not a complete Next.js integration. It does not
-include a Next.js project, `next` dependency, route configuration, middleware,
-React Server Components, or a deployment target. The handler only promises the
-Web Fetch `Request`/`Response` contract; Edge/Node runtime selection, caching,
-streaming policy, and WebSocket upgrades are not covered. Run the repository's
-deterministic contract test with `npm test`.
+This directory includes a runnable `package.json` fixture with Next.js, React,
+and the local Nelysia package. Run `npm install && npm run dev` here. Runtime
+selection, caching policy, and WebSocket upgrades remain application-specific.

@@ -1,0 +1,10 @@
+{
+  "name": "nelysia-nuxt-example",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "nuxt dev", "build": "nuxt build", "preview": "nuxt preview" },
+  "dependencies": {
+    "@narudom96/nelysia": "file:../..",
+    "nuxt": "4.5.2"
+  }
+}

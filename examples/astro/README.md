@@ -1,14 +1,12 @@
-# Astro Fetch Contract
+# Astro API Integration
 
-`src/pages/api/nelysia.ts` shows the smallest Astro endpoint contract:
+`src/pages/api/nelysia.ts` is an Astro API endpoint using the framework's
+`APIContext` request:
 
 ```ts
-export const GET = createFetchHandler(app)
+export const GET = ({ request }) => fetchHandler(request)
 ```
 
-This is a source example, not a complete Astro integration. It does not include
-an Astro project, `astro` dependency, adapter configuration, SSR pages, or a
-deployment target. The handler only promises the Web Fetch `Request`/`Response`
-contract; WebSocket upgrades, platform bindings, middleware ordering, and Astro
-rendering are not covered. Run the repository's deterministic contract test with
-`npm test`.
+This directory includes a runnable `package.json` fixture with Astro and the
+local Nelysia package. Run `npm install && npm run dev` here. WebSocket
+upgrades and deployment-specific platform bindings remain application-specific.

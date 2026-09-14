@@ -60,6 +60,20 @@ test("validates JSON body before handler execution", async (t) => {
   assert.equal(called, false)
 })
 
+test("Node parser failures use the route error lifecycle", async (t) => {
+  const app = new Nelysia()
+    .onError((_error, context) => context.response(422, { handled: true }))
+    .post("/parse-error", ({ body }) => body)
+  const server = createNodeServer(app)
+  await new Promise<void>((resolve) => server.listen(0, resolve))
+  t.after(() => server.close())
+  const address = server.address()
+  assert.ok(address && typeof address === "object")
+  const response = await fetch(`http://127.0.0.1:${address.port}/parse-error`, { method: "POST", headers: { "content-type": "application/json" }, body: "{" })
+  assert.equal(response.status, 422)
+  assert.deepEqual(await response.json(), { handled: true })
+})
+
 test("Node adapter serves JSON params over HTTP", async (t) => {
   const app = new Nelysia().get("/users/:id", ({ params }) => ({ id: params.id }))
   const server = createNodeServer(app)
@@ -70,6 +84,18 @@ test("Node adapter serves JSON params over HTTP", async (t) => {
   const response = await fetch(`http://127.0.0.1:${address.port}/users/42`)
   assert.equal(response.status, 200)
   assert.deepEqual(await response.json(), { id: "42" })
+})
+
+test("Node adapter preserves a caller-provided request ID", async (t) => {
+  const app = new Nelysia().get("/request-id", ({ requestId }) => requestId)
+  const server = createNodeServer(app)
+  await new Promise<void>((resolve) => server.listen(0, resolve))
+  t.after(() => server.close())
+  const address = server.address()
+  assert.ok(address && typeof address === "object")
+  const response = await fetch(`http://127.0.0.1:${address.port}/request-id`, { headers: { "x-request-id": "edge-42" } })
+  assert.equal(await response.text(), "edge-42")
+  assert.equal(response.headers.get("x-request-id"), "edge-42")
 })
 
 test("HEAD reuses GET route and sends no response body", async (t) => {

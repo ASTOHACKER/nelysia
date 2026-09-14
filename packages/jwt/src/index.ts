@@ -123,6 +123,8 @@ export interface JwtPluginInstance {
 }
 
 export function jwt(options: JwtOptions): (app: Nelysia) => Nelysia {
+  if (typeof options.secret !== "string" || options.secret.length === 0) throw new Error("jwt secret must not be empty")
+  if (options.expiresIn !== undefined && (!Number.isFinite(options.expiresIn) || options.expiresIn <= 0)) throw new Error("jwt expiresIn must be positive")
   const headerName = (options.headerName ?? "authorization").toLowerCase()
   const keyPromise = importHmacKey(options.secret)
 

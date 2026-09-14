@@ -1,0 +1,19 @@
+{
+  "name": "nelysia-tanstack-start-example",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite dev", "build": "vite build", "preview": "vite preview" },
+  "dependencies": {
+    "@narudom96/nelysia": "file:../..",
+    "@tanstack/react-router": "1.170.36",
+    "@tanstack/react-start": "1.168.53",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@tanstack/router-plugin": "1.168.38",
+    "@vitejs/plugin-react": "5.0.4",
+    "typescript": "7.0.2",
+    "vite": "7.3.6"
+  }
+}

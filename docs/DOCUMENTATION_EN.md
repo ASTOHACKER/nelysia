@@ -1,6 +1,6 @@
 # Nelysia: Comprehensive Technical Documentation
 
-> **Version:** 0.1.4 (Latest Release)  
+> **Version:** 0.4.0 (Current workspace release)
 > **Target Runtimes:** Bun 1.4+, Node.js 22+, and Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **Language:** TypeScript / JavaScript (ESM)
 
@@ -92,8 +92,12 @@ Nelysia analyzes every route before the first request arrives. Instead of runnin
 
 Result: every request uses only the power it actually needs.
 
-#### 2. 100,471 req/s — Faster than Raw Bun
-Verified with the TechEmpower plaintext workload using `oha`: **100,471 req/s** on Bun, **+42% over Elysia**, and faster than raw `Bun.serve`. Static paths produce **0% GC pressure** — no garbage, no pauses, no surprises in production.
+#### 2. 95,173 req/s — Raw Bun parity
+The latest 10-round run measured **95,173 req/s** for Bun static JSON at 50
+concurrent workers, versus **95,306 req/s** for raw `Bun.serve`, with zero failed
+requests. The benchmark report retains the preceding run sets and explains the
+short-run variance; the older TechEmpower plaintext snapshot uses a different
+harness.
 
 #### 3. V8 Stays in Fast Lane
 Frameworks that use `.decorate('db', db)` continuously mutate the object's hidden class, which forces V8 to exit its fast Inline Cache (IC) mode and de-optimize. Nelysia fixes this: context shape never changes. Use `context.store` for shared state and the JIT stays monomorphic at peak speed — forever.
@@ -144,6 +148,8 @@ All built-in, one import each:
 
 Sources live in `packages/*/src/*.ts`. Running `npm run package:build` emits compiled JavaScript plus type declarations into `dist-package/`, which is what `package.json` exports point at:
 
+The published compiler helpers are available from `@narudom96/nelysia/compiler`, and the Bun server adapter is available from `@narudom96/nelysia/runtime-bun`.
+
 ```json
 {
   "exports": {
@@ -169,6 +175,8 @@ Sources live in `packages/*/src/*.ts`. Running `npm run package:build` emits com
 ---
 
 ## 3. Quick Start
+
+For production applications, organize code by feature. See [Feature Modules and Composition](./feature-modules.md) for the recommended module, service, model, plugin, and testing boundaries.
 
 ### 1. Create your application (`src/app.ts`)
 
@@ -915,6 +923,17 @@ const app = new Nelysia()
   }))
 ```
 
+For endpoints with multiple documented statuses, use `responses`. The existing `response` option remains the contract for status `200`; status keys may be numbers or strings, and named models become OpenAPI `$ref`s:
+
+```ts
+app.post("/users", ({ response }) => response(201, { id: "1" }), {
+  responses: {
+    201: "User",
+    422: t.Object({ error: t.String() })
+  }
+})
+```
+
 ### Interactive Documentation UIs (`openapiUi` & `swaggerUi`)
 
 Serve your preferred interactive UI documentation with zero external build step:
@@ -952,11 +971,29 @@ Generate TypeScript type declarations for client applications:
 import { generateClientTypes } from "@narudom96/nelysia/openapi"
 
 const typeDefinitions = generateClientTypes(app)
-// Outputs:
+// Outputs a compilable route map:
 // export interface NelysiaRoutes {
-//   GET "/users/:id": { response: unknown }
-//   POST "/users": { response: unknown }
+//   "GET /users/:id": { response: User }
+//   "POST /users": { response: User }
 // }
+```
+
+Use the generated map to constrain paths and infer response values:
+
+```ts
+import { createTypedClient } from "@narudom96/nelysia/client"
+import type { NelysiaRoutes } from "./nelysia-routes"
+
+const api = createTypedClient<NelysiaRoutes>("http://localhost:3000")
+const result = await api.get("/users/1")
+```
+
+For reproducible generated files, use the CLI. It imports the entry module,
+awaits `app.modules`, and never binds a server port:
+
+```sh
+nelysia client src/app.ts --out src/generated/nelysia-client.ts
+nelysia client src/app.ts --out src/generated/nelysia-client.ts --force
 ```
 
 ---
@@ -989,6 +1026,8 @@ Every span contains:
 - `http.route`: The matched route pattern
 - `http.response.status_code`: 200, 404, 500
 - `durationMs`: Wall-clock latency with sub-millisecond precision
+
+For phase-level observability, provide `telemetry.onEvent`. It receives `request.start`, `route.matched`, `parse`, `handler`, `response`, `error`, and `after.response` events with the request ID, route, status when available, and elapsed duration. Event observer failures are isolated from application responses.
 
 ---
 
@@ -1202,11 +1241,11 @@ nelysia build ./src/app.ts --target bun
 nelysia build ./src/app.ts --target node
 ```
 
-### Standalone Generation (Supported Subset)
+### Standalone Generation
 
-When every route is a static value or a params-only GET handler (`({ params }) => …`) with no hooks, schemas, or telemetry, the compiler embeds the route table and handlers directly into the artifact — no generic router import. Static bodies are pre-serialized and served via `Response.clone()`; `/users/:id`-style routes match by prefix and extract the param straight from the URL. Anything else falls back to the adapter entrypoint with an explicit `NELY002` diagnostic naming its method and path.
+When route handlers, lifecycle functions, and schema definitions can be embedded safely, the compiler emits a standalone source-to-source server with no development-router import. It supports all HTTP methods, path parameters, wildcard matching, request parsing, validation, response serialization, headers, HEAD, OPTIONS, 405, and route error handling. Patterns that cannot be embedded safely fall back to the adapter entrypoint with an explicit diagnostic naming their method, path, and reason. Stable route diagnostic codes include `NELY101` unsupported method, `NELY102` request lifecycle, `NELY103` response lifecycle, `NELY104` schema validation, `NELY105` opaque handler, and `NELY106`–`NELY111` for context, module, native response, streaming, WebSocket, and runtime dependency exclusions.
 
-> Deliberate limit: arbitrary source-to-source transformation of all TypeScript patterns is not supported — see `docs/release-status.md`.
+> Deliberate limit: handlers that depend on unavailable runtime closures, platform objects, or opaque integrations remain on the generic fallback path.
 
 ### Adapter Dispatcher (Default Fast Path)
 
@@ -1217,7 +1256,7 @@ Even without a standalone build, the Node, Bun, and Fetch adapters serve hook-fr
 Build outputs:
 - `dist/server.bun.ts` (or `dist/server.node.ts`): Optimized entrypoint.
 - `dist/server.bun.ts.map` (or `dist/server.node.ts.map`): Source map of the artifact.
-- `dist/manifest.json`: Target, artifact, route analyses, diagnostics (`NELY001`/`NELY002`/`NELY003`), `generation` (`standalone`|`adapter`), `dispatcher` (fast-path coverage flag), `reproducible: true`, and content-addressed `cacheKey`.
+- `dist/manifest.json`: Target, artifact, route analyses, diagnostics (`NELY001`/`NELY003` plus reason codes `NELY101`–`NELY111`), `generation` (`standalone`|`adapter`), `dispatcher` (fast-path coverage flag), `reproducible: true`, and content-addressed `cacheKey`.
 - `.nelysia-cache/<hash>.json`: Content-addressed build cache.
 
 ### Deploying with Docker
@@ -1309,7 +1348,7 @@ Nelysia integrates seamlessly into popular full-stack frameworks via `createFetc
 
 ### Next.js (App Router Route Handler)
 
-`app/api/[[...slug]]/route.ts`:
+`app/api/nelysia/route.ts`:
 ```ts
 import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
@@ -1327,6 +1366,7 @@ export const DELETE = (request: Request) => handler(request)
 ```ts
 import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "~/server/app"
+import { defineEventHandler, toWebRequest } from "h3"
 
 const handler = createFetchHandler(app)
 
@@ -1353,19 +1393,50 @@ export const GET = ({ request }: { request: Request }) => fetchHandler(request)
 import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
-// Astro's endpoint method can use a Fetch-standard handler directly.
-export const GET = createFetchHandler(app)
+const fetchHandler = createFetchHandler(app)
+// Astro passes APIContext; forward its Web-standard Request explicitly.
+export const GET = ({ request }: { request: Request }) => fetchHandler(request)
 ```
 
 ### TanStack Start (`src/routes/api/nelysia.ts`)
 
 ```ts
+import { createFileRoute } from "@tanstack/react-router"
 import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
-// Export the Fetch boundary for a TanStack Start server route to call.
-export const fetchHandler = createFetchHandler(app)
+const fetchHandler = createFetchHandler(app)
+export const Route = createFileRoute("/api/nelysia")({
+  server: { handlers: { GET: ({ request }) => fetchHandler(request) } }
+})
 ```
+
+### Running the framework fixtures
+
+Each maintained example is a runnable fixture with its own framework manifest:
+
+| Framework | Fixture | Native bridge | Verification |
+| :--- | :--- | :--- | :--- |
+| Astro | `examples/astro` | Endpoint methods receive `APIContext.request` | Production build + live HTTP smoke |
+| Next.js | `examples/nextjs` | App Router exports `GET`/`POST`/`PUT`/`PATCH`/`DELETE`/`HEAD`/`OPTIONS` | Production build + live HTTP smoke |
+| Nuxt/Nitro | `examples/nuxt` | H3 `toWebRequest(event)` converts Node/Nitro events | Nitro build + live HTTP smoke |
+| SvelteKit | `examples/sveltekit` | `RequestEvent.request` | Production build + live HTTP smoke |
+| TanStack Start | `examples/tanstack-start` | Server route handlers receive `{ request }` | Production build + live HTTP smoke |
+
+Install dependencies in each fixture, then run the aggregate ecosystem gate:
+
+```bash
+for fixture in astro nextjs nuxt sveltekit tanstack-start; do
+  (cd "examples/$fixture" && npm install)
+done
+npm run framework:check
+```
+
+The gate builds every fixture and requests `GET /api/nelysia` from its live
+development server. The framework bridge is intentionally limited to the
+Fetch `Request`/`Response` contract; caching, SSR, WebSocket upgrades, cookies,
+streaming policy, and deployment-specific bindings remain framework or platform
+configuration concerns.
 
 ---
 
@@ -1389,6 +1460,8 @@ npm run benchmark:jwt
 npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
+# If the default base port 4321 is occupied:
+BENCH_PORT=4331 npm run benchmark:oha
 
 # Router scale (generic-path lookup cost vs table size)
 node --experimental-strip-types benchmarks/router-scale.ts
@@ -1396,23 +1469,36 @@ ROUTES=100 node --experimental-strip-types benchmarks/router-scale.ts
 ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 ```
 
-### TechEmpower Specification Results (Tested with oha, Concurrency 50)
+### Latest local `oha` results — 10-round run (2026-09-14)
 
-| Workload | Nelysia (Compiled) | Raw Bun.serve | Elysia 2.0 | Speedup |
-| :--- | :---: | :---: | :---: | :---: |
-| **Plaintext (`/plaintext`)** | **100,471 req/s** | 85,837 req/s | 70,735 req/s | Nelysia **+42% faster** |
-| **JSON (`/json`)** | **99,103 req/s** | 87,460 req/s | 83,937 req/s | Nelysia **+18% faster** |
+Each workload used `oha 1.16.0`, 50 concurrent workers, 3 seconds per sample,
+10 rounds, and zero failed requests. Values are median throughput from the
+current v0.4.0 workspace.
 
-### Node.js Engine Optimization Results (Tested with oha, Concurrency 50)
+| Node workload | Raw Node | Nelysia | Fastify | Express |
+| :--- | ---: | ---: | ---: | ---: |
+| JSON (`GET /json`) | 44,527 req/s | 25,445 req/s | 38,498 req/s | 20,798 req/s |
+| Dynamic params (`GET /users/:id`) | 47,511 req/s | 39,764 req/s | 38,459 req/s | 20,231 req/s |
 
-| Framework | Requests/sec | Latency (avg) | p95 Latency |
-| :--- | :---: | :---: | :---: |
-| **Node.js http (Raw Baseline)** | **47,812 req/s** | 1.04 ms | 1.75 ms |
-| **Fastify 5** | **38,990 req/s** | 1.28 ms | 1.84 ms |
-| **Nelysia (Node Adapter)** | **34,821 req/s** | 1.43 ms | 2.34 ms |
-| **Express 5** | **21,719 req/s** | 2.30 ms | 2.97 ms |
+| Bun workload | Raw Bun | Nelysia | Elysia | Other baseline |
+| :--- | ---: | ---: | ---: | :--- |
+| Static JSON (`GET /json`) | 93,288 req/s | 85,455 req/s | 84,788 req/s | Standard Bun 43,974 |
+| Dynamic params (`GET /users/:id`) | 80,616 req/s | 83,145 req/s | 81,773 req/s | Standard Bun 44,339 |
 
-> Note: Tested on AMD Ryzen 5 5600 6-Core / 12-Threads, Bun 1.4.0 / Node.js 26.8.1 reporting median values across runs.
+Interpretation: in the 10-round run, Bun static Nelysia was effectively tied
+with raw Bun (-0.1%) and 25.1% above Elysia; Bun dynamic was 1.1% above raw Bun
+and 1.3% above Elysia. Node dynamic was 14.0% below raw Node but 5.3% above
+Fastify, while Node JSON was 42.3% below raw Node. These are local directional
+observations, not universal framework rankings. Full command output and environment notes are recorded in
+[`docs/benchmark-oha-2026-09-14.md`](./benchmark-oha-2026-09-14.md).
+
+### Historical TechEmpower snapshot
+
+The older TechEmpower Round 22 snapshot (100,471 req/s plaintext and 99,103
+req/s JSON) remains available in the historical documentation. It used a
+different benchmark harness and should not be compared arithmetically with the
+latest table above. Use the same-runner comparison in the current report when
+checking directional progress.
 
 ### Running Soak Tests
 
@@ -1573,13 +1659,14 @@ Per-request cost ranking (most to least expensive): JSON body parsing → schema
 
 ## 22. Production Deployment Checklist
 
-- [ ] `npm run release:check` passes (typecheck + Node/Bun tests + soak + Deno check + audit).
+- [x] `npm run release:check` passes (typecheck + Node/Bun tests + soak + Deno check + audit).
+- [x] `npm run framework:check` passes after installing the five framework fixtures.
 - [ ] Check dispatcher coverage: build and read `NELY003` in `dist/manifest.json` — hot routes should be on the fast path.
 - [ ] Set `bodyLimit` for your largest payload; keep `trustedProxy: false` unless you control the proxy.
 - [ ] Expose a `/health` endpoint and wire `gracefulShutdown(server, timeout)` on `SIGTERM`.
 - [ ] Scale with `serveClustered()` (Node) or platform autoscaling; confirm `PORT` env wiring.
 - [ ] Deploy via the provided `Dockerfile` (`docker build -t nelysia:local .`) or the release tarball.
-- [ ] Run a long soak (`SOAK_ITERATIONS=1000000`) and a 10-round benchmark on production-like hardware before publishing numbers.
+- [ ] Run a long soak (`SOAK_ITERATIONS=1000000`) and a 10-round benchmark on production-like hardware before publishing deployment claims.
 
 ---
 

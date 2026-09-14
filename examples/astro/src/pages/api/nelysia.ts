@@ -1,7 +1,10 @@
-import { Nelysia } from "../../../../../packages/core/src/index.ts"
-import { createFetchHandler } from "../../../../../packages/runtime-fetch/src/server.ts"
+import { Nelysia } from "@narudom96/nelysia"
+import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 
-const app = new Nelysia().get("/", () => ({ runtime: "astro", ok: true }))
+const app = new Nelysia().get("/api/nelysia", () => ({ runtime: "astro", ok: true }))
 
-// Astro's endpoint method can use a Fetch-standard handler directly.
-export const GET = createFetchHandler(app)
+const fetchHandler = createFetchHandler(app)
+
+// Astro passes an APIContext; forward its Fetch-standard Request to Nelysia.
+export const GET = ({ request }: { request: Request }) => fetchHandler(request)
+export const POST = ({ request }: { request: Request }) => fetchHandler(request)

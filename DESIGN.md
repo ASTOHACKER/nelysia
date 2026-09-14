@@ -11,7 +11,7 @@ colors:
   border-hover: "rgba(255, 255, 255, 0.16)"
   text: "#f8fafc"
   text-muted: "#94a3b8"
-  text-dim: "#64748b"
+  text-dim: "#7f90a5"
   text-code: "#e2e8f0"
   accent: "#10b981"
   accent-hover: "#34d399"

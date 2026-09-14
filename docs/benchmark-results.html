@@ -5,20 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Nelysia / Verified Results</title>
   <style>
-    :root{--bg:#0b1112;--panel:#111a1b;--line:#2b3b3a;--text:#e9f0ed;--muted:#a9bbb5;--quiet:#82958f;--lime:#d8ff62;--cyan:#70e2dc;--orange:#ffad66}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,sans-serif}main{width:min(900px,calc(100% - 36px));margin:auto;padding:70px 0}.back{color:var(--cyan);font-family:monospace}h1{margin:30px 0 12px;font-size:clamp(2.8rem,7vw,5.8rem);line-height:1;letter-spacing:-.07em}h1 em{color:var(--lime);font-style:normal}h2{margin-top:58px;line-height:1.1}p{max-width:72ch;color:var(--muted)}.meta{display:flex;flex-wrap:wrap;gap:8px;margin:25px 0}.tag{padding:5px 9px;border:1px solid #28504e;color:var(--cyan);background:#102324;border-radius:3px;font:13px monospace}.good{color:var(--lime);border-color:#4a5e25;background:#1c2512}.table{overflow:auto;padding:8px;border:1px solid var(--line);background:var(--panel)}table{width:100%;min-width:620px;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line)}th{color:var(--lime);font:13px monospace}td{color:var(--muted)}code,pre{font-family:monospace}code{color:var(--lime)}pre{overflow:auto;padding:18px;border:1px solid var(--line);background:#080d0e;color:var(--text)}.callout{margin:22px 0;padding:17px;border:1px solid #4a5e25;background:#171f14;color:#cfdbc4}.callout b{display:block;color:var(--lime);font:13px monospace;margin-bottom:5px}.foot{margin-top:80px;padding-top:20px;border-top:1px solid var(--line);color:var(--quiet);font:13px monospace}
+    :root{--bg:#0b1112;--panel:#111a1b;--line:#2b3b3a;--text:#e9f0ed;--muted:#a9bbb5;--lime:#d8ff62;--cyan:#70e2dc}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,sans-serif}main{width:min(980px,calc(100% - 36px));margin:auto;padding:60px 0}.back{color:var(--cyan);font-family:monospace}h1{font-size:clamp(2.8rem,7vw,5.8rem);line-height:1;letter-spacing:-.07em}h1 em{color:var(--lime);font-style:normal}h2{margin-top:48px}p{max-width:78ch;color:var(--muted)}.meta{display:flex;flex-wrap:wrap;gap:8px;margin:25px 0}.tag{padding:5px 9px;border:1px solid #28504e;color:var(--cyan);background:#102324;border-radius:3px;font:13px monospace}.table{overflow:auto;padding:8px;border:1px solid var(--line);background:var(--panel)}table{width:100%;border-collapse:collapse}th,td{padding:11px;text-align:left;border-bottom:1px solid var(--line)}th{color:var(--lime);font:13px monospace}td{color:var(--muted)}code,pre{font-family:monospace}code{color:var(--lime)}pre{overflow:auto;padding:18px;border:1px solid var(--line);background:#080d0e;color:var(--text)}.callout{margin:22px 0;padding:17px;border:1px solid #4a5e25;background:#171f14;color:#cfdbc4}.foot{margin-top:70px;padding-top:20px;border-top:1px solid var(--line);color:#82958f;font:13px monospace}
   </style>
 </head>
-<body><main><a class="back" href="index.html">← Back to documentation</a><h1>Verified <em>results.</em></h1><p>These are the latest measurements from the current Nelysia workspace. They are reproducible local observations, not universal performance claims.</p><div class="meta"><span class="tag good">verified</span><span class="tag">Bun 1.4.0</span><span class="tag">Node v26.8.1</span><span class="tag">Linux x64</span><span class="tag">2026-09-12</span></div>
-<h2>Correctness gates</h2><div class="table"><table><thead><tr><th>Gate</th><th>Result</th><th>Details</th></tr></thead><tbody><tr><td>TypeScript typecheck</td><td>PASS</td><td><code>npm run typecheck</code></td></tr><tr><td>Node test suite</td><td>PASS</td><td>20 tests, 0 failures</td></tr><tr><td>Bun test suite</td><td>PASS</td><td>20 tests, 0 failures</td></tr><tr><td>Security audit</td><td>PASS</td><td>0 vulnerabilities</td></tr><tr><td>Bun build</td><td>PASS</td><td><code>dist/server.ts</code> generated</td></tr><tr><td>Node build</td><td>PASS</td><td><code>dist/server.ts</code> generated</td></tr></tbody></table></div>
-<h2>Bun dynamic route</h2><p>Workload: <code>GET /users/:id</code>, 10 concurrent workers, 3 seconds, 3 samples, 1 second warm-up. Nelysia uses the compiled params path. Elysia is <code>2.0.0-exp.60</code>.</p><div class="table"><table><thead><tr><th>Server</th><th>Median req/s</th><th>Median avg latency</th><th>p95 latency</th><th>Failures</th></tr></thead><tbody><tr><td>Raw Bun</td><td>26,715</td><td>0.37 ms</td><td>0.72 ms</td><td>0</td></tr><tr><td>Nelysia compiled params</td><td>21,210</td><td>0.47 ms</td><td>0.83 ms</td><td>0</td></tr><tr><td>Elysia 2.0.0-exp.60</td><td>26,738</td><td>0.37 ms</td><td>0.68 ms</td><td>0</td></tr></tbody></table></div>
-<h2>Bun static route</h2><p>Workload: <code>GET /json</code>, same warm-up, concurrency, duration, and repeats.</p><div class="table"><table><thead><tr><th>Server</th><th>Median req/s</th><th>Median avg latency</th><th>p95 latency</th><th>Failures</th></tr></thead><tbody><tr><td>Raw Bun</td><td>27,027</td><td>0.37 ms</td><td>0.70 ms</td><td>0</td></tr><tr><td>Nelysia compiled static</td><td>22,892</td><td>0.44 ms</td><td>0.79 ms</td><td>0</td></tr><tr><td>Elysia 2.0.0-exp.60</td><td>27,127</td><td>0.37 ms</td><td>0.66 ms</td><td>0</td></tr></tbody></table></div>
-<h2>Node comparison</h2><p>Local smoke run using the same JSON endpoint and the repository's Node benchmark runner. This is directional, not a publication-grade framework ranking.</p><pre>raw-node   6795 req/s   avg 2.94 ms   failures 0
-nelysia    7055 req/s   avg 2.83 ms   failures 0
-fastify    7553 req/s   avg 2.65 ms   failures 0
-express    7350 req/s   avg 2.72 ms   failures 0</pre>
-<div class="callout"><b>How to read 0.33 ms</b>0.33 ms means successful requests took 0.33 milliseconds on average in that exact run. It includes the benchmark client's fetch scheduling, loopback networking, routing, handler work, serialization, response creation, and complete body delivery. It does not mean every request is exactly 0.33 ms or that the framework is universally faster.</div>
-<h2>Reproduce</h2><pre>BENCH_CASE=dynamic \
-BENCH_DURATION_MS=3000 \
-BENCH_CONCURRENCY=10 \
-BENCH_REPEATS=3 \
-npm run benchmark:bun</pre><p>For a fair comparison, keep runtime versions, hardware, route, response shape, concurrency, warm-up, duration, and load generator identical.</p><div class="foot">Nelysia benchmark report · Generated from the current workspace.</div></main></body></html>
+<body><main>
+  <a class="back" href="index.html">← Back to documentation</a>
+  <h1>Verified <em>results.</em></h1>
+  <p>Latest 10-round local measurements for the v0.4.0 workspace. These results are reproducible observations, not universal performance claims; preceding runs are retained in the linked report to show variance.</p>
+  <div class="meta"><span class="tag">2026-09-14</span><span class="tag">Bun 1.4.0</span><span class="tag">Node v26.8.1</span><span class="tag">Linux x64</span><span class="tag">oha 1.16.0</span></div>
+
+  <h2>Correctness and release gates</h2>
+  <div class="table"><table><thead><tr><th>Gate</th><th>Result</th><th>Evidence</th></tr></thead><tbody>
+    <tr><td>TypeScript typecheck</td><td>PASS</td><td><code>npm run typecheck</code></td></tr>
+    <tr><td>Node test suite</td><td>PASS</td><td>139 tests, 0 failures</td></tr>
+    <tr><td>Bun test suite</td><td>PASS</td><td>139 tests, 0 failures</td></tr>
+    <tr><td>Fresh package imports</td><td>PASS</td><td>17 exports on Node, Bun, and Deno</td></tr>
+    <tr><td>Framework fixtures</td><td>PASS</td><td>5/5 build + live HTTP smoke</td></tr>
+    <tr><td>Soak test</td><td>PASS</td><td>20,000 requests, 0 failures</td></tr>
+    <tr><td>Security audit</td><td>PASS</td><td>0 vulnerabilities</td></tr>
+  </tbody></table></div>
+
+  <h2>Latest <code>oha</code> throughput</h2>
+  <p>Every row used 50 concurrent workers, 3 seconds per sample, 10 rounds, and zero failed requests. Values are median requests per second.</p>
+  <div class="table"><table><thead><tr><th>Workload</th><th>Raw baseline</th><th>Nelysia</th><th>Peer</th><th>Relative result</th></tr></thead><tbody>
+    <tr><td>Node JSON <code>GET /json</code></td><td>47,572</td><td>27,451</td><td>Fastify 38,879</td><td>Nelysia is the Node JSON optimization target</td></tr>
+    <tr><td>Node dynamic <code>GET /users/:id</code></td><td>47,607</td><td>40,919</td><td>Fastify 38,846</td><td>+5.3% vs Fastify</td></tr>
+    <tr><td>Bun static JSON <code>GET /json</code></td><td>95,306</td><td>95,173</td><td>Elysia 76,062</td><td>-0.1% vs raw Bun; +25.1% vs Elysia</td></tr>
+    <tr><td>Bun dynamic <code>GET /users/:id</code></td><td>82,904</td><td>83,855</td><td>Elysia 82,816</td><td>+1.1% vs raw Bun; +1.3% vs Elysia</td></tr>
+  </tbody></table></div>
+
+  <div class="callout"><b>How to read this</b><br>Static Bun execution is at raw-Bun parity in this run. Dynamic Bun is within a few percent of its peers. Node JSON is still the clearest remaining performance target. Benchmark values are local and sensitive to runtime, dependencies, CPU, kernel, and load-generator settings.</div>
+
+  <h2>Reproduce</h2>
+  <pre>npm run benchmark:oha:node
+npm run benchmark:oha:bun
+
+# Ecosystem fixture gate (install each examples/* fixture first)
+npm run framework:check</pre>
+  <p>For the same-runner historical comparison, see <a href="benchmark-oha-2026-09-14.md">the current report</a> and <a href="benchmark-10-rounds.md">the historical ten-round report</a>.</p>
+  <div class="foot">Nelysia benchmark report · Generated from the current workspace.</div>
+</main></body></html>

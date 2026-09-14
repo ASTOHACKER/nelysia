@@ -1,0 +1,11 @@
+{
+  "name": "nelysia-astro-example",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "astro dev", "build": "astro build", "preview": "astro preview" },
+  "dependencies": {
+    "@narudom96/nelysia": "file:../..",
+    "astro": "7.3.2",
+    "@astrojs/node": "11.1.5"
+  }
+}

@@ -37,6 +37,15 @@ This compares a raw `Bun.serve()` handler, Nelysia's explicit `getStatic()` comp
 
 Dedicated load-generator benchmarking using [`oha`](https://github.com/hatoo/oha):
 
+The latest recorded run is documented in [`docs/benchmark-oha-2026-09-14.md`](../docs/benchmark-oha-2026-09-14.md).
+
+The latest run uses `oha 1.16.0`, 50 concurrent workers, 3 seconds per sample,
+10 rounds, and zero failed requests. It reports separate JSON/static and dynamic
+parameter workloads for Node and Bun, including Raw Node, Raw Bun, Elysia,
+Fastify, and Express baselines where applicable. For a same-runner trend check
+against the older ten-round report, see the comparison table in the latest
+report; do not subtract results across different runners or workload settings.
+
 ```bash
 # Run full suite (Bun + Node)
 npm run benchmark:oha
@@ -57,8 +66,18 @@ npm run benchmark:teb
 Environment variables to customize:
 
 ```bash
-BENCH_DURATION_SEC=10 BENCH_CONCURRENCY=50 BENCH_ROUNDS=3 npm run benchmark:oha
+BENCH_DURATION_SEC=3 BENCH_CONCURRENCY=50 BENCH_ROUNDS=10 BENCH_PORT=4341 npm run benchmark:oha
+
+# Use another base port when the default 4321 is already occupied.
+BENCH_PORT=4331 npm run benchmark:oha
 ```
+
+`BENCH_DURATION_SEC` controls each measured sample, `BENCH_CONCURRENCY` sets
+the number of `oha` workers, `BENCH_ROUNDS` controls the median sample count,
+and `BENCH_PORT` changes the base port used by the temporary benchmark servers.
+The runner records failures and refuses to present a successful-looking result
+when a request fails. Install `oha` separately and ensure it is on `PATH` before
+running these commands.
 
 Router scale benchmark (generic path, single `app.handle()` lookup cost as the table grows):
 
@@ -74,3 +93,8 @@ generate a request ID per request. The default (`requestId: true`) preserves the
 `x-request-id` echo contract and costs one UUID per request in the Node/Bun adapters.
 
 This is a smoke benchmark, not a framework claim. Record Node version, CPU, OS, dependency versions, and whether other workloads are running before comparing results. Use a dedicated load generator and multiple repetitions before publishing numbers.
+
+The release suite also includes a 200-request concurrent isolation test and a
+request-ID enabled/disabled contract test in `tests/stability.test.ts`. These
+are correctness guards; benchmark throughput is not used as proof of
+correctness.

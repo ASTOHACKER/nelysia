@@ -1,0 +1,14 @@
+{
+  "name": "nelysia-sveltekit-example",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite dev", "build": "vite build", "preview": "vite preview" },
+  "dependencies": {
+    "@narudom96/nelysia": "file:../..",
+    "@sveltejs/adapter-auto": "7.0.1",
+    "@sveltejs/kit": "2.70.3",
+    "@sveltejs/vite-plugin-svelte": "7.3.0",
+    "svelte": "5.57.0",
+    "vite": "6.3.6"
+  }
+}

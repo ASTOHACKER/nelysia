@@ -2,6 +2,16 @@ node_modules/
 dist/
 dist-package/
 dist-techempower/
+examples/astro/.astro/
+examples/nextjs/.next/
+examples/nextjs/AGENTS.md
+examples/nextjs/CLAUDE.md
+examples/nextjs/next-env.d.ts
+examples/nextjs/tsconfig.json
+examples/nuxt/.nuxt/
+examples/nuxt/.output/
+examples/sveltekit/.svelte-kit/
+examples/tanstack-start/src/routeTree.gen.ts
 Logo/
 .nelysia-cache/
 *.tgz

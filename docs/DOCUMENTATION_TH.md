@@ -1,6 +1,6 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 0.1.4 (Latest Release)  
+> **เวอร์ชัน:** 0.4.0 (เวอร์ชันปัจจุบันของ workspace)
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
 
@@ -91,8 +91,11 @@ Nelysia วิเคราะห์ Route ทั้งหมดล่วงห�
 
 ผลลัพธ์: แต่ละ Request ใช้พลังงานพอดีกับสิ่งที่ต้องการ ไม่เปลือง ไม่เสียเวลา
 
-#### 2. 100,471 req/s — เร็วกว่า Raw Bun
-ทดสอบจริงด้วย workload แบบ TechEmpower plaintext ผ่าน `oha`: **100,471 req/s** บน Bun, เร็วกว่า Elysia **+42%** และเร็วกว่า Raw Bun ตัวเปล่า พร้อมขยะหน่วยความจำ (GC) เป็น **0%** บน static route — ไม่มีขยะ ไม่สะดุด ไม่แปลกใจ
+#### 2. 95,173 req/s — สูสีกับ Raw Bun
+รอบ 10 ครั้งล่าสุดวัด Bun static JSON ได้ **95,173 req/s** ที่ concurrency 50
+เทียบ Raw `Bun.serve` ที่ **95,306 req/s** และไม่มี request ล้มเหลว รายงานเก็บ
+รอบก่อน ๆ ไว้ให้ดู variance ด้วย ส่วนตัวเลข TechEmpower plaintext เดิมเป็น
+historical snapshot เพราะใช้ harness คนละชุด
 
 #### 3. V8 ไม่เบรก ไม่สะดุด (Monomorphic IC)
 Framework อื่นมักยัดข้อมูลลง Context ด้วย `.decorate()` ซึ่งเปลี่ยน Shape ของ Object ทำให้ V8 ต้องออกจากโหมดเร็วไปโหมดช้า (De-opt)
@@ -143,6 +146,8 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
 
 ซอร์สโค้ดอยู่ใน `packages/*/src/*.ts` เมื่อสั่ง `npm run package:build` จะได้ไฟล์ JavaScript พร้อม Type Declaration ใน `dist-package/` และ `exports` ใน `package.json` จะชี้ไปที่ไฟล์ที่ build แล้ว:
 
+สามารถ import compiler helpers จาก `@narudom96/nelysia/compiler` และ Bun server adapter จาก `@narudom96/nelysia/runtime-bun` ได้โดยตรง
+
 ```json
 {
   "exports": {
@@ -168,6 +173,8 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
 ---
 
 ## 3. เริ่มต้นใช้งานอย่างรวดเร็ว
+
+สำหรับแอปพลิเคชัน production แนะนำให้จัดโค้ดตาม feature ดู [คู่มือ Feature Modules และ Composition](./feature-modules.md) สำหรับขอบเขตของ module, service, model, plugin และการทดสอบ
 
 ### สร้างไฟล์ `src/app.ts`
 
@@ -895,6 +902,17 @@ const app = new Nelysia()
   }))
 ```
 
+หาก Route มี Response ได้หลาย Status ให้ใช้ `responses` โดย `response` เดิมยังเป็น Contract ของ Status `200` ส่วน key ใช้ได้ทั้งตัวเลขและข้อความ และ Model ที่ตั้งชื่อจะถูกสร้างเป็น OpenAPI `$ref` อัตโนมัติ:
+
+```ts
+app.post("/users", ({ response }) => response(201, { id: "1" }), {
+  responses: {
+    201: "User",
+    422: t.Object({ error: t.String() })
+  }
+})
+```
+
 ### เปิดหน้าเว็บ Redoc UI (`openapiUi`)
 
 แสดงหน้าเว็บเอกสารแบบ Redoc ที่อ่านง่ายและสวยงาม:
@@ -944,6 +962,8 @@ const app = new Nelysia({
 ```
 
 ---
+
+สำหรับ observability ระดับ phase ให้กำหนด `telemetry.onEvent` ซึ่งจะได้รับ event `request.start`, `route.matched`, `parse`, `handler`, `response`, `error` และ `after.response` พร้อม request ID, route, status (ถ้ามี) และเวลาที่ใช้ หาก observer มี error จะไม่ทำให้ response ของ application เปลี่ยนแปลง
 
 ## 12. การเชื่อมต่อกับ GraphQL
 
@@ -1082,7 +1102,7 @@ app.use(betterAuthPlugin(auth)) // ค่าเริ่มต้น prefix: /ap
 
 ---
 
-## 15. Nelysia Client SDK (`@nelysia/client`)
+## 15. Nelysia Client SDK (`@narudom96/nelysia/client`)
 
 ไลบรารี Client น้ำหนักเบาที่ช่วยให้เรียกใช้ API ของ Nelysia ได้ง่ายและปลอดภัย:
 
@@ -1104,6 +1124,24 @@ if (error) {
 await api.post("/users", { name: "กรรณิการ์", age: 25 })
 ```
 
+หากสร้าง route map ด้วย `generateClientTypes(app)` สามารถใช้ `createTypedClient<Routes>()` เพื่อจำกัด path และ infer response จาก route ได้:
+
+```ts
+import { createTypedClient } from "@narudom96/nelysia/client"
+import type { NelysiaRoutes } from "./nelysia-routes"
+
+const api = createTypedClient<NelysiaRoutes>("http://localhost:3000")
+const result = await api.get("/users/1")
+```
+
+หากต้องการสร้างไฟล์ route map แบบ reproducible ให้ใช้ CLI ซึ่งจะ await
+`app.modules` และไม่ bind port:
+
+```sh
+nelysia client src/app.ts --out src/generated/nelysia-client.ts
+nelysia client src/app.ts --out src/generated/nelysia-client.ts --force
+```
+
 ---
 
 ## 16. ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)
@@ -1116,17 +1154,17 @@ await api.post("/users", { name: "กรรณิการ์", age: 25 })
 
 ### Standalone Generation (เส้นทางที่รองรับ)
 
-หากทุก route ในแอปเป็น GET แบบ static-value หรือ params-only handler (`({ params }) => ...`) ที่ไม่มี hooks/schemas/telemetry คอมไพเลอร์จะสร้าง **standalone server** ที่ฝัง route table และ handler ลงใน artifact โดยตรง — ไม่ import generic router:
+เมื่อ handler, lifecycle และ schema definition ของ route สามารถฝังได้อย่างปลอดภัย คอมไพเลอร์จะสร้าง **standalone source-to-source server** โดยไม่ import development router รองรับทุก HTTP method, path parameter, wildcard, body/query/header validation, response serialization, headers, HEAD, OPTIONS, 405 และ route error handler:
 
 - Static route จะ pre-serialize body ไว้ล่วงหน้าและ serve ผ่าน `Response.clone()` ที่เร็วที่สุด
 - Dynamic route แบบ `/users/:id` จะ match prefix ตรงๆ และดึง param จาก URL โดยไม่ split array
-- Route ที่ไม่เข้าเงื่อนไขจะ fallback ไปใช้ adapter พร้อม diagnostic `NELY002` ระบุ method/path
+- Route ที่ไม่เข้าเงื่อนไขจะ fallback ไปใช้ adapter พร้อม diagnostic ที่ระบุ method, path และสาเหตุ โดยใช้ code คงที่ เช่น `NELY101` (method), `NELY102` (request lifecycle), `NELY103` (response lifecycle), `NELY104` (schema), `NELY105` (opaque handler) และ `NELY106`–`NELY111` สำหรับ context/module/native response/stream/WebSocket/runtime dependency
 
-> ข้อจำกัดที่ตั้งใจไว้: arbitrary source-to-source (แปลง TypeScript ทุกรูปแบบ) ยังไม่รองรับ — ดู `docs/release-status.md`
+> ข้อจำกัดที่ตั้งใจไว้: handler ที่พึ่งพา closure, platform object หรือ integration แบบ opaque จะ fallback ไป generic runtime — ดู diagnostics ใน manifest
 
 ### Adapter Dispatcher (Fast Path ค่าเริ่มต้น)
 
-แม้ไม่ build แบบ standalone adapter ของ Node, Bun และ Fetch ก็ serve `GET` ที่ไม่มี hook ผ่าน compiled dispatcher ตัวกลาง (`packages/compiler/src/dispatcher.ts`): static hit แบบ O(1) ด้วย payload ที่ serialize ล่วงหน้า, dynamic lookup แยกตาม method ที่ split pathname ครั้งเดียว และ prefix matching สำหรับ route แบบ `/users/:id` ส่วน hooks/schemas/method อื่น/telemetry ตกไป generic router manifest บันทึกด้วย `dispatcher: true` และ diagnostic `NELY003` ระดับ info ที่รายงาน coverage ของ fast path
+แม้ไม่ build แบบ standalone adapter ของ Node, Bun และ Fetch ก็ serve route `GET` ที่ไม่มี hook ผ่าน compiled dispatcher ตัวกลาง (`packages/compiler/src/dispatcher.ts`): static hit แบบ O(1) ด้วย payload ที่ serialize ล่วงหน้า, dynamic lookup แยกตาม method ที่ split pathname ครั้งเดียว และ prefix matching สำหรับ route แบบ `/users/:id` ส่วน route ที่มี hooks/schemas/method อื่น/telemetry ตกไป generic router manifest บันทึกด้วย `dispatcher: true` และ diagnostic `NELY003` ระดับ info ที่รายงาน coverage ของ fast path
 
 ### คำสั่ง CLI
 ```bash
@@ -1143,7 +1181,7 @@ npm run build -- ./src/app.ts --target node
 ผลลัพธ์จากการสั่ง Build จะถูกบันทึกไว้ในโฟลเดอร์ `dist/`:
 - `dist/server.bun.ts` (หรือ `dist/server.node.ts`): โค้ดเซิร์ฟเวอร์ที่ปรับแต่งประสิทธิภาพแล้ว
 - `dist/server.bun.ts.map` (หรือ `dist/server.node.ts.map`): source map ของ artifact
-- `dist/manifest.json`: สรุป target, artifact, route analyses, diagnostics (`NELY001`/`NELY002`/`NELY003`), `generation` (`standalone`|`adapter`), `dispatcher` (flag บอก fast-path coverage), `reproducible: true` และ content-addressed `cacheKey`
+- `dist/manifest.json`: สรุป target, artifact, route analyses, diagnostics (`NELY001`/`NELY003` และ reason codes `NELY101`–`NELY111`), `generation` (`standalone`|`adapter`), `dispatcher` (flag บอก fast-path coverage), `reproducible: true` และ content-addressed `cacheKey`
 - `.nelysia-cache/<cacheKey>.json`: แคช manifest ตาม hash ของเนื้อหา
 
 ### Deploy ด้วย Docker
@@ -1162,7 +1200,7 @@ import { generateClientTypes } from "@narudom96/nelysia/openapi"
 
 console.log(generateClientTypes(app))
 // export interface NelysiaRoutes {
-//   GET "/users": { response: unknown }
+//   "GET /users": { response: User }
 //   ...
 // }
 ```
@@ -1213,7 +1251,7 @@ Deno.serve(createFetchHandler(app))
 
 คุณสามารถนำ Nelysia ไปใช้เป็น Backend API ภายใน Full-stack Frameworks ยอดนิยมได้ผ่าน `createFetchHandler`:
 
-### Next.js (App Router: `app/api/[[...slug]]/route.ts`)
+### Next.js (App Router: `app/api/nelysia/route.ts`)
 ```ts
 import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
@@ -1230,6 +1268,7 @@ export const DELETE = (req: Request) => handler(req)
 ```ts
 import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "~/server/app"
+import { defineEventHandler, toWebRequest } from "h3"
 
 const handler = createFetchHandler(app)
 
@@ -1253,19 +1292,50 @@ export const POST = ({ request }: { request: Request }) => fetchHandler(request)
 import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
-// Astro endpoint รับ Fetch-standard handler ได้โดยตรง
-export const GET = createFetchHandler(app)
-export const POST = createFetchHandler(app)
+const fetchHandler = createFetchHandler(app)
+// Astro endpoint รับ APIContext จึงส่ง request มาที่ Fetch handler
+export const GET = ({ request }: { request: Request }) => fetchHandler(request)
+export const POST = ({ request }: { request: Request }) => fetchHandler(request)
 ```
 
 ### TanStack Start (`src/routes/api/nelysia.ts`)
 ```ts
+import { createFileRoute } from "@tanstack/react-router"
 import { createFetchHandler } from "@narudom96/nelysia/runtime-fetch"
 import { app } from "@/server/app"
 
-// export Fetch boundary ให้ server route เรียกใช้
-export const fetchHandler = createFetchHandler(app)
+const fetchHandler = createFetchHandler(app)
+export const Route = createFileRoute("/api/nelysia")({
+  server: { handlers: { GET: ({ request }) => fetchHandler(request) } }
+})
 ```
+
+### Fixture ที่รันได้จริงและวิธีตรวจสอบ
+
+ตัวอย่างทั้ง 5 ตัวมี `package.json` ของ framework จริง, route `/api/nelysia`,
+และถูกตรวจด้วย production build พร้อม HTTP smoke จาก dev server:
+
+| Framework | โฟลเดอร์ | Bridge หลัก | หลักฐานการตรวจสอบ |
+| :--- | :--- | :--- | :--- |
+| Astro | `examples/astro` | endpoint method รับ `APIContext.request` | build + HTTP smoke |
+| Next.js | `examples/nextjs` | export `GET`/`POST`/`PUT`/`PATCH`/`DELETE`/`HEAD`/`OPTIONS` | build + HTTP smoke |
+| Nuxt/Nitro | `examples/nuxt` | `toWebRequest(event)` แปลง H3/Nitro event | Nitro build + HTTP smoke |
+| SvelteKit | `examples/sveltekit` | `RequestEvent.request` | build + HTTP smoke |
+| TanStack Start | `examples/tanstack-start` | server handler รับ `{ request }` | build + HTTP smoke |
+
+ติดตั้ง dependency ของแต่ละ fixture แล้วรัน ecosystem gate จาก root:
+
+```bash
+for fixture in astro nextjs nuxt sveltekit tanstack-start; do
+  (cd "examples/$fixture" && npm install)
+done
+npm run framework:check
+```
+
+คำสั่งนี้จะ build ทุก fixture และยิง `GET /api/nelysia` ผ่าน server จริงของแต่ละ
+framework ให้ผล `200` และตรวจ response runtime ที่ถูกต้องด้วย ขอบเขตของ bridge
+คือ Fetch `Request`/`Response`; ส่วน SSR, cache, WebSocket, cookie/streaming
+policy และ deployment binding ยังขึ้นกับการตั้งค่าของ framework/platform นั้น ๆ
 
 ---
 
@@ -1285,6 +1355,8 @@ npm run benchmark:jwt
 npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
+# ถ้า port เริ่มต้น 4321 ถูกใช้งานอยู่:
+BENCH_PORT=4331 npm run benchmark:oha
 
 # Router scale (ต้นทุน lookup ของ generic path เทียบกับขนาดตาราง route)
 node --experimental-strip-types benchmarks/router-scale.ts
@@ -1301,23 +1373,43 @@ SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak
 npm run release:check
 ```
 
-### ผล TechEmpower Specification Benchmark (วัดด้วย oha, Concurrency 50)
+### ผล `oha` ล่าสุดในเครื่อง local (2026-09-14)
 
-| Workload | Nelysia (Compiled) | Raw Bun.serve | Elysia 2.0 | ส่วนต่างความเร็ว |
-| :--- | :---: | :---: | :---: | :---: |
-| **Plaintext (`/plaintext`)** | **100,471 req/s** | 85,837 req/s | 70,735 req/s | Nelysia เร็วกว่า Elysia **+42%** |
-| **JSON (`/json`)** | **99,103 req/s** | 87,460 req/s | 83,937 req/s | Nelysia เร็วกว่า Elysia **+18%** |
+ทุก workload ใช้ `oha 1.16.0`, concurrency 50, 5 วินาทีต่อ sample,
+3 รอบ และไม่มี request ล้มเหลว ตัวเลขเป็น median throughput จาก workspace
+v0.4.0 ปัจจุบัน:
 
-### ผล Node.js Engine Optimization (วัดด้วย oha, Concurrency 50)
+| Workload ฝั่ง Node | Raw Node | Nelysia | Fastify | Express |
+| :--- | ---: | ---: | ---: | ---: |
+| JSON (`GET /json`) | 47,572 req/s | 27,451 req/s | 38,879 req/s | 21,130 req/s |
+| Dynamic (`GET /users/:id`) | 47,607 req/s | 40,919 req/s | 38,846 req/s | 20,527 req/s |
 
-| Framework | Requests/sec | Latency (avg) | p95 Latency |
-| :--- | :---: | :---: | :---: |
-| **Node.js http (Raw Baseline)** | **47,812 req/s** | 1.04 ms | 1.75 ms |
-| **Fastify 5** | **38,990 req/s** | 1.28 ms | 1.84 ms |
-| **Nelysia (Node Adapter)** | **34,821 req/s** | 1.43 ms | 2.34 ms |
-| **Express 5** | **21,719 req/s** | 2.30 ms | 2.97 ms |
+| Workload ฝั่ง Bun | Raw Bun | Nelysia | Elysia | Baseline อื่น |
+| :--- | ---: | ---: | ---: | :--- |
+| Static JSON (`GET /json`) | 95,306 req/s | 95,173 req/s | 76,062 req/s | Route Compiled 44,153 |
+| Dynamic (`GET /users/:id`) | 82,904 req/s | 83,855 req/s | 82,816 req/s | Standard Bun 41,945 |
 
-> *หมายเหตุ*: ทดสอบบนเครื่อง AMD Ryzen 5 5600 6-Core / 12-Threads, Bun 1.4.0 / Node.js 26.8.1 โดยรายงานค่า Median ข้ามรอบทดสอบ
+การอ่านผลรอบ 10 ครั้ง: Bun static ของ Nelysia ต่ำกว่า Raw Bun เพียง 0.1% แต่
+สูงกว่า Elysia 25.1%; Bun dynamic สูงกว่า Raw Bun 1.1% และสูงกว่า Elysia 1.3%;
+Node dynamic ต่ำกว่า Raw Node 14.0% แต่สูงกว่า Fastify 5.3%; Node JSON ต่ำกว่า
+Raw Node 42.3% นี่เป็น directional result จากเครื่อง local ไม่ใช่การจัดอันดับสากล
+รายละเอียดคำสั่งและ environment อยู่ที่
+[`docs/benchmark-oha-2026-09-14.md`](./benchmark-oha-2026-09-14.md)
+
+### การเทียบกับ benchmark เดิมแบบ runner เดียวกัน
+
+เพื่อดูแนวโน้มโดยไม่ปนกับความต่างของ `oha` ได้รัน historical runner เดิมซ้ำที่
+1 วินาทีต่อ sample, concurrency 10, 10 รอบ, request failure เป็นศูนย์:
+
+| Workload | เดิม | Rerun 2026-09-14 | เปลี่ยนแปลง |
+| :--- | ---: | ---: | ---: |
+| Bun static | 30,618 req/s | 57,011 req/s | +86.2% |
+| Bun dynamic | 28,991 req/s | 37,590 req/s | +29.7% |
+| Node JSON | 5,208 req/s | 5,872 req/s | +12.7% |
+
+ตัวเลขนี้เป็น directional comparison เพราะ runtime, dependency, kernel และ
+ภาระเครื่องอาจเปลี่ยนระหว่างวัน จึงไม่ควรตีความว่าเป็น code-only speedup ทั้งหมด
+ดูรายละเอียดได้ที่ [`docs/benchmark-10-rounds.md`](./benchmark-10-rounds.md)
 
 ---
 
@@ -1452,13 +1544,14 @@ ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 
 ## 22. เช็กลิสต์ Deploy ขึ้น Production
 
-- [ ] `npm run release:check` ผ่าน (typecheck + tests Node/Bun + soak + Deno check + audit)
+- [x] `npm run release:check` ผ่าน (typecheck + tests Node/Bun + soak + Deno check + audit)
+- [x] `npm run framework:check` ผ่าน หลังติดตั้ง dependency ของ fixture ทั้ง 5 ตัว
 - [ ] ดู coverage ของ dispatcher: build แล้วอ่าน `NELY003` ใน `dist/manifest.json` — route ร้อนควรอยู่บน fast path
 - [ ] ตั้ง `bodyLimit` ให้พอดี payload ใหญ่สุด; `trustedProxy: false` ไว้ trừคุม proxy เอง
 - [ ] มี endpoint `/health` และต่อ `gracefulShutdown(server, timeout)` กับ `SIGTERM`
 - [ ] ขยายด้วย `serveClustered()` (Node) หรือ autoscaling ของ platform; ยืนยันการ wiring `PORT` env
 - [ ] Deploy ผ่าน `Dockerfile` ที่มีให้ (`docker build -t nelysia:local .`) หรือ release tarball
-- [ ] รัน soak ยาว (`SOAK_ITERATIONS=1000000`) และ benchmark 10 รอบบน hardware ใกล้เคียง production ก่อนประกาศตัวเลข
+- [ ] รัน soak ยาว (`SOAK_ITERATIONS=1000000`) และ benchmark 10 รอบบน hardware ใกล้เคียง production ก่อนประกาศตัวเลขสำหรับ deployment
 
 ---
 

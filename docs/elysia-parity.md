@@ -11,7 +11,7 @@ This is a prioritised roadmap based on Elysia's public documentation. Nelysia sh
 | `listen()` ergonomic API | Implemented (Unified Bun & Node callback with ServerInfo in v0.1.4) | P0 |
 | Params/query/body context | Implemented (Proxy destructuring, `set`, `store`, shorthands in v0.1.2–v0.1.4) | P0 |
 | HEAD/OPTIONS/405 semantics | Implemented (Automatic 405 + Allow headers + OPTIONS 204) | P0 |
-| Lifecycle hooks | Implemented (`onBeforeHandle`, `onAfterHandle`, `onError`) | P0 |
+| Lifecycle hooks | Implemented (`onRequest`, `onParse`, `onTransform`, `onBeforeHandle`, `onAfterHandle`, `mapResponse`, `onError`, `onAfterResponse`) | P0 |
 | Error handling | Implemented (`onError`, `HttpError`, status code mapping) | P0 |
 | Custom 404 handler | Implemented (`notFound()` in v0.1.3+) | P0 |
 | Cookies | Implemented (`cookies`, `setCookie`, `deleteCookie` in v0.1.4) | P1 |
@@ -24,6 +24,7 @@ This is a prioritised roadmap based on Elysia's public documentation. Nelysia sh
 | --- | --- | --- |
 | Path parameter inference | Basic / Parsed in Context params | P0 |
 | Schema body validation | Implemented (`t.Object`, standard schemas) | P0 |
+| Schema composition | Implemented (`Array`, `Union`, `Intersect`, `Partial`, `Pick`, `Omit`, `Enum`, `Nullable`) | P1 |
 | Params/query/header schemas | Implemented (Runtime validation) | P0 |
 | Response schemas | Implemented (Runtime validation & serialization) | P1 |
 | Standard Schema adapters | Implemented (Zod, Valibot, ArkType Standard Schema v1) | P1 |
@@ -37,16 +38,19 @@ This is a prioritised roadmap based on Elysia's public documentation. Nelysia sh
 | Plugins | Implemented (`use()` composition) | P0 |
 | Plugin encapsulation | Implemented (Hook inheritance and mounting boundary) | P0 |
 | Route grouping | Implemented (`group(prefix, callback)` in v0.1.3+) | P0 |
-| Context extension | Implemented (`context.store` request dictionary) | P1 |
-| Macros | Deferred / Investigating | P1 |
-| Mounting/sub-apps | Implemented (`mount()`) | P1 |
+| Context extension | Implemented (`state`, `decorate`, `derive`, `resolve`, `context.store`) | P1 |
+| Macros | Implemented (route policy macros) | P1 |
+| Models and guards | Implemented (named model references, route/group guards) | P1 |
+| Mounting/sub-apps | Implemented (Nelysia instances and Web Standard fetch handlers) | P1 |
+| Async/lazy modules | Implemented (`use(Promise)`, `app.modules`) | P1 |
+| Lifecycle scopes | Implemented (local, scoped, global before-handle hooks) | P1 |
 | Built-in plugins | Implemented (`cors`, `securityHeaders`, `staticDirectory`, `rateLimit`, `compression`) | P0 |
 
 ## Tooling and Ecosystem
 
 | Area | Nelysia status | Priority |
 | --- | --- | --- |
-| CLI dev/build | Implemented (`nelysia inspect`, `nelysia build`) | P0 |
+| CLI dev/build/generate | Implemented (`nelysia inspect`, `nelysia build`, `nelysia generate feature`) | P0 |
 | Route/compiler inspector | Implemented (`npm run inspect`) | P0 |
 | OpenAPI & Swagger UI | Implemented (`openapi()`, `openapiUi()`, `swaggerUi()`, route metadata) | P1 |
 | OpenTelemetry | Implemented (`otlpHttpExporter`, telemetry callbacks) | P1 |

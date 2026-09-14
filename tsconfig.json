@@ -9,5 +9,10 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["packages/**/*.ts", "tests/**/*.ts", "examples/**/*.ts"]
+  "include": ["packages/**/*.ts", "tests/**/*.ts", "examples/**/*.ts"],
+  "exclude": [
+    "examples/nuxt/nuxt.config.ts",
+    "examples/sveltekit/vite.config.ts",
+    "examples/tanstack-start/vite.config.ts"
+  ]
 }

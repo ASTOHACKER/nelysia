@@ -6,7 +6,7 @@ The v0.3 build produces two files in `dist/`:
 - `server.bun.ts.map` or `server.node.ts.map`, a source-map artifact for the generated wrapper;
 - `manifest.json`, a standalone description of that artifact.
 
-The manifest has `version: 1`, identifies the `target` and `artifact`, records the source `entry`, and includes the compiler's route analyses. `sourceToSource` is always `false` in v0.3. `generation` is `standalone` when every route is a supported static or params-only GET route, otherwise it is `adapter`. Standalone artifacts embed only that supported route subset; adapter artifacts import the application and selected runtime adapter. Neither mode is arbitrary source-to-source rewriting.
+The manifest has `version: 1`, identifies the `target` and `artifact`, records the source `entry`, and includes the compiler's route analyses. `sourceToSource` is `true` only when every route is safely embeddable by the declared standalone subset; otherwise it is `false` and `generation` is `adapter`. Standalone artifacts embed supported static, parameter, and schema-aware routes without importing the development router. Adapter artifacts retain the application entry and selected runtime adapter. Unsupported closures, platform-dependent handlers, WebSockets, and application-level runtime features always use the adapter fallback with diagnostics.
 
 Diagnostics are stable objects with `code`, `severity`, and `message`. A `NELY001` info diagnostic documents the supported standalone boundary. A `NELY002` warning is emitted for each route unsupported by standalone generation and includes its method and path.
 

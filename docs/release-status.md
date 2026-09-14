@@ -29,8 +29,8 @@ This file is the finite progress board for work after v0.1. A checkbox is marked
 
 - [x] Target-specific build artifacts and standalone build manifest/diagnostic contract
 - [x] Standalone static/params-only server artifact MVP
-- [x] Standalone Bun/Node server for the supported static and params-only GET subset
-- [ ] Arbitrary source-to-source code generation (explicitly deferred)
+- [x] Standalone Bun/Node source-to-source server for safely embeddable route handlers and schema definitions
+- [x] Standalone source-to-source generation for embeddable handlers and schema definitions, with explicit fallback diagnostics for opaque/platform-dependent patterns
 - [x] Generated Bun server without generic router import (supported subset)
 - [x] Generated Node server without generic router import (supported subset)
 - [x] Generated route matcher
@@ -48,11 +48,11 @@ This file is the finite progress board for work after v0.1. A checkbox is marked
 - [x] Deno Fetch adapter and checked example
 - [x] Cloudflare Worker Fetch adapter
 - [x] Vercel Fetch adapter
-- [x] Astro example MVP (Fetch contract; not full framework integration)
-- [x] Next.js example MVP (Fetch contract; not full framework integration)
-- [x] Nuxt example MVP (Fetch contract; not full framework integration)
-- [x] SvelteKit example MVP (Fetch contract; not full framework integration)
-- [x] TanStack Start example MVP (Fetch contract; not full framework integration)
+- [x] Astro framework fixture with native endpoint methods and HTTP smoke
+- [x] Next.js App Router fixture with native route methods and HTTP smoke
+- [x] Nuxt/Nitro fixture with H3 request conversion and HTTP smoke
+- [x] SvelteKit fixture with native endpoint methods and HTTP smoke
+- [x] TanStack Start fixture with native server route handlers and HTTP smoke
 - [x] Drizzle SQLite integration
 - [x] Prisma SQLite example with generated client and Node smoke test
 - [x] Better Auth route integration contract
@@ -60,9 +60,49 @@ This file is the finite progress board for work after v0.1. A checkbox is marked
 - [x] Migration guides for Express, Fastify, and Elysia
 - [x] npm package dry-run verification
 
-The shared Fetch-standard adapter contract is implemented and tested; platform-specific adapters remain unchecked until their deployment examples and smoke tests exist.
+The shared Fetch-standard adapter contract is implemented and tested; platform-specific adapters are verified through maintained local examples and smoke tests, with deployment-specific limitations documented.
 
-The aggregate verification command is `npm run release:check`.
+## v0.4 Hardening follow-ups
+
+- [x] Framework-native method/event bridges for Astro, Next.js, Nuxt/Nitro, SvelteKit, and TanStack Start
+- [x] Typed-client negative compile-time coverage and direct `tsc` compilation of generated clients
+- [x] Status-specific response schemas in runtime validation and OpenAPI
+- [x] Circular model-definition diagnostics
+- [x] Standard Schema metadata and built-in schema conformance coverage
+- [x] Extended lifecycle failure matrix and mounted error ownership
+- [x] Fresh package export imports verified independently with Node, Bun, and Deno (`npm run package:imports`)
+- [x] Current `oha` benchmark report recorded in `docs/benchmark-oha-2026-09-14.md`
+
+The five framework examples are runnable fixtures with framework-specific package manifests,
+native route wiring, production builds, and live development-server smoke checks. Run
+`npm run framework:check` from the repository root after installing each fixture's dependencies;
+the command builds and requests `/api/nelysia` through Astro, Next.js, Nuxt/Nitro, SvelteKit,
+and TanStack Start.
+
+The aggregate core/package verification command is `npm run release:check`.
+Run `npm run framework:check` as the ecosystem gate after installing the five
+fixture dependencies.
+
+## v0.4.0 verification record (2026-09-14)
+
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| TypeScript | PASS | `npm run typecheck` |
+| Node tests | PASS | 139/139 |
+| Bun tests | PASS | 139/139 |
+| Package build | PASS | `npm run package:build` |
+| Fresh package exports | PASS | 17/17 on Node, Bun, and Deno |
+| Soak | PASS | 20,000 requests, 0 failures |
+| Documentation | PASS | 17 public exports checked |
+| Security audit | PASS | 0 vulnerabilities |
+| Framework fixtures | PASS | 5/5 build + live HTTP smoke |
+
+The current `oha` snapshot used `oha 1.16.0`, concurrency 50, 3 seconds per
+sample, 10 rounds, and zero failures. Median throughput was Bun static
+95,173 req/s, Bun dynamic 83,855 req/s, Node JSON 27,451 req/s, and Node
+dynamic 40,919 req/s. The report also preserves the preceding run sets so the
+short-run variance is visible. The detailed peer comparison and same-runner
+trend check are in [`docs/benchmark-oha-2026-09-14.md`](./benchmark-oha-2026-09-14.md).
 
 ## Release Gates
 
@@ -75,4 +115,4 @@ Each release requires:
 5. Typecheck and security audit passing.
 6. Documentation that states limitations and runtime support.
 
-The project does not declare v0.2, v0.3, or v0.4 complete while unchecked items remain in that release.
+The project does not declare v0.2, v0.3, or v0.4 complete while unchecked items remain in that release. Arbitrary transformation of every possible TypeScript closure is intentionally outside the compiler contract; unsupported patterns must use the documented fallback diagnostics.

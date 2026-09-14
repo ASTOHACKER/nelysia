@@ -16,6 +16,11 @@ test("signs and verifies JWT tokens correctly", async () => {
   assert.equal(res.payload?.role, "admin")
 })
 
+test("JWT plugin rejects empty secrets and invalid expiry settings", () => {
+  assert.throws(() => jwt({ secret: "" }), /secret/)
+  assert.throws(() => jwt({ secret: "secret", expiresIn: 0 }), /expiresIn/)
+})
+
 test("detects expired and invalid JWT tokens", async () => {
   // Expired token (expires in -10 seconds)
   const expiredToken = await signJwt({ sub: "user-1" }, SECRET, { expiresIn: -10 })

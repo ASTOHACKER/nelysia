@@ -1,6 +1,10 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { compile, createGeneratedMatcher, generateBuildArtifact, generateMatcherSource, generateSerializerSource, generateValidatorSource, generateServerSource, generateStandaloneServerSource } from "../packages/compiler/src/index.ts"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { spawn } from "node:child_process"
+import { compile, createGeneratedMatcher, generateBuildArtifact, generateMatcherSource, generateSerializerSource, generateValidatorSource, generateServerSource, generateStandaloneServerSource, unsupportedRouteDiagnostic } from "../packages/compiler/src/index.ts"
 import { Nelysia, t } from "../packages/core/src/index.ts"
 
 test("generates runnable Bun and Node server entrypoints", () => {
@@ -22,7 +26,7 @@ test("build artifacts have target-specific names and a standalone diagnostic man
 
   assert.equal(bun.manifest.artifact, "server.bun.ts")
   assert.equal(node.manifest.artifact, "server.node.ts")
-  assert.equal(bun.manifest.sourceToSource, false)
+  assert.equal(bun.manifest.sourceToSource, true)
   assert.equal(bun.manifest.generation, "standalone")
   assert.equal(bun.manifest.target, "bun")
   assert.equal(bun.manifest.reproducible, true)
@@ -36,7 +40,7 @@ test("build artifacts have target-specific names and a standalone diagnostic man
   assert.deepEqual(bun.manifest.diagnostics, [{
     code: "NELY001",
     severity: "info",
-    message: "This artifact is a standalone server for the supported static and params-only GET subset; arbitrary source-to-source generation is not enabled."
+    message: "This artifact is a standalone source-to-source server for the routes whose handlers and schemas can be embedded safely."
   }])
 })
 
@@ -47,6 +51,14 @@ test("generated matcher preserves static and parameter route semantics", () => {
   assert.deepEqual(matcher("/users/ada%2F1"), { id: "ada/1" })
   assert.equal(matcher("/other"), undefined)
   assert.match(generateMatcherSource(app.graph.routes), /matchGeneratedRoute/)
+})
+
+test("generated matcher supports wildcard route parameters", () => {
+  const app = new Nelysia().get("/assets/*", ({ params }) => params["*"])
+  const matcher = createGeneratedMatcher(app.graph.routes[0])
+  assert.deepEqual(matcher("/assets/css/app.css"), { "*": "css/app.css" })
+  assert.deepEqual(matcher("/assets"), { "*": "" })
+  assert.match(generateMatcherSource(app.graph.routes), /pattern\.at\(-1\) === "\*"/)
 })
 
 test("compiler emits validator and serializer source contracts", () => {
@@ -78,6 +90,21 @@ test("generated validators and serializers stay behaviorally aligned with refere
   for (const value of [{ ok: true }, ["a", 1], "text"]) assert.equal(serializer(value), JSON.stringify(value))
 })
 
+test("generated validators preserve nested, union, nullable, enum, and tuple rules", () => {
+  const schema = t.Object({
+    name: t.String(),
+    age: t.Optional(t.Number()),
+    kind: t.Union([t.Literal("admin"), t.Literal("user")]),
+    note: t.Nullable(t.String()),
+    values: t.Array(t.Number())
+  })
+  const validate = new Function(`${generateValidatorSource(schema).replace("export function", "function")}\nreturn validateGenerated`)() as (value: unknown) => unknown
+  assert.deepEqual(validate({ name: "Ada", kind: "admin", note: null, values: [1, 2] }), { name: "Ada", kind: "admin", note: null, values: [1, 2] })
+  assert.throws(() => validate({ name: "Ada", kind: "guest", note: null, values: [1] }), /allowed value|match/)
+  assert.throws(() => validate({ name: "Ada", kind: "user", note: 1, values: [1] }), /string/)
+  assert.throws(() => validate({ name: "Ada", kind: "user", note: null, values: ["1"] }), /number/)
+})
+
 test("static-only builds emit a standalone handler without the generic router", () => {
   const app = new Nelysia().get("/", { ok: true }).get("/users/:id", ({ params }) => ({ id: params.id }))
   const source = generateStandaloneServerSource({ entry: "./app.ts", target: "bun", compiled: compile(app) })
@@ -95,22 +122,36 @@ test("generated standalone handlers execute static and params-only routes", asyn
 })
 
 test("unsupported routes select adapter generation with an explicit diagnostic", () => {
-  const compiled = compile(new Nelysia().post("/users", ({ body }) => body))
+  const compiled = compile(new Nelysia().get("/users", () => "private", { auth: true }))
   const artifact = generateBuildArtifact({ entry: "./app.ts", target: "node", compiled })
   assert.equal(artifact.manifest.generation, "adapter")
   assert.deepEqual(artifact.manifest.diagnostics[1], {
-    code: "NELY002",
+    code: "NELY107",
     severity: "warning",
-    message: "Standalone generation unsupported: Only GET static and params-only routes are standalone",
-    route: { method: "POST", path: "/users" }
+    message: "Standalone generation unsupported: Mounted or authenticated route metadata requires the generic runtime",
+    route: { method: "GET", path: "/users" }
   })
   assert.match(artifact.source, /createNodeServer/)
+})
+
+test("classifies standalone exclusions with stable diagnostic codes", () => {
+  const requestHook = new Nelysia().onRequest(() => {}).get("/request", "ok").graph.routes[0]
+  const responseHook = new Nelysia().mapResponse((_context, response) => response.body).get("/response", "ok").graph.routes[0]
+  const schema = new Nelysia().get("/schema", () => "ok", { response: t.String() }).graph.routes[0]
+  const routeHook = new Nelysia().onBeforeHandle(() => {}).get("/hook", "ok").graph.routes[0]
+  const opaque = new Nelysia().get("/opaque", ({ query }) => query.get("value")).graph.routes[0]
+
+  assert.equal(unsupportedRouteDiagnostic(requestHook).code, "NELY102")
+  assert.equal(unsupportedRouteDiagnostic(responseHook).code, "NELY103")
+  assert.equal(unsupportedRouteDiagnostic(schema).code, "NELY104")
+  assert.equal(unsupportedRouteDiagnostic(routeHook).code, "NELY106")
+  assert.equal(unsupportedRouteDiagnostic(opaque).code, "NELY105")
 })
 
 test("adapter artifacts record dispatcher coverage", () => {
   const app = new Nelysia()
     .getStatic("/json", { ok: true })
-    .post("/users", ({ body }) => body)
+    .get("/users", () => "private", { auth: true })
   const artifact = generateBuildArtifact({ entry: "./app.ts", target: "node", compiled: compile(app) })
   assert.equal(artifact.manifest.dispatcher, true)
   assert.deepEqual(artifact.manifest.diagnostics.at(-1), {
@@ -125,4 +166,73 @@ test("adapter artifacts record dispatcher coverage", () => {
   })
   assert.equal(standalone.manifest.dispatcher, false)
   assert.ok(!standalone.manifest.diagnostics.some((diagnostic) => diagnostic.code === "NELY003"))
+})
+
+test("standalone generation embeds supported methods and schema validators", () => {
+  const app = new Nelysia()
+    .post("/echo", ({ body }) => body, { body: t.String(), response: t.String() })
+    .get("/users/:id", ({ params }) => ({ id: params.id }))
+  const artifact = generateBuildArtifact({ entry: "./app.ts", target: "bun", compiled: compile(app) })
+  assert.equal(artifact.manifest.generation, "standalone")
+  assert.equal(artifact.manifest.sourceToSource, true)
+  assert.match(artifact.source, /method: "POST"/)
+  assert.match(artifact.source, /bodySchema/)
+  assert.match(artifact.source, /Malformed JSON body/)
+  assert.doesNotMatch(artifact.source, /createCompiledBunHandler|createNodeServer/)
+})
+
+test("compiler keeps application-level runtime features on the adapter path", () => {
+  const telemetry = generateBuildArtifact({
+    entry: "./app.ts",
+    target: "node",
+    compiled: compile(new Nelysia({ telemetry: { onRequest() {} } }).get("/health", () => "ok"))
+  })
+  assert.equal(telemetry.manifest.generation, "adapter")
+  assert.equal(telemetry.manifest.sourceToSource, false)
+  assert.equal(telemetry.manifest.diagnostics.find((diagnostic) => diagnostic.code === "NELY111")?.code, "NELY111")
+
+  const websocketApp = new Nelysia().websocket("/events", {})
+  const websocket = generateBuildArtifact({ entry: "./app.ts", target: "bun", compiled: compile(websocketApp) })
+  assert.equal(websocket.manifest.diagnostics.find((diagnostic) => diagnostic.code === "NELY110")?.code, "NELY110")
+})
+
+test("compiler falls back instead of embedding handlers with runtime closures", () => {
+  const secret = process.env.NELYSIA_CLOSURE_SECRET ?? "outside"
+  const artifact = generateBuildArtifact({
+    entry: "./app.ts",
+    target: "bun",
+    compiled: compile(new Nelysia().get("/closed", () => secret))
+  })
+  assert.equal(artifact.manifest.generation, "adapter")
+  assert.equal(artifact.manifest.diagnostics.find((diagnostic) => diagnostic.code === "NELY105")?.code, "NELY105")
+})
+
+test("generated Node standalone artifacts preserve HTTP request bodies", async () => {
+  const app = new Nelysia()
+    .post("/echo", ({ body }) => body, { body: t.String(), response: t.String() })
+    .get("/users/:id", ({ params }) => ({ id: params.id }))
+  const artifact = generateBuildArtifact({ entry: "./generated-entry.ts", target: "node", compiled: compile(app) })
+  const directory = await mkdtemp(join(tmpdir(), "nelysia-generated-"))
+  const file = join(directory, "server.ts")
+  const port = 38000 + Math.floor(Math.random() * 1000)
+  await writeFile(file, artifact.source)
+  const child = spawn(process.execPath, ["--experimental-strip-types", file], { env: { ...process.env, PORT: String(port) }, stdio: ["ignore", "pipe", "pipe"] })
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("generated server did not start")), 5000)
+      child.stdout.on("data", (chunk: Buffer) => {
+        if (chunk.toString().includes("standalone Node server listening")) { clearTimeout(timer); resolve() }
+      })
+      child.once("error", (error) => { clearTimeout(timer); reject(error) })
+      child.once("exit", (code) => { if (code !== 0) { clearTimeout(timer); reject(new Error(`generated server exited with ${code}`)) } })
+    })
+    const get = await fetch(`http://127.0.0.1:${port}/users/ada`)
+    assert.deepEqual(await get.json(), { id: "ada" })
+    const post = await fetch(`http://127.0.0.1:${port}/echo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify("hello") })
+    assert.equal(await post.text(), "hello")
+  } finally {
+    child.kill("SIGTERM")
+    await new Promise<void>((resolve) => child.once("exit", () => resolve()))
+    await rm(directory, { recursive: true, force: true })
+  }
 })

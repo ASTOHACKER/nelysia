@@ -1,7 +1,7 @@
 import { HttpError, type Nelysia } from "../../core/src/app.ts"
 import type { Context } from "../../core/src/types.ts"
 import { readFile, stat } from "node:fs/promises"
-import { join, normalize, resolve } from "node:path"
+import { isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 export interface RateLimitOptions {
@@ -83,10 +83,9 @@ export function staticDirectory(options: StaticDirectoryOptions): (app: Nelysia)
     const rawPath = context.params["*"] ? `/${context.params["*"]}` : `/${indexFile}`
     let subpath = rawPath === "" || rawPath === "/" ? `/${indexFile}` : rawPath
 
-    const safeRelative = normalize(subpath).replace(/^(\.\.[\/\\])+/, "")
-    const fullPath = resolve(root, `.${safeRelative}`)
-
-    if (!fullPath.startsWith(root)) {
+    const fullPath = resolve(root, `.${subpath}`)
+    const relativePath = relative(root, fullPath)
+    if (relativePath === ".." || relativePath.startsWith(`..${String.fromCharCode(47)}`) || isAbsolute(relativePath)) {
       return context.response(404, { error: "Not Found" })
     }
 
@@ -113,6 +112,7 @@ export function staticDirectory(options: StaticDirectoryOptions): (app: Nelysia)
 
 export function compression(options: CompressionOptions = {}): (app: Nelysia) => Nelysia {
   const threshold = options.threshold ?? 0
+  if (!Number.isFinite(threshold) || threshold < 0) throw new Error("compression threshold must be non-negative")
   return (app) => app.onAfterHandle((context, result) => {
     if (!context.request.headers?.get("accept-encoding")?.includes("gzip")) return
     if (result.headers.has("content-encoding") || result.body === undefined || result.body === null) return
@@ -127,6 +127,11 @@ export function compression(options: CompressionOptions = {}): (app: Nelysia) =>
 }
 
 export function cors(options: CorsOptions = {}): (app: Nelysia) => Nelysia {
+  if (options.maxAge !== undefined && (!Number.isFinite(options.maxAge) || options.maxAge < 0)) throw new Error("cors maxAge must be non-negative")
+  const validateHeaderValue = (value: string) => { if (/[\r\n]/.test(value)) throw new Error("cors header values must not contain line breaks") }
+  for (const value of [options.methods, options.allowedHeaders, options.exposedHeaders]) {
+    for (const item of Array.isArray(value) ? value : value === undefined ? [] : [value]) validateHeaderValue(item)
+  }
   const originOption = options.origin ?? "*"
   const methods = options.methods
     ? (Array.isArray(options.methods) ? options.methods.join(", ") : options.methods)
@@ -148,7 +153,7 @@ export function cors(options: CorsOptions = {}): (app: Nelysia) => Nelysia {
       return originOption ? reqOrigin : undefined
     }
     if (typeof originOption === "string") {
-      return originOption === "*" && credentials ? reqOrigin : originOption
+      return originOption === "*" && credentials ? undefined : originOption
     }
     if (Array.isArray(originOption)) {
       return originOption.includes(reqOrigin) ? reqOrigin : undefined
@@ -210,6 +215,9 @@ export function cors(options: CorsOptions = {}): (app: Nelysia) => Nelysia {
 }
 
 export function securityHeaders(options: SecurityHeadersOptions = {}): (app: Nelysia) => Nelysia {
+  for (const value of [options.referrerPolicy, options.strictTransportSecurity, options.crossOriginOpenerPolicy, options.crossOriginResourcePolicy]) {
+    if (typeof value === "string" && /[\r\n]/.test(value)) throw new Error("security header values must not contain line breaks")
+  }
   const xContentTypeOptions = options.xContentTypeOptions ?? true
   const xFrameOptions = options.xFrameOptions ?? "SAMEORIGIN"
   const xXSSProtection = options.xXSSProtection ?? true

@@ -73,6 +73,30 @@ graph TD
 * **Sub-App Composition (`mount`):** รวมแอปย่อยด้วย Path Prefix โดยจัดระเบียบ Namespace และคัดลอก Route Metadata อย่างสมบูรณ์
 * **Plugin Mechanism (`use`):** Functional Plugin Interface ที่ช่วยแยกส่วนขยายการทำงาน เช่น Rate Limit หรือ CORS ออกเป็นโมดูลอิสระ
 
+#### Feature Module Convention
+
+Nelysia treats a feature module as a `Nelysia` instance. The instance owns the feature's routes, schemas, policies, and lifecycle while services remain independent from HTTP concerns.
+
+```text
+modules/users/
+  index.ts       # Nelysia instance and routes
+  model.ts       # validation schemas and named models
+  service.ts     # business logic
+  repository.ts  # persistence boundary
+  test.ts        # module contract tests
+```
+
+The root application explicitly composes modules with `.use()` or `.mount()`. `state`, `decorate`, `derive`, and `resolve` extend a module's context; `guard` and `macro` apply reusable route policy without introducing a traditional controller class.
+
+```ts
+export const app = new Nelysia()
+  .use(database)
+  .use(users)
+  .use(import("./modules/admin/index.ts"))
+```
+
+Named modules are deduplicated by `name` and `seed`. Lazy modules are awaited with `await app.modules` before tests or operations that require their routes.
+
 ---
 
 ### Layer 2: Compiler & Static Analysis Subsystem (ระบบคอมไพเลอร์และการวิเคราะห์ AOT)
@@ -94,7 +118,7 @@ flowchart TD
 * **CLI Engine (`nelysia inspect` / `nelysia build`):**
   - วิเคราะห์ Route Graph และส่งออกเป็นรายงานความพร้อมในการ Optimize
   - สร้างไฟล์ Standalone Server (`dist/server.bun.ts` หรือ `dist/server.node.ts`)
-  - สร้าง `dist/manifest.json` พร้อมรหัส Diagnostics (`NELY001`, `NELY002`) และ Content-addressed Cache Hash ในโฟลเดอร์ `.nelysia-cache/`
+  - สร้าง `dist/manifest.json` พร้อมรหัส Diagnostics (`NELY001`, `NELY003` และ reason codes `NELY101`–`NELY111`) และ Content-addressed Cache Hash ในโฟลเดอร์ `.nelysia-cache/`
 
 ---
 

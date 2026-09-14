@@ -61,7 +61,7 @@ import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
   .use(cors())
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.1.4!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.4.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "all"
@@ -84,14 +84,17 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 
 **Full Documentation / คู่มือการใช้งานอย่างละเอียด:**
 - [System Architecture Blueprint (โครงสร้างสถาปัตยกรรม)](./docs/ARCHITECTURE.md)
+- [Feature Modules and Composition](./docs/feature-modules.md)
 - [Comprehensive Documentation (English)](./docs/DOCUMENTATION_EN.md)
 - [คู่มือการใช้งานอย่างละเอียด (ภาษาไทย)](./docs/DOCUMENTATION_TH.md)
 - [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
 
-### What's New in v0.1.4
+### What's New in v0.4.0
 - **Official `@narudom96/nelysia/jwt`**: Native Web Crypto HMAC-SHA256 JWT auth with zero external dependencies and zero-overhead routing for unauthenticated routes.
 - **Zero-Port Testing API (`app.inject`)**: Fast in-memory HTTP request injection for unit and integration testing without binding network sockets.
 - **TechEmpower Round 22 Benchmark Suite**: Verified 100% compliant with TechEmpower specifications — **99k+ req/s** on JSON and **100k+ req/s** on Plaintext.
+- **Latest `oha` snapshot**: A 10-round Bun static JSON run measured **95,173 req/s** at concurrency 50 with zero failures; Raw Bun measured **95,306 req/s**. The report records prior run sets and variance.
+- **Runnable ecosystem fixtures**: Astro, Next.js, Nuxt/Nitro, SvelteKit, and TanStack Start now have native route wiring, framework manifests, production builds, and live HTTP smoke coverage.
 - **Standard Path and Node.js Engine Optimization**: Lazy context getters, zero-copy Node headers, and lazy 405 checks pushing Node.js throughput to **~34,800 req/s**.
 - **Response Shorthands**: `context.html()`, `context.text()`, `context.json()`, and `context.redirect()`.
 - **`context.query` Proxy**: Destructure query parameters directly: `({ query }) => query.search`.
@@ -108,7 +111,7 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 | # | Superpower / จุดเด่น | Description / รายละเอียด |
 | :---: | :--- | :--- |
 | **1** | **3-Lane AOT Compiler** | Static routes → raw buffer (zero overhead). Param routes → direct URL extraction. Complex routes → full pipeline. |
-| **2** | **100,471 req/s — Faster than Raw Bun** | TechEmpower plaintext benchmark, **0% GC pressure** on static paths. Verified with `oha`. |
+| **2** | **95,173 req/s — Raw Bun parity** | Ten-round local `oha` snapshot: Nelysia **95,173** vs Raw Bun **95,306 req/s**, zero failures; compare run sets in the report. |
 | **3** | **V8 Stays in Fast Lane** | Stable context shape keeps the inline cache monomorphic. |
 | **4** | **Node.js and Bun, No Polyfills** | Native `node:http` and `Bun.serve` runtimes. |
 | **5** | **Multi-Core — No PM2 Needed** | `serveClustered()` uses every available CPU core. |
@@ -148,6 +151,8 @@ Open the complete static documentation at [`docs/index.html`](./docs/index.html)
 
 Latest verified test and benchmark results: [`docs/benchmark-results.html`](./docs/benchmark-results.html).
 
+Latest `oha` load-generator report: [`docs/benchmark-oha-2026-09-14.md`](./docs/benchmark-oha-2026-09-14.md).
+
 Ten-round benchmark report: [`docs/benchmark-10-rounds.md`](./docs/benchmark-10-rounds.md).
 One-hundred-round benchmark report: [`docs/benchmark-100-rounds.md`](./docs/benchmark-100-rounds.md).
 
@@ -159,7 +164,7 @@ npm run typecheck
 npm run example
 ```
 
-Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter in this MVP.
+Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The current v0.4.0 workspace also includes runnable full-stack framework fixtures.
 
 With Bun installed, run the Bun target:
 
@@ -167,6 +172,15 @@ With Bun installed, run the Bun target:
 bun test
 npm run bun:smoke
 npm run bun:example
+```
+
+To verify the five full-stack fixtures after installing their local dependencies:
+
+```bash
+for fixture in astro nextjs nuxt sveltekit tanstack-start; do
+  (cd "examples/$fixture" && npm install)
+done
+npm run framework:check
 ```
 
 ## Try a real HTTP request
@@ -208,7 +222,7 @@ const app = new Nelysia().post("/users", ({ body }) => body, {
 
 ```ts
 import { Nelysia } from "@narudom96/nelysia"
-import { jwt } from "@narudom96/nelysia/jwt"
+import { jwt, signJwt } from "@narudom96/nelysia/jwt"
 
 const secret = process.env.JWT_SECRET
 if (!secret) throw new Error("JWT_SECRET is required")
@@ -218,12 +232,12 @@ const app = new Nelysia()
     secret,
     expiresIn: 3600
   }))
-  .post("/login", async ({ jwt }) => {
+  .post("/login", async () => {
     // Replace this with a real user lookup and password check.
-    const token = await jwt.sign({
+    const token = await signJwt({
       sub: "user-123",
       role: "admin"
-    })
+    }, secret, { expiresIn: 3600 })
 
     return { token }
   })
@@ -282,4 +296,4 @@ npm run build -- ./examples/hello/app.ts --target bun
 bun dist/server.bun.ts
 ```
 
-The build also writes `dist/manifest.json`, which records the target, route analyses, generation mode, and explicit diagnostics. Supported static and params-only GET routes produce a standalone artifact; other applications retain the application entry and selected runtime adapter. `sourceToSource: false` documents that arbitrary source-to-source route generation remains deferred. See [`spec/build-manifest.md`](./spec/build-manifest.md).
+The build also writes `dist/manifest.json`, which records the target, route analyses, generation mode, and explicit diagnostics. Routes whose handlers and schema definitions can be embedded safely produce a standalone source-to-source artifact; opaque or platform-dependent applications retain the application entry and selected runtime adapter with a reason-coded fallback diagnostic. See [`spec/build-manifest.md`](./spec/build-manifest.md).

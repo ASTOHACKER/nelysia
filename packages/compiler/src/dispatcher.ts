@@ -39,6 +39,11 @@ export type CompiledLookup =
 /** Routes eligible for the compiled fast path: GET-only, no hooks, no schemas. */
 export function isCompilableRoute(route: RouteRecord): boolean {
   return route.method === "GET"
+    && route.auth === undefined
+    && (route.requestHooks?.length ?? 0) === 0
+    && (route.parseHooks?.length ?? 0) === 0
+    && (route.mapResponseHooks?.length ?? 0) === 0
+    && (route.afterResponseHooks?.length ?? 0) === 0
     && route.hooks.length === 0
     && route.afterHooks.length === 0
     && route.errorHandlers.length === 0
@@ -206,11 +211,15 @@ export function createGeneratedMatcher(route: RouteRecord): (pathname: string) =
   return (pathname) => {
     const normalized = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname
     const values = normalized === "/" ? [] : normalized.slice(1).split("/")
-    if (values.length !== segments.length) return
+    if (route.wildcard ? values.length < segments.length - 1 : values.length !== segments.length) return
     const params: Record<string, string> = {}
     let paramIndex = 0
     for (let index = 0; index < segments.length; index++) {
       const segment = segments[index]
+      if (segment === "*") {
+        try { params["*"] = values.slice(index).map((value) => decodeURIComponent(value)).join("/") } catch { return }
+        break
+      }
       const value = values[index]
       if (segment.startsWith(":")) {
         try { params[names[paramIndex++]] = decodeURIComponent(value) } catch { return }

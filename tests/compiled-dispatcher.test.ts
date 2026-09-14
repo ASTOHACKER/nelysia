@@ -76,6 +76,30 @@ test("hooked and schema routes fall back to generic execution", async () => {
   }
 })
 
+test("extended application lifecycle disables compiled fast paths", async () => {
+  const app = new Nelysia({ requestId: false })
+    .onRequest((_request) => new Response("intercepted", { status: 202 }))
+    .getStatic("/hot", "should-not-run")
+  const handler = createCompiledBunHandler(app)
+  const response = await handler(new Request("http://localhost/hot"))
+  assert.equal(response.status, 202)
+  assert.equal(await response.text(), "intercepted")
+})
+
+test("mounted response lifecycle hooks force compiled parity fallback", async () => {
+  const child = new Nelysia().mapResponse((_context, response) => ({ wrapped: response.body })).get("/value", () => "value")
+  const app = new Nelysia({ requestId: false }).mount("/feature", child)
+  const compiled = createCompiledBunHandler(app)
+  const generic = createBunHandler(app)
+  const [fast, slow] = await Promise.all([
+    compiled(new Request("http://localhost/feature/value")),
+    generic(new Request("http://localhost/feature/value"))
+  ])
+  const [fastBody, slowBody] = await Promise.all([fast.text(), slow.text()])
+  assert.equal(fastBody, slowBody)
+  assert.deepEqual(JSON.parse(fastBody), { wrapped: "value" })
+})
+
 test("single non-serialized static route no longer matches every path", async () => {
   const app = new Nelysia({ requestId: false }).get("/only", () => "x")
   const handler = createCompiledBunHandler(app)
@@ -166,4 +190,29 @@ test("compiled Fetch handler matches generic execution", async () => {
   }))
   assert.deepEqual(await posted.json(), { name: "Ada" })
   assert.equal((await handler(new Request("http://localhost/nope"))).status, 404)
+})
+
+test("compiled and generic handlers stay equivalent across fallback boundaries", async () => {
+  const app = new Nelysia({ requestId: false })
+    .get("/wild/*", ({ params }) => params["*"])
+    .get("/schema/:id", ({ params }) => ({ id: params.id }), { params: t.Object({ id: t.String() }) })
+    .get("/native", () => new Response("native", { status: 201, headers: { "x-native": "yes" } }))
+    .get("/stream", () => new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode("stream")); controller.close() } })))
+  const compiled = createCompiledBunHandler(app)
+  const generic = createBunHandler(app)
+  const requests = [
+    new Request("http://localhost/wild/a/b"),
+    new Request("http://localhost/schema/42"),
+    new Request("http://localhost/schema/42", { method: "HEAD" }),
+    new Request("http://localhost/schema/42", { method: "OPTIONS" }),
+    new Request("http://localhost/schema/42", { method: "POST" }),
+    new Request("http://localhost/native"),
+    new Request("http://localhost/stream")
+  ]
+  for (const request of requests) {
+    const [fast, slow] = await Promise.all([compiled(request.clone()), generic(request)])
+    assert.equal(fast.status, slow.status, `${request.method} ${request.url} status`)
+    assert.equal(await fast.text(), await slow.text(), `${request.method} ${request.url} body`)
+    for (const [name, value] of slow.headers) assert.equal(fast.headers.get(name), value, `${request.method} ${request.url} header ${name}`)
+  }
 })

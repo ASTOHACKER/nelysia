@@ -1,15 +1,12 @@
-# Nuxt Fetch Contract
+# Nuxt/Nitro API Integration
 
-`server/api/nelysia.ts` exports the Fetch handler that a Nuxt/Nitro bridge can
-call:
+`server/api/nelysia.ts` is a Nitro server route. It wraps Nelysia with
+`defineEventHandler` and forwards H3's Web-standard request:
 
 ```ts
-export const fetchHandler = createFetchHandler(app)
+export default defineEventHandler((event) => fetchHandler(toWebRequest(event)))
 ```
 
-This is intentionally not a drop-in Nuxt server route. It does not include a
-Nuxt project, `nuxt` or `h3` dependency, `defineEventHandler` bridge, Nitro
-configuration, or a deployment target. The handler only promises the Web Fetch
-`Request`/`Response` contract; event conversion, Nuxt rendering, platform
-bindings, and WebSocket upgrades are not covered. Run the repository's
-deterministic contract test with `npm test`.
+This directory includes a runnable `package.json` fixture with Nuxt and the
+local Nelysia package. Run `npm install && npm run dev` here. Nitro rendering,
+platform bindings, and WebSocket upgrades remain application-specific.

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Nelysia: High-throughput, compiler-first TypeScript backend framework for Bun, Node.js, and Web Standards.">
     <title>Nelysia Documentation | คู่มือการใช้งาน Nelysia</title>
-  <link rel="icon" type="image/png" href="logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
@@ -21,7 +20,7 @@
       --border-hover: rgba(255, 255, 255, 0.16);
       --text: #f8fafc;
       --text-muted: #94a3b8;
-      --text-dim: #64748b;
+      --text-dim: #7f90a5;
       --accent: #10b981;
       --accent-hover: #34d399;
       --accent-bg: rgba(16, 185, 129, 0.07);
@@ -48,6 +47,10 @@
       scroll-behavior: smooth;
       background: var(--bg);
       color-scheme: dark;
+    }
+    html:has(.cmd-backdrop.open),
+    html:has(.side.open) {
+      overflow: hidden;
     }
     body {
       margin: 0;
@@ -82,6 +85,22 @@
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
+
+    .skip-link {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 1100;
+      padding: 9px 13px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: var(--panel-elevated);
+      color: var(--text);
+      font-weight: 700;
+      transform: translateY(-160%);
+      transition: transform 0.18s ease;
+    }
+    .skip-link:focus { transform: translateY(0); }
 
     a {
       color: var(--accent);
@@ -143,15 +162,6 @@
       text-decoration: none;
     }
     .brand:hover { text-decoration: none; }
-    .brand-mark {
-      flex-shrink: 0;
-      border-radius: 8px;
-      transition: transform 0.2s ease, filter 0.2s ease;
-    }
-    .brand:hover .brand-mark {
-      transform: translateY(-1px);
-      filter: drop-shadow(0 4px 10px rgba(16, 185, 129, 0.3));
-    }
     .top-brand {
       display: inline-flex;
       align-items: center;
@@ -160,9 +170,32 @@
       color: inherit;
     }
     .top-brand:hover { text-decoration: none; }
+    .top-brand-name { display: none; }
+    .brand-mark {
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+      border-radius: 8px;
+    }
     .top-mark {
       flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
       border-radius: 6px;
+    }
+    .hero-emblem-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+    }
+    .hero-emblem {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
     }
     .hero-top-row {
       display: flex;
@@ -170,19 +203,6 @@
       gap: 16px;
       margin-bottom: 22px;
       flex-wrap: wrap;
-    }
-    .hero-emblem-wrap {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      filter: drop-shadow(0 4px 16px rgba(16, 185, 129, 0.2));
-      transition: transform 0.2s ease;
-    }
-    .hero-emblem-wrap:hover {
-      transform: scale(1.03);
-    }
-    .hero-emblem {
-      border-radius: 14px;
     }
 
     .brand small {
@@ -215,7 +235,7 @@
     .nav-title {
       margin: 18px 0 6px 10px;
       color: var(--text-dim);
-      font: 700 0.68rem var(--mono);
+      font: 700 0.75rem var(--mono);
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
@@ -331,7 +351,8 @@
     .search:focus-within {
       border-color: var(--accent);
       background: rgba(255, 255, 255, 0.05);
-      box-shadow: 0 0 0 1px var(--accent);
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
     .search input {
       width: 100%;
@@ -380,6 +401,10 @@
       font: 700 0.75rem var(--mono);
     }
 
+    .side-backdrop {
+      display: none;
+    }
+
     /* Content */
     .content {
       width: min(calc(100% - 8vw), 980px);
@@ -392,6 +417,83 @@
       padding: 10px 0 54px;
       border-bottom: 1px solid var(--border);
     }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+      gap: clamp(28px, 5vw, 64px);
+      align-items: end;
+    }
+    .hero-copy { min-width: 0; }
+    .hero-map {
+      align-self: stretch;
+      margin: 10px 0 4px;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.08), rgba(255, 255, 255, 0.025));
+    }
+    .hero-map-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 18px;
+      color: var(--text-dim);
+      font: 700 0.75rem var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .hero-map-head .hero-map-mode {
+      margin-left: auto;
+      color: var(--accent);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .hero-map strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      letter-spacing: -0.015em;
+    }
+    .hero-map > p {
+      margin: 0 0 16px;
+      color: var(--text-muted);
+      font-size: 0.84rem;
+      line-height: 1.6;
+    }
+    .hero-map-link {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr) 14px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 0;
+      border-top: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+    .hero-map-link:hover {
+      color: var(--text);
+      text-decoration: none;
+    }
+    .hero-map-index {
+      color: var(--accent);
+      font: 600 0.72rem var(--mono);
+    }
+    .hero-map-link b,
+    .hero-map-link small {
+      display: block;
+    }
+    .hero-map-link b {
+      color: inherit;
+      font-size: 0.82rem;
+    }
+    .hero-map-link small {
+      margin-top: 2px;
+      color: var(--text-dim);
+      font-size: 0.72rem;
+      line-height: 1.4;
+    }
+    .hero-map-link svg { color: var(--text-dim); }
     .hero-badge {
       display: inline-flex;
       align-items: center;
@@ -514,7 +616,7 @@
       letter-spacing: -0.02em;
     }
     p, li {
-      max-width: 76ch;
+      max-width: 72ch;
       color: var(--text-muted);
       font-size: 0.98rem;
       line-height: 1.75;
@@ -1044,7 +1146,7 @@
       padding: 10px 14px;
     }
     .sim-metric-label {
-      font: 700 0.66rem var(--mono);
+      font: 700 0.75rem var(--mono);
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: var(--text-dim);
@@ -1281,6 +1383,17 @@
     body.lang-en [data-lang="th"] { display: none !important; }
     body.lang-th [data-lang="en"] { display: none !important; }
 
+    .side-foot { color: var(--text-dim); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+
     /* Responsive */
     @media (max-width: 900px) {
       .shell { display: block; }
@@ -1292,21 +1405,54 @@
         box-shadow: 20px 0 40px rgba(0,0,0,0.6);
       }
       .side.open { transform: translateX(0); }
+      .side-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 9;
+        border: 0;
+        background: rgba(4, 7, 10, 0.72);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.22s ease, visibility 0.22s ease;
+      }
+      .side.open + .side-backdrop {
+        opacity: 1;
+        visibility: visible;
+      }
       .menu-toggle { display: block; }
       .top { padding: 0 4vw; }
       .crumb { display: none; }
+      .top-brand-name {
+        display: inline;
+        color: var(--text);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
       .search { width: 170px; }
       .content { width: min(calc(100% - 8vw), 720px); padding-top: 36px; }
+      .hero-grid { grid-template-columns: 1fr; gap: 24px; }
+      .hero-map { margin-top: 0; }
     }
     @media (max-width: 600px) {
+      .top { padding: 0 16px; }
       .top-right { gap: 6px; }
-      .search { display: none; }
+      .search-btn { width: 34px; height: 34px; justify-content: center; padding: 0; }
+      .search-btn [data-lang], .search-kbd { display: none; }
+      .top-brand .crumb { display: none; }
+      .menu-toggle { padding: 6px 9px; }
       .content { width: calc(100% - 32px); }
       h1 { font-size: 2.6rem; }
       pre { font-size: 0.78rem; padding: 16px 14px; }
+      .hero { padding-top: 6px; }
+      .hero-top-row { align-items: flex-start; gap: 16px; }
+      .hero-badge { max-width: 100%; }
+      .hero-actions .btn { flex: 1 1 auto; justify-content: center; }
+      .hero-map { padding: 16px; }
     }
   </style>
 <body class="lang-en">
+  <a class="skip-link" href="#main-content">Skip to documentation content</a>
   <div class="reading-progress-bar" id="reading-progress" aria-hidden="true"></div>
   <!--
   THESIS: An authoritative, high-density compiler-first technical manual that rejects murky hacker slop and generic card layouts in favor of a pristine, high-clarity obsidian engineering document.
@@ -1320,8 +1466,8 @@
     
     <!-- Sidebar Navigation -->
     <aside class="side" id="side">
-      <a class="brand" href="#top" aria-label="Nelysia Documentation Home">
-        <img src="logo.png" class="brand-mark" width="34" height="34" alt="Nelysia Logo" style="border-radius: 8px; object-fit: contain;">
+      <a class="brand" href="#top-content" aria-label="Nelysia Documentation Home">
+        <img src="../Logo/exec-8249d390-354e-4274-a3d7-c9a260fa9d2b.png" class="brand-mark" alt="Nelysia logo">
         <span>
           Nelysia
           <small>compiler-first backend</small>
@@ -1330,7 +1476,7 @@
 
       <div class="version-pill">
         <span class="version-dot"></span>
-        <span>v0.1.4 • Production Ready</span>
+        <span>v0.4.0 • Ecosystem Ready</span>
       </div>
 
       <nav class="nav" aria-label="Documentation navigation">
@@ -1397,24 +1543,20 @@
       </nav>
 
       <div class="side-foot">
-        <div>Nelysia v0.1.4</div>
-        <div style="color: var(--muted); margin-top: 4px;">Simple by default.<br>Specialized to run.</div>
+        <div>Nelysia v0.4.0</div>
+        <div style="margin-top: 4px;">Simple by default.<br>Specialized to run.</div>
       </div>
     </aside>
+    <button class="side-backdrop" id="side-backdrop" type="button" aria-label="Close navigation"></button>
 
     <!-- Main Content Area -->
-    <main id="top">
+    <main id="top-content">
       <header class="top">
         <div class="top-left">
-          <button class="menu-toggle" id="menu" aria-label="Toggle navigation"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
-          <a href="#top" class="top-brand" aria-label="Nelysia Documentation">
-            <svg class="top-mark" width="22" height="22" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <rect width="64" height="64" rx="16" fill="#0d141c" stroke="rgba(16, 185, 129, 0.3)" stroke-width="2"/>
-              <rect x="17" y="16" width="8.5" height="32" rx="4.25" fill="#10b981"/>
-              <rect x="38.5" y="16" width="8.5" height="32" rx="4.25" fill="#059669"/>
-              <path d="M18.5 16L45.8 45.2H39L17.5 20.5V16H18.5Z" fill="#34d399"/>
-              <circle cx="42.75" cy="19.5" r="2.5" fill="#a7f3d0"/>
-            </svg>
+          <button class="menu-toggle" id="menu" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="side"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
+          <a href="#top-content" class="top-brand" aria-label="Nelysia Documentation">
+            <img src="../Logo/exec-8249d390-354e-4274-a3d7-c9a260fa9d2b.png" class="top-mark" alt="">
+            <span class="top-brand-name">Nelysia</span>
             <div class="crumb"><b>nelysia</b> / <span data-lang="en">documentation</span><span data-lang="th">คู่มือการใช้งาน</span></div>
           </a>
         </div>
@@ -1422,8 +1564,8 @@
         <div class="top-right">
           <!-- Language Selector -->
           <div class="lang-switcher" role="group" aria-label="Language Selection">
-            <button class="lang-btn active" id="btn-en">EN</button>
-            <button class="lang-btn" id="btn-th">TH</button>
+            <button class="lang-btn active" id="btn-en" type="button" aria-pressed="true">EN</button>
+            <button class="lang-btn" id="btn-th" type="button" aria-pressed="false">TH</button>
           </div>
 
           <!-- Fast Section Search & Command Palette Trigger -->
@@ -1441,46 +1583,22 @@
         </div>
       </header>
 
-      <article class="content">
+      <article class="content" id="main-content">
         <!-- Hero Section -->
         <header class="hero" id="overview">
           <div class="hero-top-row">
             <div class="hero-emblem-wrap">
-              <svg class="hero-emblem" width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <rect width="64" height="64" rx="16" fill="#0d141c" stroke="rgba(16, 185, 129, 0.35)" stroke-width="1.5"/>
-                <defs>
-                  <linearGradient id="h-nel-pL" x1="17" y1="16" x2="25.5" y2="48" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#34d399"/>
-                    <stop offset="1" stop-color="#059669"/>
-                  </linearGradient>
-                  <linearGradient id="h-nel-beam" x1="18" y1="15" x2="46" y2="49" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#a7f3d0"/>
-                    <stop offset="0.25" stop-color="#34d399"/>
-                    <stop offset="0.7" stop-color="#10b981"/>
-                    <stop offset="1" stop-color="#047857"/>
-                  </linearGradient>
-                  <linearGradient id="h-nel-pR" x1="38.5" y1="16" x2="47" y2="48" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#10b981"/>
-                    <stop offset="1" stop-color="#064e3b"/>
-                  </linearGradient>
-                  <filter id="h-nel-shadow" x="12" y="11" width="40" height="43" filterUnits="userSpaceOnUse">
-                    <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.8"/>
-                  </filter>
-                </defs>
-                <circle cx="32" cy="32" r="18" fill="#10b981" fill-opacity="0.12"/>
-                <rect x="17" y="16" width="8.5" height="32" rx="4.25" fill="url(#h-nel-pL)"/>
-                <rect x="38.5" y="16" width="8.5" height="32" rx="4.25" fill="url(#h-nel-pR)"/>
-                <path d="M18.5 16C17.7 14.8 18.8 13.5 20.2 14L45.8 45.2C46.8 46.4 45.8 48 44.4 48H39C37.8 48 36.7 47.3 36 46.3L17.5 20.5V16H18.5Z" fill="url(#h-nel-beam)" filter="url(#h-nel-shadow)"/>
-                <circle cx="42.75" cy="19.5" r="2.5" fill="#a7f3d0"/>
-              </svg>
+              <img class="hero-emblem" src="../Logo/exec-8249d390-354e-4274-a3d7-c9a260fa9d2b.png" alt="">
             </div>
             <div class="hero-badge" style="margin-bottom: 0;">
               <span class="hero-badge-dot"></span>
-              <span data-lang="en">v0.1.4 Released • Compiler-First Architecture</span>
-              <span data-lang="th">v0.1.4 เปิดตัวแล้ว • สถาปัตยกรรม Compiler-First</span>
+              <span data-lang="en">v0.4.0 • Ecosystem Release Candidate</span>
+              <span data-lang="th">v0.4.0 • Ecosystem Release Candidate</span>
             </div>
           </div>
           
+          <div class="hero-grid">
+            <div class="hero-copy">
           <h1 data-lang="en">Write the app.<br><span class="hero-accent">Ship its shape.</span></h1>
           <h1 data-lang="th">เขียนคล่องตัวระดับโปร.<br><span class="hero-accent">คอมไพล์เร็วเต็มสปีด.</span></h1>
 
@@ -1503,12 +1621,25 @@
           </div>
 
           <div class="tags">
-            <span class="tag good">v0.1.4 Production Ready</span>
+            <span class="tag good">v0.4.0 Ecosystem Ready</span>
             <span class="tag">Node.js 22+ Zero-Build</span>
             <span class="tag">Bun 1.4+ (+7.0% Speed)</span>
             <span class="tag">Standard Schema v1</span>
             <span class="tag">OpenAPI 3.1 & Swagger</span>
             <span class="tag">Web Standards</span>
+          </div>
+            </div>
+
+            <aside class="hero-map" aria-label="Documentation path">
+              <div class="hero-map-head"><span data-lang="en">Recommended path</span><span data-lang="th">เส้นทางแนะนำ</span><span class="hero-map-mode" data-lang="en">Read mode</span><span class="hero-map-mode" data-lang="th">โหมดอ่าน</span></div>
+              <strong data-lang="en">From route to runtime</strong>
+              <strong data-lang="th">จาก Route สู่ Runtime</strong>
+              <p data-lang="en">Start with the smallest working server, then follow the compiler and production paths when you need them.</p>
+              <p data-lang="th">เริ่มจากเซิร์ฟเวอร์ที่เล็กที่สุด แล้วค่อยลงลึกเรื่องคอมไพเลอร์และ Production เมื่อพร้อม</p>
+              <a class="hero-map-link" href="#install"><span class="hero-map-index">01</span><span><b data-lang="en">Install</b><b data-lang="th">ติดตั้ง</b><small data-lang="en">Node.js 22+ or Bun</small><small data-lang="th">Node.js 22+ หรือ Bun</small></span><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"></path></svg></a>
+              <a class="hero-map-link" href="#quickstart"><span class="hero-map-index">02</span><span><b data-lang="en">Ship a route</b><b data-lang="th">สร้าง Route</b><small data-lang="en">Copy the first typed example</small><small data-lang="th">คัดลอกตัวอย่าง TypeScript แรก</small></span><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"></path></svg></a>
+              <a class="hero-map-link" href="#production"><span class="hero-map-index">03</span><span><b data-lang="en">Go to production</b><b data-lang="th">ไป Production</b><small data-lang="en">Runtime, tuning, and verification</small><small data-lang="th">Runtime, การจูน และการตรวจสอบ</small></span><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"></path></svg></a>
+            </aside>
           </div>
         </header>
 
@@ -1546,10 +1677,10 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
           </h3>
 
           <p data-lang="en">
-            Verified local measurements across 10 and 100 repeats, 10 concurrent workers, and zero failures (source: <code>docs/benchmark-10-rounds.md</code> & <code>docs/benchmark-100-rounds.md</code>):
+            The latest local <code>oha</code> measurement uses 50 concurrent workers, 3 seconds per sample, 10 rounds, and zero failures. The report records this larger run set and the preceding snapshots.
           </p>
           <p data-lang="th">
-            ผลการทดสอบจริงในสภาพแวดล้อมควบคุม 10 และ 100 รอบต่อเนื่อง ผู้ส่งคำขอพร้อมกัน 10 Workers อัตราความผิดพลาด 0% (อ้างอิงจาก <code>docs/benchmark-10-rounds.md</code> และ <code>docs/benchmark-100-rounds.md</code>):
+            ผลรอบล่าสุดจาก <code>oha</code> ใช้ผู้ส่งคำขอพร้อมกัน 50 ตัว วัดรอบละ 5 วินาที 3 รอบ และไม่มี request ล้มเหลว โดยรายงานเก็บทั้งสอง run set เพื่อให้เห็น variance:
           </p>
 
           <div class="table-box">
@@ -1566,31 +1697,31 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
               <tbody>
                 <tr>
                   <td><b>Bun Static:</b> <code>GET /json</code></td>
-                  <td class="lead-col status">99,103 req/s</td>
-                  <td>83,937 req/s</td>
-                  <td>87,460 req/s (Raw Bun)</td>
-                  <td><span class="badge-win">+18.1% vs Elysia</span></td>
-                </tr>
-                <tr>
-                  <td><b>Bun Plaintext:</b> <code>GET /plaintext</code></td>
-                  <td class="lead-col status">100,471 req/s (0.50 ms)</td>
-                  <td>70,735 req/s (0.70 ms)</td>
-                  <td>85,837 req/s (Raw Bun)</td>
-                  <td><span class="badge-win">+42.0% vs Elysia</span></td>
+                  <td class="lead-col status">95,173 req/s</td>
+                  <td>76,062 req/s (Elysia)</td>
+                  <td>95,306 req/s (Raw Bun)</td>
+                  <td><span class="badge-win">-0.1% vs Raw Bun</span></td>
                 </tr>
                 <tr>
                   <td><b>Bun Dynamic:</b> <code>GET /users/:id</code></td>
-                  <td class="lead-col status">96,859 req/s (0.51 ms)</td>
-                  <td>95,015 req/s (0.52 ms)</td>
-                  <td>93,421 req/s (Raw Bun)</td>
-                  <td><span class="badge-win">+2.0% vs Elysia</span></td>
+                  <td class="lead-col status">83,855 req/s</td>
+                  <td>82,816 req/s (Elysia)</td>
+                  <td>82,904 req/s (Raw Bun)</td>
+                  <td><span class="badge-win">+1.1% vs Raw Bun</span></td>
                 </tr>
                 <tr>
-                  <td><b>Node.js 22+:</b> HTTP Adapter</td>
-                  <td class="lead-col status">34,821 req/s (1.43 ms)</td>
-                  <td>38,990 req/s (Fastify 5)</td>
-                  <td>21,719 req/s (Express 5)</td>
-                  <td><span class="badge-win">+60.3% vs Express</span></td>
+                  <td><b>Node JSON:</b> <code>GET /json</code></td>
+                  <td class="lead-col status">27,451 req/s</td>
+                  <td>38,879 req/s (Fastify)</td>
+                  <td>47,572 req/s (Raw Node)</td>
+                  <td><span class="badge-win">Node pipeline target</span></td>
+                </tr>
+                <tr>
+                  <td><b>Node Dynamic:</b> <code>GET /users/:id</code></td>
+                  <td class="lead-col status">40,919 req/s</td>
+                  <td>38,846 req/s (Fastify)</td>
+                  <td>47,607 req/s (Raw Node)</td>
+                  <td><span class="badge-win">+5.3% vs Fastify</span></td>
                 </tr>
               </tbody>
             </table>
@@ -1609,10 +1740,10 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
               <p data-lang="th">รูทคงที่ → ตอบกลับทันทีไม่สร้าง Context. รูทมี param → ดึงค่าตรงจาก URL. รูทซับซ้อน → Full pipeline. ประหยัดทุกรอบ ไม่เสียพลังงานเกินจำเป็น</p>
             </div>
             <div class="tile">
-                  <b data-lang="en">2. 100,471 req/s — Faster than Raw Bun</b>
-                  <b data-lang="th">2. 100,471 req/s — เร็วกว่า Raw Bun</b>
-                  <p data-lang="en">TechEmpower plaintext benchmark. +42% over Elysia. 0% GC pressure on static paths — no garbage, no pauses, no surprises.</p>
-                  <p data-lang="th">ผลทดสอบ TechEmpower plaintext เร็วกว่า Elysia +42%. GC เป็น 0% บน static route — ไม่มีขยะหน่วยความจำ ไม่สะดุด ไม่แปลกใจ</p>
+                  <b data-lang="en">2. 95,173 req/s — Raw Bun parity</b>
+                  <b data-lang="th">2. 95,173 req/s — สูสีกับ Raw Bun</b>
+                  <p data-lang="en">Ten-round local <code>oha</code> snapshot measured 95,173 req/s for Bun static JSON vs 95,306 for raw Bun, with zero failures.</p>
+                  <p data-lang="th">ผล <code>oha</code> 10 รอบวัด Bun static JSON ได้ 95,173 req/s เทียบ Raw Bun 95,306 req/s และไม่มี request ล้มเหลว</p>
             </div>
             <div class="tile">
               <b data-lang="en">3. V8 Stays in Fast Lane</b>
@@ -1811,8 +1942,8 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
               <div>
                 <b style="color: var(--text);"><span data-lang="en">Interactive Benchmark Visualizer</span><span data-lang="th">เครื่องมือเปรียบเทียบ Benchmark แบบ Interactive</span></b>
                 <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 2px;">
-                  <span data-lang="en">Toggle metric below to view verified local medians across frameworks:</span>
-                  <span data-lang="th">คลิกเลือกตัวชี้วัดเพื่อดูการเปรียบเทียบระหว่างแต่ละ Framework:</span>
+                  <span data-lang="en">Archived TechEmpower snapshot; use the 2026-09-14 <code>oha</code> report for the latest values:</span>
+                  <span data-lang="th">ข้อมูล TechEmpower ชุดเก็บถาวร; ดูค่า <code>oha</code> ล่าสุดวันที่ 2026-09-14 ในรายงานปัจจุบัน:</span>
                 </div>
               </div>
               <div class="bench-viz-btns" role="tablist">
@@ -1862,22 +1993,6 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
                   <span class="bench-row-val" id="val-express">21,719 req/s</span>
                 </div>
                 <div class="bench-track"><div class="bench-fill" id="fill-express" style="width: 20.9%;"></div></div>
-              </div>
-              <!-- Fastify -->
-              <div class="bench-row" id="row-fastify">
-                <div class="bench-row-top">
-                  <span class="bench-row-name">Fastify (Node.js 22)</span>
-                  <span class="bench-row-val" id="val-fastify">18,400 req/s</span>
-                </div>
-                <div class="bench-track"><div class="bench-fill" id="fill-fastify" style="width: 60.1%;"></div></div>
-              </div>
-              <!-- Express -->
-              <div class="bench-row" id="row-express">
-                <div class="bench-row-top">
-                  <span class="bench-row-name">Express 4 (Node.js 22)</span>
-                  <span class="bench-row-val" id="val-express">7,200 req/s</span>
-                </div>
-                <div class="bench-track"><div class="bench-fill" id="fill-express" style="width: 23.5%;"></div></div>
               </div>
             </div>
           </div>
@@ -3027,6 +3142,7 @@ docker run --rm -p <span class="num">3000</span>:<span class="num">3000</span> n
             </div>
           </div>
 
+
           <div class="code">
             <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>modules/auth/model.ts</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
             <pre><code><span class="kw">import</span> { t } <span class="kw">from</span> <span class="str">"@narudom96/nelysia"</span>
@@ -3752,10 +3868,10 @@ console.<span class="fn">log</span>(<span class="kw">await</span> res.<span clas
           </div>
 
           <p data-lang="en">
-            When every route is a static value or a params-only GET handler with no hooks, schemas, or telemetry, the compiler emits a <b>standalone server</b>: the route table and handlers are embedded directly in the artifact with no generic router import. Static bodies are pre-serialized and served via <code>Response.clone()</code>; <code>/users/:id</code>-style routes match by prefix. Anything else falls back to the adapter entrypoint with an explicit <code>NELY002</code> diagnostic.
+            When route handlers, lifecycle functions, and schema definitions can be embedded safely, the compiler emits a <b>standalone source-to-source server</b> with no development-router import. It supports all HTTP methods, path parameters, validation, response serialization, HEAD, OPTIONS, 405, and route error handling. Opaque or platform-dependent patterns fall back to the adapter entrypoint with reason-coded diagnostics (<code>NELY101</code>–<code>NELY111</code>).
           </p>
           <p data-lang="th">
-            หากทุก route เป็น static value หรือ params-only GET handler ที่ไม่มี hooks/schemas/telemetry คอมไพเลอร์จะสร้าง <b>standalone server</b> ฝัง route table และ handler ลงใน artifact โดยตรง ไม่ import generic router — static body ถูก serialize ล่วงหน้าและ serve ผ่าน <code>Response.clone()</code> ส่วน route แบบ <code>/users/:id</code> จะ match ด้วย prefix หากไม่เข้าเงื่อนไขจะ fallback พร้อม diagnostic <code>NELY002</code>
+            เมื่อ handler, lifecycle และ schema definition ของ route สามารถฝังได้อย่างปลอดภัย คอมไพเลอร์จะสร้าง <b>standalone source-to-source server</b> โดยไม่ import development router รองรับทุก HTTP method, parameter, validation, response serialization, HEAD, OPTIONS, 405 และ error handler ส่วน pattern ที่ opaque หรือพึ่ง platform จะ fallback พร้อม diagnostic <code>NELY101</code>–<code>NELY111</code>
           </p>
 
           <p data-lang="en">
@@ -3776,7 +3892,7 @@ console.<span class="fn">log</span>(<span class="kw">await</span> res.<span clas
               <tbody>
                 <tr>
                   <td><code>GET</code> <span data-lang="en">only</span><span data-lang="th">เท่านั้น</span></td>
-                  <td><span data-lang="en">Any POST/PUT/PATCH/DELETE route exists (→ <code>NELY002</code>).</span><span data-lang="th">มี route POST/PUT/PATCH/DELETE (→ <code>NELY002</code>)</span></td>
+                  <td><span data-lang="en">A route cannot be embedded safely (→ reason-coded <code>NELY101</code>–<code>NELY111</code>).</span><span data-lang="th">มี route ที่ไม่สามารถฝังได้อย่างปลอดภัย (→ <code>NELY101</code>–<code>NELY111</code>)</span></td>
                 </tr>
                 <tr>
                   <td><span data-lang="en">Static value or <code>({ params }) =&gt; …</code> handler</span><span data-lang="th">Static value หรือ handler แบบ <code>({ params }) =&gt; …</code></span></td>
@@ -3823,7 +3939,7 @@ node --experimental-strip-types dist/server.node.ts</code></pre>
                 </tr>
                 <tr>
                   <td><code>dist/manifest.json</code></td>
-                  <td><span data-lang="en">Target, route analyses, <code>NELY001</code>/<code>NELY002</code>/<code>NELY003</code> diagnostics, <code>generation</code> and <code>dispatcher</code> flags, reproducible <code>cacheKey</code>.</span><span data-lang="th">Target, route analyses, diagnostics, flag <code>generation</code>/<code>dispatcher</code>, <code>cacheKey</code></span></td>
+                  <td><span data-lang="en">Target, route analyses, <code>NELY001</code>/<code>NELY003</code> and reason-coded diagnostics, <code>generation</code> and <code>dispatcher</code> flags, reproducible <code>cacheKey</code>.</span><span data-lang="th">Target, route analyses, diagnostics เหตุผล, flag <code>generation</code>/<code>dispatcher</code>, <code>cacheKey</code></span></td>
                 </tr>
                 <tr>
                   <td><code>.nelysia-cache/&lt;hash&gt;.json</code></td>
@@ -3933,11 +4049,11 @@ node --experimental-strip-types dist/server.node.ts</code></pre>
           <div class="grid">
             <div class="tile">
               <b>NEXT.JS (APP ROUTER)</b>
-              <p><code>app/api/[[...slug]]/route.ts</code><br>Export GET, POST, PUT, DELETE wrapping the fetch handler.</p>
+              <p><code>app/api/nelysia/route.ts</code><br>Export HTTP methods wrapping the Fetch handler.</p>
             </div>
             <div class="tile">
               <b>NUXT</b>
-              <p><code>server/api/[...].ts</code><br><code>defineEventHandler(e =&gt; handler(toWebRequest(e)))</code></p>
+              <p><code>server/api/nelysia.ts</code><br><code>defineEventHandler(e =&gt; handler(toWebRequest(e)))</code></p>
             </div>
             <div class="tile">
               <b>SVELTEKIT</b>
@@ -3953,9 +4069,12 @@ node --experimental-strip-types dist/server.node.ts</code></pre>
             </div>
           </div>
 
+          <p data-lang="en" style="color: var(--text-dim);">Runnable fixtures live in <code>examples/astro</code>, <code>examples/nextjs</code>, <code>examples/nuxt</code>, <code>examples/sveltekit</code>, and <code>examples/tanstack-start</code>. Install each fixture's dependencies, then run <code>npm run framework:check</code> from the repository root for production builds and live <code>GET /api/nelysia</code> smoke checks.</p>
+          <p data-lang="th" style="color: var(--text-dim);">fixture ที่รันได้อยู่ใน <code>examples/astro</code>, <code>examples/nextjs</code>, <code>examples/nuxt</code>, <code>examples/sveltekit</code> และ <code>examples/tanstack-start</code> ให้ติดตั้ง dependency ของแต่ละตัว แล้วรัน <code>npm run framework:check</code> จาก root เพื่อ build และยิง <code>GET /api/nelysia</code> ผ่าน server จริง</p>
+
           <div class="code">
             <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>Framework Wiring</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
-            <pre><code><span class="com">// Next.js App Router — app/api/[[...slug]]/route.ts</span>
+            <pre><code><span class="com">// Next.js App Router — app/api/nelysia/route.ts</span>
 <span class="kw">import</span> { createFetchHandler } <span class="kw">from</span> <span class="str">"@narudom96/nelysia/runtime-fetch"</span>
 <span class="kw">const</span> handler = <span class="fn">createFetchHandler</span>(app)
 <span class="kw">export const</span> <span class="fn">GET</span> = (req: Request) =&gt; <span class="fn">handler</span>(req)
@@ -3964,8 +4083,12 @@ node --experimental-strip-types dist/server.node.ts</code></pre>
 <span class="com">// SvelteKit — src/routes/api/nelysia/+server.ts</span>
 <span class="kw">export const</span> <span class="fn">GET</span> = ({ request }: { request: Request }) =&gt; <span class="fn">fetchHandler</span>(request)
 
-<span class="com">// Astro — src/pages/api/nelysia.ts (direct export)</span>
-<span class="kw">export const</span> <span class="fn">GET</span> = <span class="fn">createFetchHandler</span>(app)</code></pre>
+<span class="com">// Astro — src/pages/api/nelysia.ts (APIContext bridge)</span>
+<span class="kw">export const</span> <span class="fn">GET</span> = ({ request }: { request: Request }) =&gt; <span class="fn">handler</span>(request)
+
+<span class="com">// Nuxt/Nitro — server/api/nelysia.ts</span>
+<span class="kw">import</span> { toWebRequest } <span class="kw">from</span> <span class="str">"h3"</span>
+<span class="kw">export default</span> <span class="fn">defineEventHandler</span>((event) =&gt; <span class="fn">handler</span>(<span class="fn">toWebRequest</span>(event)))</code></pre>
           </div>
         </section>
 
@@ -4008,6 +4131,9 @@ npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
 
+<span class="com"># Reproduce the recorded oha settings</span>
+BENCH_DURATION_SEC=<span class="num">3</span> BENCH_CONCURRENCY=<span class="num">50</span> BENCH_ROUNDS=<span class="num">10</span> BENCH_PORT=<span class="num">4341</span> npm run benchmark:oha
+
 <span class="com"># Router scale: generic-path lookup cost vs table size</span>
 node --experimental-strip-types benchmarks/router-scale.ts
 ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --experimental-strip-types benchmarks/router-scale.ts
@@ -4017,10 +4143,10 @@ npm run soak</code></pre>
           </div>
 
           <p data-lang="en">
-            <strong>TechEmpower Round 22 Specification Results (Tested with <code>oha</code>, Concurrency 50):</strong>
+            <strong>Latest 10-round local <code>oha</code> snapshot (2026-09-14):</strong> <code>oha 1.16.0</code>, concurrency 50, 3 seconds per sample, 10 rounds, zero failures.
           </p>
           <p data-lang="th">
-            <strong>ผลการทดสอบสเปก TechEmpower Round 22 (วัดด้วย <code>oha</code>, Concurrency 50):</strong>
+            <strong>ผล <code>oha</code> 10 รอบล่าสุด (2026-09-14):</strong> <code>oha 1.16.0</code>, concurrency 50, วัดรอบละ 3 วินาที 10 รอบ และไม่มี request ล้มเหลว
           </p>
 
           <div class="table-box">
@@ -4028,30 +4154,47 @@ npm run soak</code></pre>
               <thead>
                 <tr>
                   <th>Workload</th>
-                  <th>Nelysia (Compiled)</th>
-                  <th>Raw Bun.serve</th>
-                  <th>Elysia 2.0</th>
-                  <th>Advantage</th>
+                  <th>Nelysia</th>
+                  <th>Raw baseline</th>
+                  <th>Peer</th>
+                  <th>Relative result</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>Plaintext (<code>/plaintext</code>)</td>
-                  <td class="status">100,471 req/s (0.50 ms)</td>
-                  <td>85,837 req/s (0.58 ms)</td>
-                  <td>70,735 req/s (0.70 ms)</td>
-                  <td><b>+42% faster</b></td>
+                  <td>Bun static JSON (<code>/json</code>)</td>
+                  <td class="status">95,173 req/s</td>
+                  <td>95,306 req/s (Raw Bun)</td>
+                  <td>76,062 req/s (Elysia)</td>
+                  <td><b>-0.1% vs Raw Bun</b></td>
                 </tr>
                 <tr>
-                  <td>JSON (<code>/json</code>)</td>
-                  <td class="status">99,103 req/s (0.50 ms)</td>
-                  <td>87,460 req/s (0.57 ms)</td>
-                  <td>83,937 req/s (0.59 ms)</td>
-                  <td><b>+18% faster</b></td>
+                  <td>Bun dynamic (<code>/users/:id</code>)</td>
+                  <td class="status">83,855 req/s</td>
+                  <td>82,904 req/s (Raw Bun)</td>
+                  <td>82,816 req/s (Elysia)</td>
+                  <td><b>+1.1% vs Raw Bun</b></td>
+                </tr>
+                <tr>
+                  <td>Node JSON (<code>/json</code>)</td>
+                  <td class="status">27,451 req/s</td>
+                  <td>47,572 req/s (Raw Node)</td>
+                  <td>38,879 req/s (Fastify)</td>
+                  <td><b>optimization target</b></td>
+                </tr>
+                <tr>
+                  <td>Node dynamic (<code>/users/:id</code>)</td>
+                  <td class="status">40,919 req/s</td>
+                  <td>47,607 req/s (Raw Node)</td>
+                  <td>38,846 req/s (Fastify)</td>
+                  <td><b>+5.3% vs Fastify</b></td>
                 </tr>
               </tbody>
             </table>
           </div>
+
+          <p data-lang="en" style="color: var(--text-dim);">The former 100,471 req/s TechEmpower plaintext figure is a historical snapshot with a different harness. Do not compare it arithmetically with this latest table; see <code>docs/benchmark-oha-2026-09-14.md</code> for the same-runner trend check.</p>
+          <p data-lang="th" style="color: var(--text-dim);">ตัวเลข TechEmpower plaintext เดิม 100,471 req/s เป็น historical snapshot ที่ใช้ harness คนละชุด ไม่ควรนำมาลบเทียบตรงกับตารางล่าสุด ดู trend จาก runner เดียวกันได้ที่ <code>docs/benchmark-oha-2026-09-14.md</code></p>
 
           <div class="callout warn">
             <b>Local Numbers Only</b>
@@ -4234,7 +4377,8 @@ ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --ex
                 </tr>
               </thead>
               <tbody>
-                <tr><td>☐</td><td><code>npm run release:check</code> <span data-lang="en">passes.</span><span data-lang="th">ผ่าน</span></td></tr>
+                <tr><td>☑</td><td><code>npm run release:check</code> <span data-lang="en">passes.</span><span data-lang="th">ผ่าน</span></td></tr>
+                <tr><td>☑</td><td><code>npm run framework:check</code> <span data-lang="en">passes for all five framework fixtures after their dependencies are installed.</span><span data-lang="th">ผ่านสำหรับ framework fixture ทั้ง 5 ตัวหลังติดตั้ง dependency แล้ว</span></td></tr>
                 <tr><td>☐</td><td><span data-lang="en">Hot routes on fast path — check <code>NELY003</code> in <code>dist/manifest.json</code>.</span><span data-lang="th">route ร้อนอยู่บน fast path — ดู <code>NELY003</code> ใน <code>dist/manifest.json</code></span></td></tr>
                 <tr><td>☐</td><td><code>bodyLimit</code> <span data-lang="en">fits largest payload;</span> <code>trustedProxy</code> <span data-lang="en">only behind your proxy.</span><span data-lang="th">พอดี payload ใหญ่สุด; เปิด <code>trustedProxy</code> เฉพาะหลัง proxy ตัวเอง</span></td></tr>
                 <tr><td>☐</td><td><code>/health</code> <span data-lang="en">endpoint +</span> <code>gracefulShutdown</code> <span data-lang="en">on SIGTERM.</span><span data-lang="th">มี endpoint และต่อ shutdown กับ SIGTERM</span></td></tr>
@@ -4290,7 +4434,8 @@ npm run build -- ./examples/hello/app.ts --target bun
 npm run build -- ./examples/hello/app.ts --target node
 
 <span class="com"># Everything above in one gate:</span>
-npm run release:check</code></pre>
+npm run release:check
+npm run framework:check</code></pre>
           </div>
 
           <div class="table-box">
@@ -4360,12 +4505,16 @@ npm run release:check</code></pre>
         document.body.className = 'lang-th';
         btnTh.classList.add('active');
         btnEn.classList.remove('active');
+        btnTh.setAttribute('aria-pressed', 'true');
+        btnEn.setAttribute('aria-pressed', 'false');
         document.documentElement.lang = 'th';
         localStorage.setItem('nelysia_lang', 'th');
       } else {
         document.body.className = 'lang-en';
         btnEn.classList.add('active');
         btnTh.classList.remove('active');
+        btnEn.setAttribute('aria-pressed', 'true');
+        btnTh.setAttribute('aria-pressed', 'false');
         document.documentElement.lang = 'en';
         localStorage.setItem('nelysia_lang', 'en');
       }
@@ -4381,10 +4530,17 @@ npm run release:check</code></pre>
     // Sidebar Mobile Toggle
     const side = document.querySelector('#side');
     const menuBtn = document.querySelector('#menu');
-    menuBtn?.addEventListener('click', () => side.classList.toggle('open'));
+    const sideBackdrop = document.querySelector('#side-backdrop');
+    const setSideOpen = (open) => {
+      side?.classList.toggle('open', open);
+      menuBtn?.setAttribute('aria-expanded', String(open));
+      menuBtn?.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+    };
+    menuBtn?.addEventListener('click', () => setSideOpen(!side?.classList.contains('open')));
+    sideBackdrop?.addEventListener('click', () => setSideOpen(false));
 
     document.querySelectorAll('.nav a').forEach(a => {
-      a.addEventListener('click', () => side.classList.remove('open'));
+      a.addEventListener('click', () => setSideOpen(false));
     });
 
     // Copy Code Buttons
@@ -4392,7 +4548,17 @@ npm run release:check</code></pre>
       btn.addEventListener('click', async () => {
         const codeEl = btn.closest('.code').querySelector('pre code');
         if (codeEl) {
-          await navigator.clipboard.writeText(codeEl.innerText);
+          try {
+            await navigator.clipboard.writeText(codeEl.innerText);
+          } catch {
+            const range = document.createRange();
+            range.selectNodeContents(codeEl);
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+            document.execCommand('copy');
+            selection?.removeAllRanges();
+          }
           const original = btn.innerHTML;
           btn.innerHTML = '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg> copied!';
           btn.style.color = 'var(--accent)';
@@ -4438,16 +4604,16 @@ npm run release:check</code></pre>
     const cmdItems = [
       { title: "10 Superpowers & Killer Capabilities", hash: "#at-a-glance", group: "Highlights", badge: "AOT" },
       { title: "Interactive AOT Compiler Simulator", hash: "#aot-simulator", group: "Interactive", badge: "Engine" },
-      { title: "📊 Interactive Benchmark Visualizer", hash: "#bench-viz", group: "Interactive", badge: "30k req/s" },
+      { title: "Interactive Benchmark Visualizer", hash: "#bench-viz", group: "Interactive", badge: "30k req/s" },
       { title: "Quick Start & Live API Tester", hash: "#quickstart", group: "Guides", badge: "DX" },
-      { title: "⚖️ Framework Comparison (vs Elysia, Fastify, Express)", hash: "#comparison", group: "Overview", badge: "Parity" },
-      { title: "⚙️ Core HTTP & Method Chaining", hash: "#architecture", group: "Core", badge: "API" },
+      { title: "Framework Comparison (vs Elysia, Fastify, Express)", hash: "#comparison", group: "Overview", badge: "Parity" },
+      { title: "Core HTTP & Method Chaining", hash: "#architecture", group: "Core", badge: "API" },
       { title: "Multi-Runtime & Node.js 22+ Native", hash: "#runtimes", group: "Runtimes", badge: "Zero-Build" },
       { title: "Built-in Enterprise Plugins (CORS, RateLimit, OTel)", hash: "#plugins", group: "Plugins", badge: "Armor" },
       { title: "OpenAPI 3.1 & Swagger / Redoc UI", hash: "#openapi", group: "Docs", badge: "Interactive" },
-      { title: "🔄 Elysia to Nelysia Migration Guide", hash: "#migration", group: "Migration", badge: "Syntax" },
+      { title: "Elysia to Nelysia Migration Guide", hash: "#migration", group: "Migration", badge: "Syntax" },
       { title: "Performance Tuning Guide", hash: "#performance", group: "Tuning", badge: "Fast-Path" },
-      { title: "🚢 Production Checklist & Verification", hash: "#verify", group: "Deploy", badge: "Gates" }
+      { title: "Production Checklist & Verification", hash: "#verify", group: "Deploy", badge: "Gates" }
     ];
 
     function renderCmdItems(filter = "") {

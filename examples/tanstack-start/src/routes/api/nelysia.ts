@@ -1,7 +1,18 @@
-import { Nelysia } from "../../../../../packages/core/src/index.ts"
-import { createFetchHandler } from "../../../../../packages/runtime-fetch/src/server.ts"
+import { createFileRoute } from "@tanstack/react-router"
+import { createServerOnlyFn } from "@tanstack/react-start"
 
-const app = new Nelysia().get("/", () => ({ runtime: "tanstack-start", ok: true }))
+// TanStack Start server handlers receive an object containing Request.
+const getFetchHandler = createServerOnlyFn(async () => (await import("./-nelysia.server.ts")).fetchHandler)
+export const fetchHandler = async (request: Request) => (await getFetchHandler())(request)
+export const server = {
+  handlers: {
+    GET: ({ request }: { request: Request }) => fetchHandler(request),
+    POST: ({ request }: { request: Request }) => fetchHandler(request)
+  }
+}
 
-// Export the Fetch boundary for a TanStack Start server route to call.
-export const fetchHandler = createFetchHandler(app)
+// TanStack Start's plugin augments this API with its server-handler types.
+// The root package typecheck does not load that plugin augmentation, so keep
+// the runtime call typed at the framework boundary here.
+const createServerFileRoute = createFileRoute as unknown as (path: string) => (options: { server: typeof server }) => unknown
+export const Route = createServerFileRoute("/api/nelysia")({ server })
