@@ -98,7 +98,7 @@ fixture dependencies.
 - [x] Node, Bun, Deno, Cloudflare, and Vercel deployment smoke command
 - [x] Existing five framework fixtures retained as deployment smoke coverage
 - [x] 30s × 7 core Bun/Node release benchmark evidence recorded
-- [ ] 30s × 7 JWT public/protected security benchmark evidence recorded
+- [x] 30s × 7 JWT public/protected security benchmark evidence recorded
 - [x] 1M and 10M soak reports recorded on the release candidate
 - [ ] 24-hour soak report recorded before production-readiness announcement
 - [ ] v0.5.0 GitHub Release and tarball created after all gates pass
@@ -109,6 +109,11 @@ evidence items are release gates rather than claims that have already passed.
 The detailed commands and limitations are in [`v0.5-release-gates.md`](./v0.5-release-gates.md).
 The completed local soak evidence is in [`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md).
 The completed core load evidence is in [`benchmark-oha-v05-2026-09-14.md`](./benchmark-oha-v05-2026-09-14.md).
+The completed JWT security benchmark evidence is in [`benchmark-jwt-v05-2026-09-14.md`](./benchmark-jwt-v05-2026-09-14.md).
+
+The 24-hour soak is intentionally deferred and has not been run yet. The
+technical evidence above does not constitute a production-readiness
+announcement until that separate gate is completed.
 
 ## v0.5.1 Bun route-compiled patch
 
