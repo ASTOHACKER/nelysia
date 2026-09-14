@@ -10,9 +10,9 @@
 
 ## Install
 
-> **Current installation note:** `@narudom96/nelysia@0.4.0` is available from the
-> GitHub Release tarball below. The npm registry package is not published yet.
-> **Until then, use the release artifact** (2 commands, same package contents):
+> **Current development note:** the workspace is implementing `@narudom96/nelysia@0.5.0`.
+> The latest immutable GitHub artifact remains v0.4.0 until the v0.5.0 release gates
+> are complete; npm publication is still pending registry availability.
 
 ```bash
 curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.4.0/narudom96-nelysia-0.4.0.tgz
@@ -23,7 +23,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (works once v0.4.0 is published — replaces the 2 lines above)
+# registry install (works once a v0.5.0 package is published)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -61,7 +61,7 @@ import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
   .use(cors())
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.4.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.5.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "all"
@@ -89,7 +89,13 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 - [คู่มือการใช้งานอย่างละเอียด (ภาษาไทย)](./docs/DOCUMENTATION_TH.md)
 - [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
 
-### What's New in v0.4.0
+### What's New in v0.5.0 (implementation branch)
+- **Strict JWT route guards**: internal metadata registry, HS256-only verification, optional issuer/audience checks, and no auth work on public routes.
+- **Generated schema fast path**: deterministic built-in params/query/header/response schemas use generated validators; Standard Schema and custom behavior fall back to generic execution with diagnostics.
+- **Production plugins**: `@narudom96/nelysia/upload`, `@narudom96/nelysia/logger`, and `@narudom96/nelysia/timeout` provide multipart storage, redacted typed logging, and deadline cancellation contracts.
+- **Release evidence runners**: `benchmark:oha:release`, `soak:1m`, `soak:10m`, and `soak:24h` record reproducible environment, latency, failures, and memory samples.
+
+### v0.4.0 highlights
 - **Official `@narudom96/nelysia/jwt`**: Native Web Crypto HMAC-SHA256 JWT auth with zero external dependencies and zero-overhead routing for unauthenticated routes.
 - **Zero-Port Testing API (`app.inject`)**: Fast in-memory HTTP request injection for unit and integration testing without binding network sockets.
 - **TechEmpower Round 22 Benchmark Suite**: Verified 100% compliant with TechEmpower specifications — **99k+ req/s** on JSON and **100k+ req/s** on Plaintext.
@@ -141,6 +147,12 @@ Future P2 milestones are tracked in [`docs/p2-roadmap.md`](./docs/p2-roadmap.md)
 
 Live implementation status is tracked in [`docs/release-status.md`](./docs/release-status.md).
 
+The v0.5.0 release gate and known limitations are documented in
+[`docs/v0.5-release-gates.md`](./docs/v0.5-release-gates.md).
+
+The v0.5.0 30s × 7 core benchmark evidence is recorded in
+[`docs/benchmark-oha-v05-2026-09-14.md`](./docs/benchmark-oha-v05-2026-09-14.md).
+
 Runtime support and verification commands are tracked in [`docs/compatibility.md`](./docs/compatibility.md).
 
 Platform examples are documented in [`docs/platform-examples.md`](./docs/platform-examples.md).
@@ -164,7 +176,7 @@ npm run typecheck
 npm run example
 ```
 
-Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The current v0.4.0 workspace also includes runnable full-stack framework fixtures.
+Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The current v0.5.0 workspace also includes runnable full-stack framework fixtures.
 
 With Bun installed, run the Bun target:
 
@@ -274,11 +286,22 @@ Run high-throughput benchmarks powered by `oha`:
 # TechEmpower Round 22 Plaintext & JSON benchmark
 npm run benchmark:teb
 
+# Security benchmark: public/protected plus invalid-token matrix, 30s × 7
+npm run benchmark:jwt:release
+
 # JWT Authentication benchmark (Nelysia vs Elysia vs Hono)
 npm run benchmark:jwt
 
 # Full suite across Bun and Node.js
 npm run benchmark:oha
+
+# Release evidence: 30 seconds × 7 samples, with environment and percentiles
+npm run benchmark:oha:release
+
+# Staged soak gates (24h is intentionally a separate production-readiness run)
+npm run soak:1m
+npm run soak:10m
+npm run soak:24h
 ```
 
 Latest local `oha` snapshot (10 rounds, 3 seconds per sample, concurrency 50,

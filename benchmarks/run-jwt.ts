@@ -11,12 +11,14 @@ interface JwtBenchResult {
   p95Ms: number
   p99Ms: number
   statusCode: number
+  failureCount: number
 }
 
 const JWT_SECRET = "nelysia-benchmark-secret-key-1234567890"
 const PORT = Number(process.env.BENCH_PORT ?? 4340)
 const DURATION_SEC = Number(process.env.BENCH_DURATION_SEC ?? 3)
 const CONCURRENCY = Number(process.env.BENCH_CONCURRENCY ?? 50)
+const ROUNDS = Number(process.env.BENCH_ROUNDS ?? 1)
 
 async function runCommand(cmd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -66,7 +68,7 @@ async function main() {
   console.log(`========================================================================`)
   console.log(`  JWT BENCHMARK SUITE: NELYSIA vs ELYSIA vs HONO`)
   console.log(`========================================================================`)
-  console.log(`Settings: Duration: ${DURATION_SEC}s | Concurrency: ${CONCURRENCY}`)
+  console.log(`Settings: Duration: ${DURATION_SEC}s | Concurrency: ${CONCURRENCY} | Rounds: ${ROUNDS}`)
   console.log(`Scenarios: no-auth, valid-jwt, missing-jwt, invalid-jwt, expired-jwt`)
   console.log(`------------------------------------------------------------------------\n`)
 
@@ -102,7 +104,8 @@ async function main() {
       await waitForServerReady(child)
 
       for (const sc of scenarios) {
-        process.stdout.write(`    Testing ${sc.label}... `)
+        for (let round = 1; round <= ROUNDS; round++) {
+          process.stdout.write(`    Testing ${sc.label} (round ${round}/${ROUNDS})... `)
         const url = `http://127.0.0.1:${PORT}${sc.path}`
         const ohaArgs = [
           "-z", `${DURATION_SEC}s`,
@@ -134,6 +137,8 @@ async function main() {
         const p99 = (parsed.latencyPercentiles.p99 ?? 0) * 1000
         const status = Number(Object.keys(parsed.statusCodeDistribution)[0] ?? sc.expectedStatus)
 
+        const statusFailures = Object.entries(parsed.statusCodeDistribution ?? {}).reduce((total, [code, count]) => total + (Number(code) === sc.expectedStatus ? 0 : Number(count)), 0)
+        const networkFailures = Math.max(0, Math.round(parsed.summary.total * (1 - parsed.summary.successRate)))
         results.push({
           framework: fw.name,
           scenario: sc.label,
@@ -143,10 +148,12 @@ async function main() {
           p90Ms: p90,
           p95Ms: p95,
           p99Ms: p99,
-          statusCode: status
+          statusCode: status,
+          failureCount: networkFailures + statusFailures
         })
 
         console.log(`✓ ${Math.round(rps).toLocaleString()} req/s (p95: ${p95.toFixed(2)}ms) [${status}]`)
+        }
       }
     } finally {
       await stopServer(child)
@@ -162,14 +169,18 @@ async function main() {
 
   for (const scLabel of scenarioLabels) {
     const subset = results.filter((r) => r.scenario === scLabel)
-    subset.sort((a, b) => b.rps - a.rps)
+    const frameworkNames = [...new Set(subset.map((r) => r.framework))]
 
     console.log(`### Scenario: ${scLabel}`)
-    console.log(`| Framework | Requests/sec | Avg Latency | p50 | p95 | p99 | HTTP Status |`)
-    console.log(`| :--- | :---: | :---: | :---: | :---: | :---: | :---: |`)
-    for (const r of subset) {
+    console.log(`| Framework | Median req/s | Min/Max req/s | Avg Latency | p50 | p95 | p99 | HTTP Status | Failures |`)
+    console.log(`| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |`)
+    for (const framework of frameworkNames) {
+      const rounds = subset.filter((r) => r.framework === framework)
+      const r = rounds[0]
+      const rpsValues = rounds.map((value) => value.rps)
+      const med = (values: number[]) => { const sorted = [...values].sort((a, b) => a - b); const middle = Math.floor(sorted.length / 2); return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle] }
       console.log(
-        `| **${r.framework}** | **${Math.round(r.rps).toLocaleString()}** | ${r.avgLatencyMs.toFixed(2)} ms | ${r.p50Ms.toFixed(2)} ms | ${r.p95Ms.toFixed(2)} ms | ${r.p99Ms.toFixed(2)} ms | ${r.statusCode} |`
+        `| **${framework}** | **${Math.round(med(rpsValues)).toLocaleString()}** | ${Math.round(Math.min(...rpsValues)).toLocaleString()} / ${Math.round(Math.max(...rpsValues)).toLocaleString()} | ${med(rounds.map((value) => value.avgLatencyMs)).toFixed(2)} ms | ${med(rounds.map((value) => value.p50Ms)).toFixed(2)} ms | ${med(rounds.map((value) => value.p95Ms)).toFixed(2)} ms | ${med(rounds.map((value) => value.p99Ms)).toFixed(2)} ms | ${r.statusCode} | ${rounds.reduce((total, value) => total + value.failureCount, 0)} |`
       )
     }
     console.log(`\n`)

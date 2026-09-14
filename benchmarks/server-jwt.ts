@@ -1,6 +1,6 @@
 import { Nelysia } from "../packages/core/src/index.ts"
 import { jwt, importHmacKey, verifyJwt } from "../packages/jwt/src/index.ts"
-import { createBunHandler } from "../packages/runtime-bun/src/server.ts"
+import { createCompiledBunHandler } from "../packages/compiler/src/index.ts"
 import { Hono } from "hono"
 import { jwt as honoJwt } from "hono/jwt"
 import { Elysia } from "elysia"
@@ -18,7 +18,7 @@ async function start() {
 
     Bun.serve({
       port,
-      fetch: createBunHandler(app)
+      fetch: createCompiledBunHandler(app)
     })
     console.log(`ready:${framework}:${port}`)
   } else if (framework === "hono") {

@@ -13,6 +13,9 @@ This matrix records verified behavior in the current workspace. It is intentiona
 | OpenAPI document | verified | verified |
 | Generated build target | verified | verified |
 | Request ID propagation | verified | verified |
+| Multipart `FormData`/`File` upload | verified | verified |
+| Typed redacted logger plugin | verified | verified |
+| Deadline timeout plugin | verified | verified |
 
 The Fetch-standard adapter is verified with the Request/Response contract and is
 the base for Deno, Cloudflare Workers, Vercel, Astro, Next.js, SvelteKit, and
@@ -44,6 +47,12 @@ bun test
 npm run soak
 npm run release:check
 npm run framework:check
+npm run package:imports
+npm run deployment:smoke
+npm run soak:1m
+npm run soak:10m
 ```
 
-The soak runner reports iterations, failures, elapsed time, throughput, and heap delta. Heap delta is a signal for investigation, not a garbage-collection-proof leak measurement.
+The v0.5 soak runner reports exact request count, failures, runtime errors,
+throughput, periodic heap/RSS samples, and before/after deltas. Heap/RSS delta
+is a signal for investigation, not a garbage-collection-proof leak measurement.

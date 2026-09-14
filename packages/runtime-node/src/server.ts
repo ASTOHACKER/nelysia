@@ -201,6 +201,14 @@ async function readBody(request: IncomingMessage, declaredLength: number, limit:
     chunks.push(buffer)
   }
   if (size === 0) return undefined
+  if (contentType?.toLowerCase().includes("multipart/form-data")) {
+    const formRequest = new Request("http://nelysia.local/upload", {
+      method: "POST",
+      headers: { "content-type": contentType },
+      body: Buffer.concat(chunks)
+    })
+    return formRequest.formData()
+  }
   const text = Buffer.concat(chunks).toString("utf8")
   if (contentType?.includes("application/json")) {
     try { return JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }

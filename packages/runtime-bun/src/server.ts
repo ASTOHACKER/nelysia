@@ -7,11 +7,18 @@ export function createBunHandler(app: Nelysia): (request: Request) => Promise<Re
       let body: unknown
       const hasBody = request.method !== "GET" && request.method !== "HEAD" && (request.headers.has("content-length") || request.headers.has("transfer-encoding"))
       if (hasBody) {
-        const text = await request.text()
-        if (new TextEncoder().encode(text).byteLength > app.bodyLimit) throw new HttpError(413, "Request body is too large")
-        body = text || undefined
-        if (request.headers.get("content-type")?.includes("application/json") && text) {
-          try { body = JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }
+        const contentType = request.headers.get("content-type")
+        const declaredLength = Number(request.headers.get("content-length") ?? 0)
+        if (declaredLength > app.bodyLimit) throw new HttpError(413, "Request body is too large")
+        if (contentType?.toLowerCase().includes("multipart/form-data")) {
+          body = await request.formData()
+        } else {
+          const text = await request.text()
+          if (new TextEncoder().encode(text).byteLength > app.bodyLimit) throw new HttpError(413, "Request body is too large")
+          body = text || undefined
+          if (contentType?.includes("application/json") && text) {
+            try { body = JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }
+          }
         }
       }
        const requestId = app.requestIdEnabled ? request.headers.get("x-request-id") ?? crypto.randomUUID() : undefined

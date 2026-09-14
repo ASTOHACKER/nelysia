@@ -1,9 +1,10 @@
 import { allowedMethodsFor, compilePath, lookupDynamicRoute, normalizeMethod, normalizePathname, splitSegments } from "./router.ts"
 import { fromStandardSchema, type Schema, type StandardSchema } from "./schema.ts"
-import { HttpError, responseMarker, type AddRoute, type AfterHook, type AfterResponseHook, type ApplyGuard, type Context, type ContextExtension, type CookieOptions, type ErrorHandler, type FetchHandler, type GuardOptions, type Handler, type Hook, type HookOptions, type InjectOptions, type InjectResponse, type ListenOptions, type MacroDefinition, type MapResponseHook, type MergeRouteMaps, type ModelValues, type ModuleGraphNode, type NelysiaOptions, type ParseHook, type ParsedQuery, type RequestData, type RequestHook, type ResponseData, type RouteContext, type RouteGraph, type RouteMap, type RouteOptions, type RouteRecord, type SchemaInput, type ServerInfo, type Telemetry, type TransformHook, type WebSocketHandlers } from "./types.ts"
+import { HttpError, responseMarker, type AddRoute, type AfterHook, type AfterResponseHook, type ApplyGuard, type Context, type ContextExtension, type CookieOptions, type ErrorHandler, type FetchHandler, type GuardOptions, type Handler, type Hook, type HookOptions, type InjectOptions, type InjectResponse, type ListenOptions, type MacroDefinition, type MapResponseHook, type MergeRouteMaps, type ModelValues, type ModuleGraphNode, type NelysiaOptions, type ParseHook, type ParsedQuery, type RequestData, type RequestHook, type ResponseData, type RouteContext, type RouteGraph, type RouteGuard, type RouteMap, type RouteOptions, type RouteRecord, type SchemaInput, type ServerInfo, type Telemetry, type TransformHook, type WebSocketHandlers } from "./types.ts"
 import { createBunServer } from "../../runtime-bun/src/server.ts"
 
 const asHeaders = (headers?: Headers): Headers => headers ?? new Headers()
+const defaultSignal = new AbortController().signal
 
 type PluginCallback = (app: Nelysia<any>) => Nelysia<any> | void | Promise<Nelysia<any> | void>
 type Plugin = Nelysia<any> | PluginCallback
@@ -70,6 +71,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
   private readonly fetchMounts: { prefix: string; handler: FetchHandler }[] = []
   private readonly staticRoutes = new Map<string, RouteRecord>()
   private readonly dynamicRoutes = new Map<string, RouteRecord[]>()
+  private readonly routeGuardRegistrations: Array<{ guard: RouteGuard; applies: (auth: RouteRecord["auth"]) => boolean }> = []
   /** Public so runtime adapters can skip UUID generation when disabled. */
   readonly requestIdEnabled: boolean
   private notFoundHandler?: Handler
@@ -83,6 +85,21 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     this.trustedProxy = options.trustedProxy ?? false
     this.secureCookies = options.secureCookies ?? false
     this.requestIdEnabled = options.requestId ?? true
+  }
+
+  /** Internal extension point for route-scoped guards such as JWT auth. */
+  registerRouteGuard(guard: RouteGuard, applies: (auth: RouteRecord["auth"]) => boolean): this {
+    this.routeGuardRegistrations.push({ guard, applies })
+    for (const route of this.graph.routes) {
+      if (!applies(route.auth)) continue
+      route.routeGuards ??= []
+      if (!route.routeGuards.includes(guard)) route.routeGuards.push(guard)
+    }
+    return this
+  }
+
+  private routeGuardsFor(auth: RouteRecord["auth"]): RouteGuard[] {
+    return this.routeGuardRegistrations.filter((registration) => registration.applies(auth)).map((registration) => registration.guard)
   }
 
   onBeforeHandle(hook: Hook): this
@@ -406,7 +423,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
         afterHooks: uniqueIdentity([...this.afterHooks.filter((hook) => !this.localAfterHooks.includes(hook)), ...this.scopedAfterHooks, ...route.afterHooks]),
         // Give the mounted route's own handlers first chance to recover its
         // failures; parent handlers remain the fallback for the subtree.
-        errorHandlers: uniqueIdentity([...route.errorHandlers, ...child.scopedErrorHandlers, ...this.errorHandlers.filter((handler) => !this.localErrorHandlers.includes(handler)), ...this.scopedErrorHandlers])
+        errorHandlers: uniqueIdentity([...route.errorHandlers, ...child.scopedErrorHandlers, ...this.errorHandlers.filter((handler) => !this.localErrorHandlers.includes(handler)), ...this.scopedErrorHandlers]),
+        routeGuards: uniqueIdentity([...(route.routeGuards ?? []), ...this.routeGuardsFor(route.auth)])
       }
       this.registerRoute(mounted)
       mountedRoutes.push(mounted)
@@ -516,7 +534,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
     }
     const headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers)
     let body = options.body
-    if (body !== undefined && typeof body !== "string" && !(body instanceof Uint8Array) && !(body instanceof ReadableStream)) {
+    const isFormData = typeof FormData !== "undefined" && body instanceof FormData
+    if (body !== undefined && !isFormData && typeof body !== "string" && !(body instanceof Uint8Array) && !(body instanceof ReadableStream)) {
       if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8")
     }
     const res = await this.handle({
@@ -579,9 +598,10 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
       parseHooks: [...this.parseHooks],
       mapResponseHooks: [...this.mapResponseHooks],
       afterResponseHooks: [...this.afterResponseHooks],
-       hooks: [...this.contextExtensionHooks, ...this.transformHooks, ...this.hooks, ...macroHooks],
+      hooks: [...this.contextExtensionHooks, ...this.transformHooks, ...this.hooks, ...macroHooks],
       afterHooks: [...this.afterHooks],
       errorHandlers: [...this.errorHandlers],
+      routeGuards: this.routeGuardsFor(options.auth),
       summary: options.summary,
       description: options.description,
       tags: options.tags,
@@ -635,6 +655,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
       store: Object.fromEntries(this.contextValues),
       body: request.body,
       headers,
+      signal: request.signal ?? defaultSignal,
       cookies: lazyCookies(headers),
       setCookie: (name, value, options) => responseHeaders.append("set-cookie", serializeCookie(name, value, this.secureCookies ? { ...options, secure: options?.secure ?? true } : options)),
       deleteCookie: (name, options) => responseHeaders.append("set-cookie", serializeCookie(name, "", { ...options, maxAge: 0, path: options?.path ?? "/" })),
@@ -816,6 +837,11 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
         if (isResponse(result)) return result
         if (result instanceof Response) return responseFromNative(result, context.set)
       }
+      for (const guard of route.routeGuards ?? []) {
+        const result = await guard(context)
+        if (isResponse(result)) return result
+        if (result instanceof Response) return responseFromNative(result, context.set)
+      }
       await this.emitTelemetryEvent({ phase: "parse", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
       for (const hook of route.parseHooks ?? []) {
         const parsed = await hook(parsedRequest, parsedRequest.headers?.get("content-type") ?? null)
@@ -835,7 +861,9 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
         if (result instanceof Response) return responseFromNative(result, context.set)
       }
       await this.emitTelemetryEvent({ phase: "handler", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
-      const result = await route.handler(context)
+      const result = context.executionControl === undefined
+        ? await route.handler(context)
+        : await context.executionControl.invoke(() => route.handler(context))
       const effectiveHeaders = Object.keys(context.set.headers).length > 0 ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
        let response = isResponse(result)
         ? (context.set.status !== undefined && result.status === 200 ? { ...result, status: context.set.status, headers: mergeHeaders(result.headers, context.set.headers) } : (Object.keys(context.set.headers).length > 0 ? { ...result, headers: mergeHeaders(result.headers, context.set.headers) } : result))
@@ -881,6 +909,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = any, Routes ex
         return this.response(errorStatus, { error: error.message })
       }
       throw error
+    } finally {
+      context.executionControl?.cleanup()
     }
   }
 

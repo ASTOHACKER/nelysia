@@ -9,6 +9,7 @@ export interface RequestData {
   body?: unknown
   env?: unknown
   executionContext?: unknown
+  signal?: AbortSignal
 }
 
 export type FetchHandler = (request: Request) => Response | Promise<Response>
@@ -254,6 +255,10 @@ export interface Context {
   headers: Headers
   cookies: Record<string, string>
   auth?: unknown
+  signal: AbortSignal
+  executionControl?: RouteExecutionControl
+  logger?: Logger
+  files?: Record<string, UploadedFile[]>
   setCookie(name: string, value: string, options?: CookieOptions): void
   deleteCookie(name: string, options?: CookieOptions): void
   response(status: number, body: unknown, headers?: Record<string, string>): ResponseData
@@ -264,8 +269,31 @@ export interface Context {
   header(name: string, value: string): this
 }
 
+export interface Logger {
+  debug(message: string, fields?: Record<string, unknown>): void
+  info(message: string, fields?: Record<string, unknown>): void
+  warn(message: string, fields?: Record<string, unknown>): void
+  error(message: string, fields?: Record<string, unknown>): void
+}
+
+export interface RouteExecutionControl {
+  signal: AbortSignal
+  invoke(handler: () => unknown | Promise<unknown>): unknown | Promise<unknown>
+  cleanup(): void
+}
+
+export interface UploadedFile {
+  fieldName: string
+  filename: string
+  contentType: string
+  size: number
+  file: File
+  storage?: unknown
+}
+
 export type Handler<Extensions extends Record<string, unknown> = Record<string, unknown>> = (context: Context & Extensions) => unknown | Promise<unknown>
 export type Hook = (context: Context) => unknown | Promise<unknown>
+export type RouteGuard = (context: Context) => unknown | Promise<unknown>
 export type AfterHook = (context: Context, result: ResponseData) => unknown | Promise<unknown>
 export type ErrorHandler = (error: unknown, context: Context) => unknown | Promise<unknown>
 export type ContextExtension = (context: Context) => Record<string, unknown> | void | Promise<Record<string, unknown> | void>
@@ -293,6 +321,7 @@ export interface RouteRecord {
   contextFree?: boolean
   staticValue?: unknown
   auth?: string | boolean | Record<string, unknown>
+  routeGuards?: RouteGuard[]
   summary?: string
   description?: string
   tags?: string[]

@@ -1249,7 +1249,7 @@ When route handlers, lifecycle functions, and schema definitions can be embedded
 
 ### Adapter Dispatcher (Default Fast Path)
 
-Even without a standalone build, the Node, Bun, and Fetch adapters serve hook-free `GET` routes through the shared compiled dispatcher (`packages/compiler/src/dispatcher.ts`): O(1) static hits with pre-serialized payloads, per-method dynamic lookup with a single pathname split, and prefix matching for `/users/:id`-style routes. Hooks, schemas, other methods, and telemetry fall through to the generic router. The manifest records this with `dispatcher: true` and an `NELY003` info diagnostic reporting fast-path coverage (e.g. "fast path covers 1 of 2 routes").
+Even without a standalone build, the Node, Bun, and Fetch adapters serve hook-free `GET` routes through the shared compiled dispatcher (`packages/compiler/src/dispatcher.ts`): O(1) static hits with pre-serialized payloads, per-method dynamic lookup with a single pathname split, prefix matching for `/users/:id`-style routes, and generated validation for deterministic built-in params/query/header/response schemas. Hooks, body schemas, Standard Schema/custom behavior, other methods, and telemetry fall through to the generic router. The manifest records this with `dispatcher: true`, `NELY002` generated-schema diagnostics, and an `NELY003` coverage diagnostic.
 
 ### Build Outputs
 
@@ -1444,6 +1444,16 @@ configuration concerns.
 
 Nelysia includes automated micro-benchmarks and memory soak runners.
 
+### v0.5.0 production contracts
+
+The v0.5.0 workspace adds strict HS256 JWT route guards, deterministic generated
+validation for the supported built-in schema subset, and three same-package
+subpaths: `@narudom96/nelysia/upload`, `@narudom96/nelysia/logger`, and
+`@narudom96/nelysia/timeout`. Unsupported Standard Schema transforms, custom
+runtime behavior, native responses, and streams remain on the generic path.
+See [`v0.5-release-gates.md`](./v0.5-release-gates.md) for the release evidence
+commands and the distinction between implemented code and completed soak evidence.
+
 ### Running Benchmarks
 
 ```bash
@@ -1460,6 +1470,7 @@ npm run benchmark:jwt
 npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
+npm run benchmark:oha:release
 # If the default base port 4321 is occupied:
 BENCH_PORT=4341 npm run benchmark:oha
 
@@ -1508,6 +1519,9 @@ table) paths to verify memory stability and detect heap/RSS drift:
 
 ```bash
 npm run soak
+npm run soak:1m
+npm run soak:10m
+npm run soak:24h
 # Longer run (e.g. multi-minute soak with 1M requests over 200 routes)
 SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak
 ```

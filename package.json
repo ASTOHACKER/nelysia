@@ -1,6 +1,6 @@
 {
   "name": "@narudom96/nelysia",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": false,
   "publishConfig": {
     "access": "public"
@@ -34,18 +34,26 @@
     "benchmark:oha": "node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:oha:bun": "BENCH_SUITE=bun node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:oha:node": "BENCH_SUITE=node node --experimental-strip-types benchmarks/run-oha.ts",
+    "benchmark:oha:release": "BENCH_PORT=4370 BENCH_DURATION_SEC=30 BENCH_CONCURRENCY=50 BENCH_ROUNDS=7 node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:jwt": "bun run benchmarks/run-jwt.ts",
+    "benchmark:jwt:release": "BENCH_PORT=4385 BENCH_DURATION_SEC=30 BENCH_CONCURRENCY=50 BENCH_ROUNDS=7 bun run benchmarks/run-jwt.ts",
     "benchmark:teb": "bun run benchmarks/run-techempower.ts",
     "benchmark:teb:verify": "bun run benchmarks/verify-techempower.ts",
     "benchmark:teb:bundle": "bun run benchmarks/prepare-teb-bundle.ts",
     "soak": "node --experimental-strip-types benchmarks/soak.ts",
+    "soak:1m": "SOAK_REQUESTS=1000000 node --experimental-strip-types benchmarks/soak.ts",
+    "soak:10m": "SOAK_REQUESTS=10000000 node --experimental-strip-types benchmarks/soak.ts",
+    "soak:24h": "SOAK_DURATION_MS=86400000 node --experimental-strip-types benchmarks/soak.ts",
+    "soak:gate": "npm run soak:1m && npm run soak:10m",
     "prisma:generate": "prisma generate --schema examples/prisma/schema.prisma",
     "prisma:smoke": "npm run prisma:generate && DATABASE_URL=file:./smoke.db prisma db push --schema examples/prisma/schema.prisma --skip-generate && DATABASE_URL=file:./smoke.db node --experimental-strip-types examples/prisma/smoke.ts",
     "deno:check": "deno check examples/deno/main.ts",
+    "deployment:smoke": "node scripts/check-deployments.mjs",
     "package:imports": "node scripts/check-package-imports.mjs",
     "framework:check": "node scripts/check-framework-fixtures.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "release:check": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run soak && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
+    "release:check:v05": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run deployment:smoke && npm run soak:gate && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
     "inspect": "node --experimental-strip-types packages/cli/src/index.ts inspect",
     "build": "node --experimental-strip-types packages/cli/src/index.ts build",
     "package:build": "tsc -p tsconfig.build.json",
@@ -78,7 +86,10 @@
     "./compiler": "./dist-package/packages/compiler/src/index.js",
     "./openapi": "./dist-package/packages/openapi/src/index.js",
     "./jwt": "./dist-package/packages/jwt/src/index.js",
-    "./client": "./dist-package/packages/client/src/index.js"
+    "./client": "./dist-package/packages/client/src/index.js",
+    "./upload": "./dist-package/packages/upload/src/index.js",
+    "./logger": "./dist-package/packages/logger/src/index.js",
+    "./timeout": "./dist-package/packages/timeout/src/index.js"
   },
   "engines": {
     "node": ">=22"

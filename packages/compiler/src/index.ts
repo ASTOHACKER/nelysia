@@ -1,12 +1,12 @@
-import { createParsedQuery, type Nelysia } from "../../core/src/app.ts"
+import { asParsedQuery, createParsedQuery, type Nelysia } from "../../core/src/app.ts"
 import { requestIdFor, responseMarker, type Context, type RouteGraph, type RouteRecord } from "../../core/src/types.ts"
 import type { Schema } from "../../core/src/schema.ts"
 import { createBunHandler } from "../../runtime-bun/src/server.ts"
-import { compileDispatcher, fastPathname, isCompilableRoute, isParamsOnlyHandler, jsonContentType, lookupCompiled, matchSingleDynamicUrl, textContentType, type CompiledRoute } from "./dispatcher.ts"
+import { canGenerateSchema, compileDispatcher, fastPathname, isCompilableRoute, isParamsOnlyHandler, jsonContentType, lookupCompiled, matchSingleDynamicUrl, textContentType, type CompiledRoute } from "./dispatcher.ts"
 import { createHash } from "node:crypto"
 
-export { createGeneratedMatcher, isParamsOnlyHandler } from "./dispatcher.ts"
-export type { CompiledDispatcher, CompiledLookup, CompiledRoute, SerializedBody } from "./dispatcher.ts"
+export { canGenerateSchema, createGeneratedMatcher, createGeneratedValidator, isParamsOnlyHandler } from "./dispatcher.ts"
+export type { CompiledDispatcher, CompiledLookup, CompiledRoute, GeneratedRouteSchema, GeneratedValidator, SerializedBody } from "./dispatcher.ts"
 
 export interface RouteAnalysis {
   method: string
@@ -139,7 +139,7 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
       case "params":
         return runParamsOnly(found.entry, found.params, fallback)
       case "generic":
-        return runGeneric(found.entry.route, found.params, request, fallback)
+        return runGeneric(found.entry, found.params, request, fallback)
     }
   }
 
@@ -158,12 +158,14 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
     return Promise.resolve(new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500, headers: jsonHeaders }))
   }
 
-  function runGeneric(route: RouteRecord, params: Record<string, string>, request: Request, fb: (r: Request) => Promise<Response>): Response | Promise<Response> {
+  function runGeneric(entry: CompiledRoute, params: Record<string, string>, request: Request, fb: (r: Request) => Promise<Response>): Response | Promise<Response> {
+    const route = entry.route
     const headers = request.headers
     const context: Context = {
       request: { method: request.method, url: request.url, headers },
       requestId: requestIdFor(request),
       clientIp: undefined,
+      signal: request.signal ?? new AbortController().signal,
       params,
       query: createParsedQuery(requestQuery(request.url)),
       set: { status: undefined, headers: {} },
@@ -184,14 +186,21 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
       }
     }
     try {
+      const generated = entry.generated
+      if (generated?.params) context.params = generated.params.validate(context.params, "params") as Record<string, string>
+      if (generated?.query) context.query = asParsedQuery(generated.query.validate(Object.fromEntries(context.query.entries()), "query"))
+      if (generated?.headers) context.headers = generated.headers.validate(Object.fromEntries(context.headers.entries()), "headers") as Headers
       const out = route.handler(context) as unknown
-      if (out instanceof Promise) return out.then((v) => genericToResponse(v, context), () => fb(request))
-      return genericToResponse(out, context)
+      if (out instanceof Promise) return out.then((v) => {
+        try { return genericToResponse(v, context, entry) } catch { return fb(request) }
+      }, () => fb(request))
+      return genericToResponse(out, context, entry)
     } catch { return fb(request) }
   }
 
-  function genericToResponse(result: unknown, ctx: Context): Response {
+  function genericToResponse(result: unknown, ctx: Context, entry?: CompiledRoute): Response {
     if (isResponseData(result)) return responseFromResult(result.status, result.headers, result.body)
+    if (entry?.generated?.response) result = entry.generated.response.validate(result, "response")
     const status = ctx.set.status ?? 200
     const extraHeaders = Object.keys(ctx.set.headers).length > 0 ? ctx.set.headers : undefined
     return fastJson(result, status, extraHeaders)
@@ -202,8 +211,10 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
     const combinedHeaders = headers ? { ...textHeaders, ...headers } : textHeaders
     if (typeof value === "string") return new Response(value, { status, headers: combinedHeaders })
     if (value instanceof Uint8Array) return new Response(value as unknown as BodyInit, { status, headers: combinedHeaders })
-    // Response.json is faster than manual stringify + construction in Bun.
-    return Response.json(value, { status, headers })
+    // Preserve the framework's charset-bearing JSON contract while reusing
+    // the shared Headers instance on the generated path.
+    const jsonResponseHeaders = headers ? { ...Object.fromEntries(jsonHeaders.entries()), ...headers } : jsonHeaders
+    return Response.json(value, { status, headers: jsonResponseHeaders })
   }
 }
 
@@ -244,48 +255,49 @@ function setSafe(output, key, value) {
   if (key === "__proto__" || key === "constructor" || key === "prototype") Object.defineProperty(output, key, { value, enumerable: true, configurable: true, writable: true })
   else output[key] = value
 }
+const invalid = (message) => Object.assign(new Error(message), { status: 400 })
 function validate(value, schema, path) {
   if (!schema || Object.keys(schema).length === 0) return value
-  if ("const" in schema && value !== schema.const) throw new Error(path + " must equal " + String(schema.const))
-  if (Array.isArray(schema.enum) && !schema.enum.some((entry) => Object.is(entry, value))) throw new Error(path + " must be an allowed value")
+  if ("const" in schema && value !== schema.const) throw invalid(path + " must equal " + String(schema.const))
+  if (Array.isArray(schema.enum) && !schema.enum.some((entry) => Object.is(entry, value))) throw invalid(path + " must be an allowed value")
   if (Array.isArray(schema.anyOf)) {
     const errors = []
     for (const branch of schema.anyOf) {
       try { return validate(value, branch, path) } catch (error) { errors.push(String(error && error.message || error)) }
     }
-    throw new Error(path + " does not match any allowed value: " + errors.join("; "))
+    throw invalid(path + " does not match any allowed value: " + errors.join("; "))
   }
-  if (Array.isArray(schema.allOf)) return schema.allOf.reduce((current, branch) => validate(current, branch, path), value)
-  if (schema.type === "null") { if (value !== null) throw new Error(path + " must be null"); return value }
+  if (Array.isArray(schema.allOf)) { let output = value; for (const branch of schema.allOf) { const validated = validate(output, branch, path); output = output && typeof output === "object" && validated && typeof validated === "object" ? { ...output, ...validated } : validated } return output }
+  if (schema.type === "null") { if (value !== null) throw invalid(path + " must be null"); return value }
   if (schema.type === "string") {
-    if (typeof value !== "string") throw new Error(path + " must be string")
-    if (schema.minLength !== undefined && value.length < schema.minLength) throw new Error(path + " is too short")
-    if (schema.maxLength !== undefined && value.length > schema.maxLength) throw new Error(path + " is too long")
-    if (schema.pattern !== undefined && !(new RegExp(schema.pattern)).test(value)) throw new Error(path + " has an invalid format")
-    if (schema.format === "date-time" && Number.isNaN(Date.parse(value))) throw new Error(path + " must be a date-time")
+    if (typeof value !== "string") throw invalid(path + " must be string")
+    if (schema.minLength !== undefined && value.length < schema.minLength) throw invalid(path + " is too short")
+    if (schema.maxLength !== undefined && value.length > schema.maxLength) throw invalid(path + " is too long")
+    if (schema.pattern !== undefined && !(new RegExp(schema.pattern)).test(value)) throw invalid(path + " has an invalid format")
+    if (schema.format === "date-time" && Number.isNaN(Date.parse(value))) throw invalid(path + " must be a date-time")
     return value
   }
   if (schema.type === "number" || schema.type === "integer") {
-    if (typeof value !== "number" || !Number.isFinite(value) || (schema.type === "integer" && !Number.isInteger(value))) throw new Error(path + " must be " + schema.type)
-    if (schema.minimum !== undefined && value < schema.minimum) throw new Error(path + " is below minimum")
-    if (schema.maximum !== undefined && value > schema.maximum) throw new Error(path + " is above maximum")
+    if (typeof value !== "number" || !Number.isFinite(value) || (schema.type === "integer" && !Number.isInteger(value))) throw invalid(path + " must be " + schema.type)
+    if (schema.minimum !== undefined && value < schema.minimum) throw invalid(path + " is below minimum")
+    if (schema.maximum !== undefined && value > schema.maximum) throw invalid(path + " is above maximum")
     return value
   }
-  if (schema.type === "boolean") { if (typeof value !== "boolean") throw new Error(path + " must be boolean"); return value }
+  if (schema.type === "boolean") { if (typeof value !== "boolean") throw invalid(path + " must be boolean"); return value }
   if (schema.type === "array") {
-    if (!Array.isArray(value)) throw new Error(path + " must be array")
-    if (schema.minItems !== undefined && value.length < schema.minItems) throw new Error(path + " has too few items")
-    if (schema.maxItems !== undefined && value.length > schema.maxItems) throw new Error(path + " has too many items")
+    if (!Array.isArray(value)) throw invalid(path + " must be array")
+    if (schema.minItems !== undefined && value.length < schema.minItems) throw invalid(path + " has too few items")
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) throw invalid(path + " has too many items")
     if (Array.isArray(schema.prefixItems)) {
-      if (value.length !== schema.prefixItems.length) throw new Error(path + " has an invalid tuple length")
+      if (value.length !== schema.prefixItems.length) throw invalid(path + " has an invalid tuple length")
       return value.map((entry, index) => validate(entry, schema.prefixItems[index], path + "." + index))
     }
     return value.map((entry, index) => validate(entry, schema.items, path + "." + index))
   }
   if (schema.type === "object") {
-    if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(path + " must be object")
+    if (value === null || typeof value !== "object" || Array.isArray(value)) throw invalid(path + " must be object")
     const input = value
-    for (const key of schema.required || []) if (input[key] === undefined) throw new Error(path + "." + key + " is required")
+    for (const key of schema.required || []) if (input[key] === undefined) throw invalid(path + "." + key + " is required")
     const output = {}
     for (const [key, child] of Object.entries(schema.properties || {})) if (input[key] !== undefined) setSafe(output, key, validate(input[key], child, path + "." + key))
     if (!schema.properties && schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) setSafe(output, key, validate(entry, schema.additionalProperties, path + "." + key))
@@ -323,8 +335,9 @@ export function generateStandaloneServerSource(options: { entry: string; target:
   const routes = options.compiled.graph.routes.map((route) => {
     const handler = route.staticValue !== undefined ? `() => ${literalSource(route.staticValue)}` : functionSource(route.handler)
     const functions = (values: readonly ((...args: never[]) => unknown)[] | undefined) => `[${(values ?? []).map(functionSource).join(",")}]`
-    const schema = (value: Schema | undefined) => value?.definition === undefined ? "undefined" : JSON.stringify(value.definition)
-    return `{ method: ${JSON.stringify(route.method)}, path: ${JSON.stringify(route.path)}, handler: ${handler}, requestHooks: ${functions(route.requestHooks)}, parseHooks: ${functions(route.parseHooks)}, hooks: ${functions(route.hooks)}, mapResponseHooks: ${functions(route.mapResponseHooks)}, afterHooks: ${functions(route.afterHooks)}, afterResponseHooks: ${functions(route.afterResponseHooks)}, errorHandlers: ${functions(route.errorHandlers)}, bodySchema: ${schema(route.bodySchema)}, paramsSchema: ${schema(route.paramsSchema)}, querySchema: ${schema(route.querySchema)}, headersSchema: ${schema(route.headersSchema)}, responseSchema: ${schema(route.responseSchema)} }`
+    const schema = (value: Schema | undefined) => value === undefined || !canGenerateSchema(value) ? "undefined" : JSON.stringify(value.definition)
+    const responseSchemas = Object.fromEntries(Object.entries(route.responseSchemas ?? {}).filter(([, value]) => canGenerateSchema(value)).map(([status, value]) => [status, JSON.stringify(value.definition)]))
+    return `{ method: ${JSON.stringify(route.method)}, path: ${JSON.stringify(route.path)}, handler: ${handler}, requestHooks: ${functions(route.requestHooks)}, parseHooks: ${functions(route.parseHooks)}, hooks: ${functions(route.hooks)}, mapResponseHooks: ${functions(route.mapResponseHooks)}, afterHooks: ${functions(route.afterHooks)}, afterResponseHooks: ${functions(route.afterResponseHooks)}, errorHandlers: ${functions(route.errorHandlers)}, bodySchema: ${schema(route.bodySchema)}, paramsSchema: ${schema(route.paramsSchema)}, querySchema: ${schema(route.querySchema)}, headersSchema: ${schema(route.headersSchema)}, responseSchema: ${schema(route.responseSchema)}, responseSchemas: ${JSON.stringify(responseSchemas)} }`
   }).join(",\n")
   const handler = `const routes = [${routes}]
 const mergeHeaders = (base, extra) => { const headers = new Headers(base); for (const [key, value] of new Headers(extra || {}).entries()) headers.set(key, value); return headers }
@@ -332,7 +345,7 @@ const match = (route, pathname) => { const pattern = route.path.split("/").filte
 const isData = (value) => value && typeof value === "object" && value.__nelysiaResponse === true
 const data = (status, body, headers) => ({ status, body, headers: new Headers(headers), __nelysiaResponse: true })
 const toResponse = (value, context, status = context.set.status || 200) => { if (value instanceof Response) return value; if (isData(value)) { if (value.body instanceof Response) return value.body; const headers = mergeHeaders(context.responseHeaders, value.headers); if (value.body === undefined || value.body === null) return new Response(null, { status: value.status, headers }); if (value.body instanceof ReadableStream) return new Response(value.body, { status: value.status, headers }); if (typeof value.body === "string" || value.body instanceof Uint8Array) { if (!headers.has("content-type")) headers.set("content-type", "text/plain; charset=utf-8"); return new Response(value.body, { status: value.status, headers }) } if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8"); return new Response(JSON.stringify(value.body), { status: value.status, headers }) } if (value === undefined || value === null) return new Response(null, { status, headers: context.responseHeaders }); if (typeof value === "string" || value instanceof Uint8Array) return new Response(value, { status, headers: mergeHeaders(context.responseHeaders, { "content-type": "text/plain; charset=utf-8" }) }); return new Response(JSON.stringify(value), { status, headers: mergeHeaders(context.responseHeaders, { "content-type": "application/json; charset=utf-8" }) }) }
-const validate = (value, schema, path) => { if (!schema || Object.keys(schema).length === 0) return value; if ("const" in schema && value !== schema.const) throw Object.assign(new Error(path + " must equal " + String(schema.const)), { status: 400 }); if (Array.isArray(schema.enum) && !schema.enum.some((entry) => Object.is(entry, value))) throw Object.assign(new Error(path + " must be an allowed value"), { status: 400 }); if (Array.isArray(schema.anyOf)) { const errors = []; for (const branch of schema.anyOf) { try { return validate(value, branch, path) } catch (error) { errors.push(String(error && error.message || error)) } } throw Object.assign(new Error(path + " does not match any allowed value: " + errors.join("; ")), { status: 400 }) } if (Array.isArray(schema.allOf)) return schema.allOf.reduce((current, branch) => validate(current, branch, path), value); if (schema.type === "null") { if (value !== null) throw Object.assign(new Error(path + " must be null"), { status: 400 }); return value } if (schema.type === "string") { if (typeof value !== "string") throw Object.assign(new Error(path + " must be string"), { status: 400 }); if (schema.minLength !== undefined && value.length < schema.minLength) throw Object.assign(new Error(path + " is too short"), { status: 400 }); if (schema.maxLength !== undefined && value.length > schema.maxLength) throw Object.assign(new Error(path + " is too long"), { status: 400 }); if (schema.pattern !== undefined && !(new RegExp(schema.pattern)).test(value)) throw Object.assign(new Error(path + " has an invalid format"), { status: 400 }); return value } if (schema.type === "number" || schema.type === "integer") { if (typeof value !== "number" || !Number.isFinite(value) || (schema.type === "integer" && !Number.isInteger(value))) throw Object.assign(new Error(path + " must be " + schema.type), { status: 400 }); return value } if (schema.type === "boolean") { if (typeof value !== "boolean") throw Object.assign(new Error(path + " must be boolean"), { status: 400 }); return value } if (schema.type === "array") { if (!Array.isArray(value)) throw Object.assign(new Error(path + " must be array"), { status: 400 }); if (Array.isArray(schema.prefixItems)) { if (value.length !== schema.prefixItems.length) throw Object.assign(new Error(path + " has an invalid tuple length"), { status: 400 }); return value.map((entry, index) => validate(entry, schema.prefixItems[index], path + "." + index)) } return value.map((entry, index) => validate(entry, schema.items, path + "." + index)) } if (schema.type === "object") { if (value === null || typeof value !== "object" || Array.isArray(value)) throw Object.assign(new Error(path + " must be object"), { status: 400 }); const output = {}; for (const key of schema.required || []) if (value[key] === undefined) throw Object.assign(new Error(path + "." + key + " is required"), { status: 400 }); for (const [key, child] of Object.entries(schema.properties || {})) if (value[key] !== undefined) Object.defineProperty(output, key, { value: validate(value[key], child, path + "." + key), enumerable: true, configurable: true, writable: true }); if (!schema.properties && schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(value)) Object.defineProperty(output, key, { value: validate(entry, schema.additionalProperties, path + "." + key), enumerable: true, configurable: true, writable: true }); return output } return value }
+const validate = (value, schema, path) => { if (!schema || Object.keys(schema).length === 0) return value; if ("const" in schema && value !== schema.const) throw Object.assign(new Error(path + " must equal " + String(schema.const)), { status: 400 }); if (Array.isArray(schema.enum) && !schema.enum.some((entry) => Object.is(entry, value))) throw Object.assign(new Error(path + " must be an allowed value"), { status: 400 }); if (Array.isArray(schema.anyOf)) { const errors = []; for (const branch of schema.anyOf) { try { return validate(value, branch, path) } catch (error) { errors.push(String(error && error.message || error)) } } throw Object.assign(new Error(path + " does not match any allowed value: " + errors.join("; ")), { status: 400 }) } if (Array.isArray(schema.allOf)) return schema.allOf.reduce((current, branch) => validate(current, branch, path), value); if (schema.type === "null") { if (value !== null) throw Object.assign(new Error(path + " must be null"), { status: 400 }); return value } if (schema.type === "string") { if (typeof value !== "string") throw Object.assign(new Error(path + " must be string"), { status: 400 }); if (schema.minLength !== undefined && value.length < schema.minLength) throw Object.assign(new Error(path + " is too short"), { status: 400 }); if (schema.maxLength !== undefined && value.length > schema.maxLength) throw Object.assign(new Error(path + " is too long"), { status: 400 }); if (schema.pattern !== undefined && !(new RegExp(schema.pattern)).test(value)) throw Object.assign(new Error(path + " has an invalid format"), { status: 400 }); if (schema.format === "date-time" && Number.isNaN(Date.parse(value))) throw Object.assign(new Error(path + " must be a date-time"), { status: 400 }); return value } if (schema.type === "number" || schema.type === "integer") { if (typeof value !== "number" || !Number.isFinite(value) || (schema.type === "integer" && !Number.isInteger(value))) throw Object.assign(new Error(path + " must be " + schema.type), { status: 400 }); if (schema.minimum !== undefined && value < schema.minimum) throw Object.assign(new Error(path + " is below minimum"), { status: 400 }); if (schema.maximum !== undefined && value > schema.maximum) throw Object.assign(new Error(path + " is above maximum"), { status: 400 }); return value } if (schema.type === "boolean") { if (typeof value !== "boolean") throw Object.assign(new Error(path + " must be boolean"), { status: 400 }); return value } if (schema.type === "array") { if (!Array.isArray(value)) throw Object.assign(new Error(path + " must be array"), { status: 400 }); if (schema.minItems !== undefined && value.length < schema.minItems) throw Object.assign(new Error(path + " has too few items"), { status: 400 }); if (schema.maxItems !== undefined && value.length > schema.maxItems) throw Object.assign(new Error(path + " has too many items"), { status: 400 }); if (Array.isArray(schema.prefixItems)) { if (value.length !== schema.prefixItems.length) throw Object.assign(new Error(path + " has an invalid tuple length"), { status: 400 }); return value.map((entry, index) => validate(entry, schema.prefixItems[index], path + "." + index)) } return schema.items === undefined ? value : value.map((entry, index) => validate(entry, schema.items, path + "." + index)) } if (schema.type === "object") { if (value === null || typeof value !== "object" || Array.isArray(value)) throw Object.assign(new Error(path + " must be object"), { status: 400 }); const output = {}; for (const key of schema.required || []) if (value[key] === undefined) throw Object.assign(new Error(path + "." + key + " is required"), { status: 400 }); for (const [key, child] of Object.entries(schema.properties || {})) if (value[key] !== undefined) Object.defineProperty(output, key, { value: validate(value[key], child, path + "." + key), enumerable: true, configurable: true, writable: true }); if (!schema.properties && schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(value)) Object.defineProperty(output, key, { value: validate(entry, schema.additionalProperties, path + "." + key), enumerable: true, configurable: true, writable: true }); return output } return value }
 const parseBody = async (request) => { if (request.method === "GET" || request.method === "HEAD") return undefined; const text = await request.text(); if (!text) return undefined; if (request.headers.get("content-type")?.includes("application/json")) { try { return JSON.parse(text) } catch { throw Object.assign(new Error("Malformed JSON body"), { status: 400 }) } } return text }
 const makeContext = (request, params, body, url) => { const responseHeaders = new Headers({ "x-request-id": request.headers.get("x-request-id") || "" }); const context = { request: { method: request.method, url: request.url, headers: request.headers, body }, requestId: request.headers.get("x-request-id") || "", params, query: new URLSearchParams(url.search), body, headers: request.headers, cookies: {}, set: { status: undefined, headers: {} }, store: {}, responseHeaders, response: (status, value, headers) => data(status, value, mergeHeaders(responseHeaders, headers)), html: (value, status = 200) => data(status, value, mergeHeaders(responseHeaders, { "content-type": "text/html; charset=utf-8" })), text: (value, status = 200) => data(status, value, mergeHeaders(responseHeaders, { "content-type": "text/plain; charset=utf-8" })), json: (value, status = 200) => data(status, value, mergeHeaders(responseHeaders, { "content-type": "application/json; charset=utf-8" })), redirect: (value, status = 302) => data(status, undefined, mergeHeaders(responseHeaders, { location: value })), header: (name, value) => { context.set.headers[name.toLowerCase()] = value; return context }, setCookie: (name, value) => responseHeaders.append("set-cookie", name + "=" + encodeURIComponent(value) + "; Path=/"), deleteCookie: (name) => responseHeaders.append("set-cookie", name + "=; Max-Age=0; Path=/") }; return context }
 const allowFor = (pathname) => [...new Set(routes.filter((route) => match(route, pathname) !== undefined).map((route) => route.method === "GET" ? ["GET", "HEAD"] : [route.method]).flat())].concat(["OPTIONS"]).join(", ")
@@ -345,7 +358,7 @@ export const handle = async (request) => { const url = new URL(request.url); con
 function isStandaloneRoute(route: RouteRecord): boolean {
   if (route.auth !== undefined) return false
   const schemas = [route.bodySchema, route.paramsSchema, route.querySchema, route.headersSchema, route.responseSchema, ...Object.values(route.responseSchemas ?? {})]
-  if (schemas.some((schema) => schema !== undefined && schema.definition === undefined)) return false
+  if (schemas.some((schema) => schema !== undefined && !canGenerateSchema(schema))) return false
   if (route.staticValue !== undefined) return true
   const functions = [route.handler, ...(route.requestHooks ?? []), ...(route.parseHooks ?? []), ...route.hooks, ...(route.mapResponseHooks ?? []), ...route.afterHooks, ...(route.afterResponseHooks ?? []), ...route.errorHandlers]
   return functions.every(canEmbedFunction)
@@ -446,6 +459,14 @@ export function generateBuildArtifact(options: { entry: string; target: BuildTar
         severity: "warning" as const,
         message: `Standalone generation unsupported: ${options.compiled.standaloneBlock.reason}`
       }]),
+      ...options.compiled.graph.routes
+        .filter((route) => isCompilableRoute(route) && hasGeneratedSchema(route))
+        .map((route): BuildDiagnostic => ({
+          code: "NELY002",
+          severity: "info",
+          message: "Generated validator/serializer fast path enabled for deterministic built-in schemas.",
+          route: { method: route.method, path: route.path }
+        })),
       ...(!standalone ? [{
         code: "NELY003" as const,
         severity: "info" as const,
@@ -457,6 +478,10 @@ export function generateBuildArtifact(options: { entry: string; target: BuildTar
   const cacheKey = createHash("sha256").update(source).update(JSON.stringify(manifest)).digest("hex")
   const sourceMap = JSON.stringify({ version: 3, file: manifest.artifact, sourceRoot: "", sources: [options.entry], names: [], mappings: source.split("\n").map(() => "AAAA").join(";") })
   return { source, sourceMap, manifest: { ...manifest, reproducible: true, cacheKey } }
+}
+
+function hasGeneratedSchema(route: RouteRecord): boolean {
+  return route.paramsSchema !== undefined || route.querySchema !== undefined || route.headersSchema !== undefined || route.responseSchema !== undefined
 }
 
 /** Explain why a route cannot be emitted into the standalone artifact. The

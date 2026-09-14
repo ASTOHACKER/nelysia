@@ -83,6 +83,33 @@ The aggregate core/package verification command is `npm run release:check`.
 Run `npm run framework:check` as the ecosystem gate after installing the five
 fixture dependencies.
 
+## v0.5 Performance, Compiler, and Production Readiness
+
+- [x] Internal JWT route-guard registry with strict HS256 verification
+- [x] Optional JWT issuer/audience enforcement and security correctness matrix
+- [x] Deterministic generated validator fast path with generic fallback
+- [x] Generated serializer contract and route-scoped compiler diagnostics
+- [x] Release benchmark command (`oha`, 30 seconds × 7 samples)
+- [x] Staged soak runner with request targets, duration mode, runtime errors, and heap/RSS samples
+- [x] `@narudom96/nelysia/upload` multipart/storage contract
+- [x] `@narudom96/nelysia/logger` redacted typed logger contract
+- [x] `@narudom96/nelysia/timeout` deadline and 504 contract
+- [x] 20 package exports checked on Node, Bun, and Deno
+- [x] Node, Bun, Deno, Cloudflare, and Vercel deployment smoke command
+- [x] Existing five framework fixtures retained as deployment smoke coverage
+- [x] 30s × 7 core Bun/Node release benchmark evidence recorded
+- [ ] 30s × 7 JWT public/protected security benchmark evidence recorded
+- [x] 1M and 10M soak reports recorded on the release candidate
+- [ ] 24-hour soak report recorded before production-readiness announcement
+- [ ] v0.5.0 GitHub Release and tarball created after all gates pass
+- [ ] npm publication after registry account is available
+
+The technical implementation is present in the current workspace, but unchecked
+evidence items are release gates rather than claims that have already passed.
+The detailed commands and limitations are in [`v0.5-release-gates.md`](./v0.5-release-gates.md).
+The completed local soak evidence is in [`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md).
+The completed core load evidence is in [`benchmark-oha-v05-2026-09-14.md`](./benchmark-oha-v05-2026-09-14.md).
+
 ## v0.4.0 verification record (2026-09-14)
 
 | Gate | Result | Evidence |

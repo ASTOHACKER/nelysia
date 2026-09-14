@@ -1,5 +1,6 @@
 import type { Nelysia } from "../../core/src/app.ts"
 import type { Context, RouteRecord } from "../../core/src/types.ts"
+import type { Schema } from "../../core/src/schema.ts"
 
 export const jsonContentType = "application/json; charset=utf-8"
 export const textContentType = "text/plain; charset=utf-8"
@@ -19,6 +20,19 @@ export interface CompiledRoute {
   prefixFast?: { prefix: string; paramName: string }
   /** Present when the static value was serializable at compile time. */
   serialized?: SerializedBody
+  /** Build-time generated validators for deterministic request/response schemas. */
+  generated?: GeneratedRouteSchema
+}
+
+export interface GeneratedValidator {
+  validate(value: unknown, path?: string): unknown
+}
+
+export interface GeneratedRouteSchema {
+  params?: GeneratedValidator
+  query?: GeneratedValidator
+  headers?: GeneratedValidator
+  response?: GeneratedValidator
 }
 
 export interface CompiledDispatcher {
@@ -36,7 +50,11 @@ export type CompiledLookup =
   | { kind: "params"; entry: CompiledRoute; params: Record<string, string> }
   | { kind: "generic"; entry: CompiledRoute; params: Record<string, string> }
 
-/** Routes eligible for the compiled fast path: GET-only, no hooks, no schemas. */
+/**
+ * Routes eligible for the compiled fast path. Body schemas stay on the
+ * adapter path because body parsing is runtime-specific. Other schemas may be
+ * generated when their definition is a deterministic built-in subset.
+ */
 export function isCompilableRoute(route: RouteRecord): boolean {
   return route.method === "GET"
     && route.auth === undefined
@@ -48,10 +66,11 @@ export function isCompilableRoute(route: RouteRecord): boolean {
     && route.afterHooks.length === 0
     && route.errorHandlers.length === 0
     && !route.bodySchema
-    && !route.paramsSchema
-    && !route.querySchema
-    && !route.headersSchema
-    && !route.responseSchema
+    && (!route.paramsSchema || canGenerateSchema(route.paramsSchema))
+    && (!route.querySchema || canGenerateSchema(route.querySchema))
+    && (!route.headersSchema || canGenerateSchema(route.headersSchema))
+    && (!route.responseSchema || canGenerateSchema(route.responseSchema))
+    && !route.responseSchemas
 }
 
 export function serializeStaticValue(value: unknown): SerializedBody | undefined {
@@ -68,7 +87,12 @@ export function compileDispatcher(app: Nelysia): CompiledDispatcher {
   const routes: CompiledRoute[] = app.graph.routes
     .filter(isCompilableRoute)
     .map((route) => {
-      const entry: CompiledRoute = { route, paramsOnly: isParamsOnlyHandler(route.handler), match: createGeneratedMatcher(route) }
+      const entry: CompiledRoute = {
+        route,
+        paramsOnly: isParamsOnlyHandler(route.handler) && route.paramsSchema === undefined && route.querySchema === undefined && route.headersSchema === undefined && route.responseSchema === undefined,
+        match: createGeneratedMatcher(route),
+        generated: createGeneratedRouteSchema(route)
+      }
       if (route.static && route.staticValue !== undefined) {
         const serialized = serializeStaticValue(route.staticValue)
         if (serialized !== undefined) entry.serialized = serialized
@@ -87,6 +111,121 @@ export function compileDispatcher(app: Nelysia): CompiledDispatcher {
   const singleStatic = single !== undefined && single.route.static ? single : undefined
   const singleDynamic = single !== undefined && !single.route.static && single.prefixFast !== undefined && single.paramsOnly ? single : undefined
   return { routes, staticMap, single, singleStatic, singleDynamic, needsRequestId: app.requestIdEnabled }
+}
+
+/** Return true only for schemas whose definition is sufficient to reproduce
+ * the built-in validator without invoking user code. Standard Schema objects,
+ * transforms, and unknown keywords intentionally use the generic runtime. */
+export function canGenerateSchema(schema: Schema | undefined): boolean {
+  if (schema === undefined || schema.kind === "standard" || schema.kind === "date") return false
+  const definition = schema.definition
+  return definition !== undefined && supportedDefinition(definition)
+}
+
+function createGeneratedRouteSchema(route: RouteRecord): GeneratedRouteSchema | undefined {
+  const generated: GeneratedRouteSchema = {}
+  if (canGenerateSchema(route.paramsSchema)) generated.params = createGeneratedValidator(route.paramsSchema!.definition!)
+  if (canGenerateSchema(route.querySchema)) generated.query = createGeneratedValidator(route.querySchema!.definition!)
+  if (canGenerateSchema(route.headersSchema)) generated.headers = createGeneratedValidator(route.headersSchema!.definition!)
+  if (canGenerateSchema(route.responseSchema)) generated.response = createGeneratedValidator(route.responseSchema!.definition!)
+  return Object.keys(generated).length === 0 ? undefined : generated
+}
+
+function supportedDefinition(definition: Record<string, unknown>): boolean {
+  const allowed = new Set([
+    "type", "properties", "required", "additionalProperties", "items", "prefixItems",
+    "enum", "const", "anyOf", "allOf", "minimum", "maximum", "minLength", "maxLength",
+    "pattern", "format", "minItems", "maxItems", "description", "default", "examples"
+  ])
+  for (const key of Object.keys(definition)) if (!allowed.has(key)) return false
+  for (const key of ["anyOf", "allOf", "prefixItems"]) {
+    const value = definition[key]
+    if (value !== undefined && (!Array.isArray(value) || !value.every((item) => isSupportedDefinition(item)))) return false
+  }
+  if (definition.items !== undefined && !isSupportedDefinition(definition.items)) return false
+  if (definition.additionalProperties !== undefined && typeof definition.additionalProperties === "object" && definition.additionalProperties !== null && !isSupportedDefinition(definition.additionalProperties)) return false
+  if (definition.properties !== undefined) {
+    if (typeof definition.properties !== "object" || definition.properties === null || Array.isArray(definition.properties)) return false
+    for (const item of Object.values(definition.properties)) if (!isSupportedDefinition(item)) return false
+  }
+  return true
+}
+
+function isSupportedDefinition(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) && supportedDefinition(value as Record<string, unknown>)
+}
+
+export function createGeneratedValidator(definition: Record<string, unknown>): GeneratedValidator {
+  return { validate: (value, path = "body") => validateGeneratedValue(value, definition, path) }
+}
+
+function validateGeneratedValue(value: unknown, schema: Record<string, unknown>, path: string): unknown {
+  if (Object.keys(schema).length === 0) return value
+  if ("const" in schema && value !== schema.const) throw invalidGenerated(path + " must equal " + String(schema.const))
+  if (Array.isArray(schema.enum) && !schema.enum.some((entry) => Object.is(entry, value))) throw invalidGenerated(path + " must be an allowed value")
+  if (Array.isArray(schema.anyOf)) {
+    for (const branch of schema.anyOf) {
+      try { return validateGeneratedValue(value, branch as Record<string, unknown>, path) } catch { /* try next branch */ }
+    }
+    throw invalidGenerated(path + " does not match any allowed value")
+  }
+  if (Array.isArray(schema.allOf)) {
+    let output = value
+    for (const branch of schema.allOf) {
+      const validated = validateGeneratedValue(output, branch as Record<string, unknown>, path)
+      output = typeof output === "object" && output !== null && typeof validated === "object" && validated !== null
+        ? { ...(output as Record<string, unknown>), ...(validated as Record<string, unknown>) }
+        : validated
+    }
+    return output
+  }
+  if (schema.type === "null") { if (value !== null) throw invalidGenerated(path + " must be null"); return value }
+  if (schema.type === "string") {
+    if (typeof value !== "string") throw invalidGenerated(path + " must be string")
+    if (typeof schema.minLength === "number" && value.length < schema.minLength) throw invalidGenerated(path + " is too short")
+    if (typeof schema.maxLength === "number" && value.length > schema.maxLength) throw invalidGenerated(path + " is too long")
+    if (typeof schema.pattern === "string" && !(new RegExp(schema.pattern)).test(value)) throw invalidGenerated(path + " has an invalid format")
+    if (schema.format === "date-time" && Number.isNaN(Date.parse(value))) throw invalidGenerated(path + " must be a date-time")
+    return value
+  }
+  if (schema.type === "number" || schema.type === "integer") {
+    if (typeof value !== "number" || !Number.isFinite(value) || (schema.type === "integer" && !Number.isInteger(value))) throw invalidGenerated(path + " must be " + String(schema.type))
+    if (typeof schema.minimum === "number" && value < schema.minimum) throw invalidGenerated(path + " is below minimum")
+    if (typeof schema.maximum === "number" && value > schema.maximum) throw invalidGenerated(path + " is above maximum")
+    return value
+  }
+  if (schema.type === "boolean") { if (typeof value !== "boolean") throw invalidGenerated(path + " must be boolean"); return value }
+  if (schema.type === "array") {
+    if (!Array.isArray(value)) throw invalidGenerated(path + " must be array")
+    if (typeof schema.minItems === "number" && value.length < schema.minItems) throw invalidGenerated(path + " has too few items")
+    if (typeof schema.maxItems === "number" && value.length > schema.maxItems) throw invalidGenerated(path + " has too many items")
+    if (Array.isArray(schema.prefixItems)) {
+      if (value.length !== schema.prefixItems.length) throw invalidGenerated(path + " has an invalid tuple length")
+      const prefixItems = schema.prefixItems as unknown[]
+      return value.map((entry, index) => validateGeneratedValue(entry, prefixItems[index] as Record<string, unknown>, path + "." + index))
+    }
+    return schema.items === undefined ? value : value.map((entry, index) => validateGeneratedValue(entry, schema.items as Record<string, unknown>, path + "." + index))
+  }
+  if (schema.type === "object") {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) throw invalidGenerated(path + " must be object")
+    const input = value as Record<string, unknown>
+    for (const key of Array.isArray(schema.required) ? schema.required : []) if (input[key] === undefined) throw invalidGenerated(path + "." + key + " is required")
+    const output: Record<string, unknown> = {}
+    const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties) ? schema.properties as Record<string, unknown> : undefined
+    if (properties !== undefined) for (const [key, child] of Object.entries(properties)) if (input[key] !== undefined) setSafe(output, key, validateGeneratedValue(input[key], child as Record<string, unknown>, path + "." + key))
+    if (properties === undefined && schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) setSafe(output, key, validateGeneratedValue(entry, schema.additionalProperties as Record<string, unknown>, path + "." + key))
+    return output
+  }
+  return value
+}
+
+function invalidGenerated(message: string): Error & { status: number } {
+  return Object.assign(new Error(message), { status: 400 })
+}
+
+function setSafe(output: Record<string, unknown>, key: string, value: unknown): void {
+  if (key === "__proto__" || key === "constructor" || key === "prototype") Object.defineProperty(output, key, { value, enumerable: true, configurable: true, writable: true })
+  else output[key] = value
 }
 
 function classify(entry: CompiledRoute, params: Record<string, string>): CompiledLookup {

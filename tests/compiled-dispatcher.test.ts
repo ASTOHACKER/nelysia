@@ -1,8 +1,8 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { Nelysia, t } from "../packages/core/src/index.ts"
-import { createCompiledBunHandler } from "../packages/compiler/src/index.ts"
-import { compileDispatcher, lookupCompiled } from "../packages/compiler/src/dispatcher.ts"
+import { compile, createCompiledBunHandler, generateBuildArtifact } from "../packages/compiler/src/index.ts"
+import { compileDispatcher, createGeneratedValidator, lookupCompiled } from "../packages/compiler/src/dispatcher.ts"
 import { createBunHandler } from "../packages/runtime-bun/src/server.ts"
 import { createFetchHandler } from "../packages/runtime-fetch/src/server.ts"
 import { createNodeServer } from "../packages/runtime-node/src/server.ts"
@@ -56,7 +56,7 @@ test("dispatcher groups dynamics per method and keeps statics O(1)", async () =>
   assert.equal(lookupCompiled(d, "/nope"), undefined)
 })
 
-test("hooked and schema routes fall back to generic execution", async () => {
+test("hooked routes fall back while deterministic schema routes use generated validation", async () => {
   const app = buildApp()
     .onBeforeHandle(() => {})
     .get("/hooked", () => "hooked")
@@ -74,6 +74,38 @@ test("hooked and schema routes fall back to generic execution", async () => {
     assert.equal(fast.status, slow.status)
     assert.equal(await fast.text(), await slow.text())
   }
+})
+
+test("generated query and response schemas preserve validation parity", async () => {
+  const app = new Nelysia({ requestId: false })
+    .get("/search", ({ query }) => ({ term: query.term }), {
+      query: t.Object({ term: t.String() }),
+      response: t.Object({ term: t.String() })
+    })
+  const dispatcher = compileDispatcher(app)
+  assert.equal(dispatcher.routes.length, 1)
+  assert.ok(dispatcher.routes[0].generated?.query)
+  assert.ok(dispatcher.routes[0].generated?.response)
+
+  const compiled = createCompiledBunHandler(app)
+  const valid = await compiled(new Request("http://localhost/search?term=ok"))
+  assert.equal(valid.status, 200)
+  assert.deepEqual(await valid.json(), { term: "ok" })
+  const invalid = await compiled(new Request("http://localhost/search"))
+  assert.equal(invalid.status, 400)
+  assert.match(await invalid.text(), /body\.term is required|body\.term must be string/)
+
+  const artifact = generateBuildArtifact({ entry: "./app.ts", target: "bun", compiled: compile(app) })
+  assert.ok(artifact.manifest.diagnostics.some((diagnostic) => diagnostic.code === "NELY002"))
+})
+
+test("generated allOf validators preserve merged object output and safe keys", () => {
+  const schema = t.Intersect([
+    t.Object({ id: t.String() }),
+    t.Object({ role: t.String() })
+  ])
+  const generated = createGeneratedValidator(schema.definition!)
+  assert.deepEqual(generated.validate({ id: "1", role: "admin" }), { id: "1", role: "admin" })
 })
 
 test("extended application lifecycle disables compiled fast paths", async () => {

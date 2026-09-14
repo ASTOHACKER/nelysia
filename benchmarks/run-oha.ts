@@ -1,11 +1,14 @@
 import { spawn } from "node:child_process"
 import { once } from "node:events"
+import { cpus } from "node:os"
 
 interface OhaMetrics {
   framework: string
   workload: string
   runtime: string
   rps: number
+  rpsMin: number
+  rpsMax: number
   avgLatencyMs: number
   p50Ms: number
   p90Ms: number
@@ -14,6 +17,7 @@ interface OhaMetrics {
   maxLatencyMs: number
   successRate: number
   totalRequests: number
+  failureCount: number
   throughputMBs: number
 }
 
@@ -291,6 +295,12 @@ async function main() {
   console.log(`========================================================================`)
   console.log(`Settings: Duration: ${DURATION_SEC}s | Concurrency: ${CONCURRENCY} | Rounds: ${ROUNDS} (Median Reported)`)
   console.log(`Suite: ${TARGET_SUITE.toUpperCase()}`)
+  const cpu = cpus()
+  let bunVersion = "unavailable"
+  let ohaVersion = "unavailable"
+  try { bunVersion = (await runCommand("bun", ["--version"])).trim() } catch {}
+  try { ohaVersion = (await runCommand("oha", ["--version"])).trim().split("\n")[0] } catch {}
+  console.log(`Environment: ${cpu[0]?.model ?? "unknown CPU"} | CPUs: ${cpu.length} | Node: ${process.version} | Bun: ${bunVersion} | oha: ${ohaVersion} | OS: ${process.platform}`)
   console.log(`------------------------------------------------------------------------\n`)
 
   const targets = getTargets()
@@ -332,6 +342,7 @@ async function main() {
     }
 
     const rpsMed = median(roundResults.map((r) => r.summary.requestsPerSec))
+    const rpsValues = roundResults.map((r) => r.summary.requestsPerSec)
     const avgLatencyMed = median(roundResults.map((r) => r.summary.average * 1000))
     const p50Med = median(roundResults.map((r) => r.latencyPercentiles.p50 * 1000))
     const p90Med = median(roundResults.map((r) => r.latencyPercentiles.p90 * 1000))
@@ -341,12 +352,15 @@ async function main() {
     const successRateMed = median(roundResults.map((r) => r.summary.successRate * 100))
     const totalReqsMed = median(roundResults.map((r) => r.summary.total))
     const mbPerSecMed = median(roundResults.map((r) => r.summary.sizePerSec / (1024 * 1024)))
+    const failureCount = roundResults.reduce((total, r) => total + Math.max(0, Math.round(r.summary.total * (1 - r.summary.successRate))), 0)
 
     finalResults.push({
       framework: target.label,
       workload: target.workload,
       runtime: target.runtime,
       rps: rpsMed,
+      rpsMin: Math.min(...rpsValues),
+      rpsMax: Math.max(...rpsValues),
       avgLatencyMs: avgLatencyMed,
       p50Ms: p50Med,
       p90Ms: p90Med,
@@ -355,6 +369,7 @@ async function main() {
       maxLatencyMs: maxLatMed,
       successRate: successRateMed,
       totalRequests: totalReqsMed,
+      failureCount,
       throughputMBs: mbPerSecMed
     })
 
@@ -375,15 +390,15 @@ async function main() {
       if (filtered.length === 0) continue
 
       console.log(`### Runtime: ${runtime} | Workload: ${workload}`)
-      console.log(`| Framework | Requests/sec | Avg Latency | p50 | p95 | p99 | Max Latency | Success Rate | Throughput |`)
-      console.log(`| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |`)
+      console.log(`| Framework | Median req/s | Min/Max req/s | Avg Latency | p50 | p95 | p99 | Max Latency | Success Rate | Failures | Throughput |`)
+      console.log(`| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |`)
       
       // Sort by RPS descending
       filtered.sort((a, b) => b.rps - a.rps)
 
       for (const res of filtered) {
         console.log(
-          `| **${res.framework}** | **${Math.round(res.rps).toLocaleString()}** | ${res.avgLatencyMs.toFixed(2)} ms | ${res.p50Ms.toFixed(2)} ms | ${res.p95Ms.toFixed(2)} ms | ${res.p99Ms.toFixed(2)} ms | ${res.maxLatencyMs.toFixed(2)} ms | ${res.successRate.toFixed(1)}% | ${res.throughputMBs.toFixed(2)} MB/s |`
+          `| **${res.framework}** | **${Math.round(res.rps).toLocaleString()}** | ${Math.round(res.rpsMin).toLocaleString()} / ${Math.round(res.rpsMax).toLocaleString()} | ${res.avgLatencyMs.toFixed(2)} ms | ${res.p50Ms.toFixed(2)} ms | ${res.p95Ms.toFixed(2)} ms | ${res.p99Ms.toFixed(2)} ms | ${res.maxLatencyMs.toFixed(2)} ms | ${res.successRate.toFixed(1)}% | ${res.failureCount} | ${res.throughputMBs.toFixed(2)} MB/s |`
         )
       }
       console.log(`\n`)

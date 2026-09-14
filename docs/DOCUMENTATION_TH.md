@@ -1164,7 +1164,7 @@ nelysia client src/app.ts --out src/generated/nelysia-client.ts --force
 
 ### Adapter Dispatcher (Fast Path ค่าเริ่มต้น)
 
-แม้ไม่ build แบบ standalone adapter ของ Node, Bun และ Fetch ก็ serve route `GET` ที่ไม่มี hook ผ่าน compiled dispatcher ตัวกลาง (`packages/compiler/src/dispatcher.ts`): static hit แบบ O(1) ด้วย payload ที่ serialize ล่วงหน้า, dynamic lookup แยกตาม method ที่ split pathname ครั้งเดียว และ prefix matching สำหรับ route แบบ `/users/:id` ส่วน route ที่มี hooks/schemas/method อื่น/telemetry ตกไป generic router manifest บันทึกด้วย `dispatcher: true` และ diagnostic `NELY003` ระดับ info ที่รายงาน coverage ของ fast path
+แม้ไม่ build แบบ standalone adapter ของ Node, Bun และ Fetch ก็ serve route `GET` ที่ไม่มี hook ผ่าน compiled dispatcher ตัวกลาง (`packages/compiler/src/dispatcher.ts`): static hit แบบ O(1) ด้วย payload ที่ serialize ล่วงหน้า, dynamic lookup แยกตาม method ที่ split pathname ครั้งเดียว, prefix matching สำหรับ route แบบ `/users/:id` และ generated validation สำหรับ built-in params/query/header/response schema ที่เป็น deterministic ส่วน body schema, Standard Schema/custom behavior, hook, method อื่น และ telemetry จะ fallback ไป generic router เสมอ manifest บันทึกด้วย `dispatcher: true`, diagnostic `NELY002` สำหรับ generated schema และ `NELY003` สำหรับ coverage
 
 ### คำสั่ง CLI
 ```bash
@@ -1341,6 +1341,15 @@ policy และ deployment binding ยังขึ้นกับการต�
 
 ## 19. การทดสอบประสิทธิภาพและ Soak Testing
 
+### สัญญา production ใน v0.5.0
+
+workspace v0.5.0 เพิ่ม JWT route guard แบบ HS256 ที่ strict, generated
+validation สำหรับ built-in schema subset ที่พิสูจน์ได้ และ subpath ใน package
+เดียวกันคือ `@narudom96/nelysia/upload`, `@narudom96/nelysia/logger` และ
+`@narudom96/nelysia/timeout` ส่วน Standard Schema transform/custom runtime,
+native response และ stream ที่ generate ไม่ได้จะ fallback ไป generic path เสมอ
+ดูคำสั่ง release gate ได้ที่ [`v0.5-release-gates.md`](./v0.5-release-gates.md)
+
 ```bash
 # TechEmpower Round 22 Benchmark Suite (Plaintext & JSON บนระดับ Concurrency 50-500)
 npm run benchmark:teb
@@ -1355,6 +1364,7 @@ npm run benchmark:jwt
 npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
+npm run benchmark:oha:release
 # ถ้า port เริ่มต้น 4321 ถูกใช้งานอยู่:
 BENCH_PORT=4341 npm run benchmark:oha
 
@@ -1365,6 +1375,9 @@ ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 
 # รันทดสอบความเสถียรของหน่วยความจำ (Soak Test: static + dynamic, รายงาน heap/RSS)
 npm run soak
+npm run soak:1m
+npm run soak:10m
+npm run soak:24h
 
 # Soak ยาว (เช่น 1M requests บนตาราง 200 routes)
 SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak

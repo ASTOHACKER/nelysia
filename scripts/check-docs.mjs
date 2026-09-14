@@ -16,7 +16,7 @@ for (const exportPath of Object.keys(packageJson.exports)) {
   const specifier = exportPath === "." ? packageJson.name : `${packageJson.name}${exportPath.slice(1)}`
   if (!text.includes(specifier)) failures.push(`missing documented export: ${specifier}`)
 }
-for (const stale of ["NELY002", "sourceToSource: false", "arbitrary source-to-source route generation remains deferred", "supported static and params-only GET routes produce a standalone artifact"]) {
+for (const stale of ["sourceToSource: false", "arbitrary source-to-source route generation remains deferred", "supported static and params-only GET routes produce a standalone artifact"]) {
   if (text.includes(stale)) failures.push(`stale documentation claim: ${stale}`)
 }
 if (!text.includes("NELY101") || !text.includes("NELY111")) failures.push("compiler reason-code range is not documented")

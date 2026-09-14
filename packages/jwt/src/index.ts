@@ -6,13 +6,15 @@ export interface JwtOptions {
   alg?: "HS256"
   expiresIn?: number
   headerName?: string
+  issuer?: string
+  audience?: string | string[]
 }
 
 export interface JwtPayload {
   [key: string]: unknown
   sub?: string
   iss?: string
-  aud?: string
+  aud?: string | string[]
   exp?: number
   nbf?: number
   iat?: number
@@ -75,29 +77,57 @@ export async function signJwt(
   return `${data}.${encodedSignature}`
 }
 
+export interface JwtVerifyOptions {
+  issuer?: string
+  audience?: string | string[]
+}
+
+function decodeBase64UrlJson<T>(value: string): T {
+  if (value.length === 0 || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("invalid base64url segment")
+  const decoded = new TextDecoder("utf-8", { fatal: true }).decode(base64UrlDecode(value))
+  return JSON.parse(decoded) as T
+}
+
+function audienceMatches(actual: JwtPayload["aud"], expected: string | string[]): boolean {
+  const values = Array.isArray(actual) ? actual : typeof actual === "string" ? [actual] : []
+  const expectedValues = Array.isArray(expected) ? expected : [expected]
+  return values.some((value) => expectedValues.includes(value))
+}
+
 export async function verifyJwt<T extends JwtPayload = JwtPayload>(
   token: string,
-  keyOrSecret: CryptoKey | string
+  keyOrSecret: CryptoKey | string,
+  options: JwtVerifyOptions = {}
 ): Promise<{ valid: boolean; payload?: T; reason?: "invalid" | "expired" | "malformed" }> {
   const parts = token.split(".")
-  if (parts.length !== 3) {
+  if (parts.length !== 3 || parts.some((part) => part.length === 0)) {
     return { valid: false, reason: "malformed" }
   }
 
   const [encodedHeader, encodedPayload, encodedSignature] = parts
-  const key = typeof keyOrSecret === "string" ? await importHmacKey(keyOrSecret) : keyOrSecret
-  const enc = new TextEncoder()
 
   try {
+    const header = decodeBase64UrlJson<{ alg?: unknown }>(encodedHeader)
+    if (header.alg !== "HS256") return { valid: false, reason: "invalid" }
+    const key = typeof keyOrSecret === "string" ? await importHmacKey(keyOrSecret) : keyOrSecret
+    const enc = new TextEncoder()
     const data = `${encodedHeader}.${encodedPayload}`
+    if (!/^[A-Za-z0-9_-]+$/.test(encodedSignature)) return { valid: false, reason: "malformed" }
     const signature = base64UrlDecode(encodedSignature)
     const isValid = await crypto.subtle.verify("HMAC", key, signature as unknown as BufferSource, enc.encode(data))
     if (!isValid) return { valid: false, reason: "invalid" }
 
-    const payloadJson = new TextDecoder().decode(base64UrlDecode(encodedPayload))
-    const payload = JSON.parse(payloadJson) as T
+    const payload = decodeBase64UrlJson<T>(encodedPayload)
+
+    if (options.issuer !== undefined && payload.iss !== options.issuer) {
+      return { valid: false, payload, reason: "invalid" }
+    }
+    if (options.audience !== undefined && !audienceMatches(payload.aud, options.audience)) {
+      return { valid: false, payload, reason: "invalid" }
+    }
 
     if (payload.exp !== undefined) {
+      if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) return { valid: false, payload, reason: "invalid" }
       const now = Math.floor(Date.now() / 1000)
       if (now >= payload.exp) {
         return { valid: false, payload, reason: "expired" }
@@ -105,6 +135,7 @@ export async function verifyJwt<T extends JwtPayload = JwtPayload>(
     }
 
     if (payload.nbf !== undefined) {
+      if (typeof payload.nbf !== "number" || !Number.isFinite(payload.nbf)) return { valid: false, payload, reason: "invalid" }
       const now = Math.floor(Date.now() / 1000)
       if (now < payload.nbf) {
         return { valid: false, payload, reason: "invalid" }
@@ -119,7 +150,7 @@ export async function verifyJwt<T extends JwtPayload = JwtPayload>(
 
 export interface JwtPluginInstance {
   sign(payload: JwtPayload, options?: { expiresIn?: number }): Promise<string>
-  verify<T extends JwtPayload = JwtPayload>(token: string): Promise<{ valid: boolean; payload?: T; reason?: string }>
+  verify<T extends JwtPayload = JwtPayload>(token: string, options?: JwtVerifyOptions): Promise<{ valid: boolean; payload?: T; reason?: string }>
 }
 
 export function jwt(options: JwtOptions): (app: Nelysia) => Nelysia {
@@ -127,15 +158,16 @@ export function jwt(options: JwtOptions): (app: Nelysia) => Nelysia {
   if (options.expiresIn !== undefined && (!Number.isFinite(options.expiresIn) || options.expiresIn <= 0)) throw new Error("jwt expiresIn must be positive")
   const headerName = (options.headerName ?? "authorization").toLowerCase()
   const keyPromise = importHmacKey(options.secret)
+  const verifyOptions: JwtVerifyOptions = { issuer: options.issuer, audience: options.audience }
 
   const pluginInstance: JwtPluginInstance = {
     async sign(payload: JwtPayload, signOptions?: { expiresIn?: number }): Promise<string> {
       const key = await keyPromise
       return signJwt(payload, key, { expiresIn: signOptions?.expiresIn ?? options.expiresIn })
     },
-    async verify<T extends JwtPayload = JwtPayload>(token: string) {
+    async verify<T extends JwtPayload = JwtPayload>(token: string, verifyOverrides?: JwtVerifyOptions) {
       const key = await keyPromise
-      return verifyJwt<T>(token, key)
+      return verifyJwt<T>(token, key, verifyOverrides ?? verifyOptions)
     }
   }
 
@@ -155,7 +187,7 @@ export function jwt(options: JwtOptions): (app: Nelysia) => Nelysia {
 
       const token = authHeader.slice(7).trim()
       const key = await keyPromise
-      const verification = await verifyJwt(token, key)
+      const verification = await verifyJwt(token, key, verifyOptions)
 
       if (!verification.valid) {
         const message = verification.reason === "expired" ? "Token expired" : "Invalid token"
@@ -168,21 +200,8 @@ export function jwt(options: JwtOptions): (app: Nelysia) => Nelysia {
       context.auth = verification.payload
     }
 
-    // Bind authHook to any current and future route that specifies auth: "jwt" or auth: true
-    const originalRoute = app.route.bind(app)
-    app.route = (method, path, handler, routeOptions = {}) => {
-      const authSetting = routeOptions.auth
-      const requiresJwt = authSetting === "jwt" || authSetting === true || (typeof authSetting === "object" && authSetting !== null)
-      if (requiresJwt) {
-        const wrappedHandler = async (c: Context) => {
-          const early = await authHook(c)
-          if (early) return early
-          return handler(c)
-        }
-        return originalRoute(method, path, wrappedHandler, routeOptions)
-      }
-      return originalRoute(method, path, handler, routeOptions)
-    }
+    // Register a route-scoped guard instead of wrapping every protected handler.
+    app.registerRouteGuard(authHook, (authSetting) => authSetting === "jwt" || authSetting === true || (typeof authSetting === "object" && authSetting !== null))
 
     return app
   }

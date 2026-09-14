@@ -88,11 +88,18 @@ async function genericFetch(app: Nelysia, request: Request, context?: FetchReque
   try {
     let body: unknown
     if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
-      const text = await request.text()
-      if (new TextEncoder().encode(text).byteLength > app.bodyLimit) throw new HttpError(413, "Request body is too large")
-      body = text || undefined
-      if (request.headers.get("content-type")?.includes("application/json") && text) {
-        try { body = JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }
+      const contentType = request.headers.get("content-type")
+      const declaredLength = Number(request.headers.get("content-length") ?? 0)
+      if (declaredLength > app.bodyLimit) throw new HttpError(413, "Request body is too large")
+      if (contentType?.toLowerCase().includes("multipart/form-data")) {
+        body = await request.formData()
+      } else {
+        const text = await request.text()
+        if (new TextEncoder().encode(text).byteLength > app.bodyLimit) throw new HttpError(413, "Request body is too large")
+        body = text || undefined
+        if (contentType?.includes("application/json") && text) {
+          try { body = JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }
+        }
       }
     }
     const result = await app.handle({ method: request.method, url: request.url, headers: request.headers, body, ...context })
