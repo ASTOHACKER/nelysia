@@ -21,13 +21,13 @@ export function createFetchHandler(app: Nelysia): (request: Request, context?: F
   }
   return async (request, context) => {
     if (dispatcher !== undefined && context === undefined && request.method === "GET") {
-      const fast = await tryCompiledGet(dispatcher, request)
+      const fast = await tryCompiledGet(app, dispatcher, request)
       if (fast !== undefined) return fast
     } else if (context === undefined && request.method === "GET") {
       let ready: CompiledDispatcher | undefined
       try { ready = await getDispatcher() } catch { return genericFetch(app, request, context) }
       if (ready !== undefined) {
-        const fast = await tryCompiledGet(ready, request)
+        const fast = await tryCompiledGet(app, ready, request)
         if (fast !== undefined) return fast
       }
     }
@@ -36,7 +36,7 @@ export function createFetchHandler(app: Nelysia): (request: Request, context?: F
 }
 
 /** Compiled GET fast path. Returns undefined when the generic flow owns it. */
-async function tryCompiledGet(dispatcher: CompiledDispatcher, request: Request): Promise<Response | undefined> {
+async function tryCompiledGet(app: Nelysia, dispatcher: CompiledDispatcher, request: Request): Promise<Response | undefined> {
   const found = lookupCompiled(dispatcher, fastPathname(request.url))
   if (found === undefined || found.kind === "generic") return undefined
   const requestId = dispatcher.needsRequestId
@@ -59,11 +59,19 @@ async function tryCompiledGet(dispatcher: CompiledDispatcher, request: Request):
     result = found.kind === "static-sync"
       ? (found.entry.route.handler as () => unknown)()
       : found.entry.route.handler({ params: found.params } as never)
-    if (result instanceof Promise) result = await result.catch(() => FALLBACK)
-  } catch {
-    return undefined
+    result = await result
+  } catch (error) {
+    return errorResponse(app, error, request)
   }
-  if (result === FALLBACK || result instanceof Response || isResponseData(result)) return undefined
+  if (result instanceof Response) {
+    return new Response(result.body, { status: result.status, headers: withId(new Headers(result.headers)) })
+  }
+  if (result instanceof ReadableStream) {
+    return new Response(result, { status: 200, headers: withId(new Headers()) })
+  }
+  if (isResponseData(result)) {
+    return responseData(result, withId)
+  }
   if (result === undefined || result === null) return new Response(null, { status: 200, headers: withId(new Headers()) })
   if (typeof result === "string" || result instanceof Uint8Array) {
     return new Response(result as unknown as BodyInit, {
@@ -73,15 +81,35 @@ async function tryCompiledGet(dispatcher: CompiledDispatcher, request: Request):
   }
   try {
     return Response.json(result, { headers: withId(new Headers()) })
-  } catch {
-    return undefined
+  } catch (error) {
+    return errorResponse(app, error, request)
   }
 }
 
-const FALLBACK = Symbol("nelysia.fetch-fallback")
-
 function isResponseData(value: unknown): value is { status: number; headers: Headers; body: unknown } {
   return typeof value === "object" && value !== null && (value as { [key: symbol]: unknown })[responseMarker] === true
+}
+
+function responseData(result: { status: number; headers: Headers; body: unknown }, withId: (headers: Headers) => Headers): Response {
+  const headers = withId(new Headers(result.headers))
+  if (result.body instanceof Response) {
+    for (const [key, value] of result.body.headers) headers.set(key, value)
+    return new Response(result.body.body, { status: result.status, headers })
+  }
+  if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers })
+  if (result.body === undefined || result.body === null) return new Response(null, { status: result.status, headers })
+  if (typeof result.body === "string" || result.body instanceof Uint8Array) return new Response(result.body as BodyInit, { status: result.status, headers })
+  if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8")
+  return new Response(JSON.stringify(result.body), { status: result.status, headers })
+}
+
+async function errorResponse(app: Nelysia, error: unknown, request: Request): Promise<Response> {
+  const result = await app.handleAdapterError(error, { method: request.method, url: request.url, headers: request.headers })
+  if (result.body instanceof Response) return result.body
+  if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers: result.headers })
+  const output = typeof result.body === "string" ? result.body : result.body === undefined ? null : JSON.stringify(result.body)
+  if (result.body !== undefined && result.body !== null && typeof result.body !== "string") result.headers.set("content-type", "application/json; charset=utf-8")
+  return new Response(output, { status: result.status, headers: result.headers })
 }
 
 async function genericFetch(app: Nelysia, request: Request, context?: FetchRequestContext): Promise<Response> {

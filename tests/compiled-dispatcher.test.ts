@@ -56,6 +56,60 @@ test("dispatcher groups dynamics per method and keeps statics O(1)", async () =>
   assert.equal(lookupCompiled(d, "/nope"), undefined)
 })
 
+test("multi-route zero-arg static functions use static-sync without context allocation", async () => {
+  let receivedArguments = -1
+  const app = new Nelysia({ requestId: false })
+    .get("/json", function () {
+      receivedArguments = arguments.length
+      return { message: "hello", value: 42 }
+    })
+    .get("/users/:id", ({ params }) => ({ id: params.id }))
+  const dispatcher = compileDispatcher(app)
+  assert.equal(dispatcher.staticFunctionMap.get("/json")?.route.path, "/json")
+  assert.equal(lookupCompiled(dispatcher, "/json")?.kind, "static-sync")
+  assert.equal(lookupCompiled(dispatcher, "/json/")?.kind, "static-sync")
+
+  const response = await createCompiledBunHandler(app)(new Request("http://localhost/json"))
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), { message: "hello", value: 42 })
+  assert.equal(receivedArguments, 0)
+})
+
+test("zero-arg static function fast path preserves async, native, stream, and error results", async () => {
+  let errorCalls = 0
+  const app = new Nelysia({ requestId: false })
+    .get("/async", async () => ({ ok: true }))
+    .get("/text", () => "hello")
+    .get("/bytes", () => new TextEncoder().encode("bytes"))
+    .get("/native", () => new Response("native", { status: 201, headers: { "x-native": "yes" } }))
+    .get("/stream", () => new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("stream"))
+        controller.close()
+      }
+    })))
+    .get("/error", () => {
+      errorCalls++
+      throw new Error("boom")
+    })
+  const handler = createCompiledBunHandler(app)
+
+  const asyncResponse = await handler(new Request("http://localhost/async"))
+  assert.deepEqual(await asyncResponse.json(), { ok: true })
+  assert.equal(await (await handler(new Request("http://localhost/text"))).text(), "hello")
+  assert.equal(await (await handler(new Request("http://localhost/bytes"))).text(), "bytes")
+  const native = await handler(new Request("http://localhost/native"))
+  assert.equal(native.status, 201)
+  assert.equal(native.headers.get("x-native"), "yes")
+  assert.equal(await native.text(), "native")
+  const stream = await handler(new Request("http://localhost/stream"))
+  assert.equal(await stream.text(), "stream")
+  const error = await handler(new Request("http://localhost/error"))
+  assert.equal(error.status, 500)
+  assert.match(await error.text(), /Internal Server Error/)
+  assert.equal(errorCalls, 1)
+})
+
 test("hooked routes fall back while deterministic schema routes use generated validation", async () => {
   const app = buildApp()
     .onBeforeHandle(() => {})
@@ -222,6 +276,37 @@ test("compiled Fetch handler matches generic execution", async () => {
   }))
   assert.deepEqual(await posted.json(), { name: "Ada" })
   assert.equal((await handler(new Request("http://localhost/nope"))).status, 404)
+})
+
+test("Node and Fetch static function paths do not execute native handlers twice", async (t) => {
+  let nodeCalls = 0
+  const nodeApp = new Nelysia({ requestId: false })
+    .get("/native", () => {
+      nodeCalls++
+      return new Response("native-node", { status: 201, headers: { "x-native": "node" } })
+    })
+    .get("/json", () => ({ ok: true }))
+  const nodeServer = createNodeServer(nodeApp)
+  await new Promise<void>((resolve) => nodeServer.listen(0, resolve))
+  t.after(() => nodeServer.close())
+  const address = nodeServer.address()
+  assert.ok(address && typeof address === "object")
+  const nodeResponse = await fetch(`http://127.0.0.1:${address.port}/native`)
+  assert.equal(nodeResponse.status, 201)
+  assert.equal(nodeResponse.headers.get("x-native"), "node")
+  assert.equal(await nodeResponse.text(), "native-node")
+  assert.equal(nodeCalls, 1)
+
+  let fetchCalls = 0
+  const fetchApp = new Nelysia({ requestId: false }).get("/native", () => {
+    fetchCalls++
+    return new Response("native-fetch", { status: 202, headers: { "x-native": "fetch" } })
+  })
+  const fetchResponse = await createFetchHandler(fetchApp)(new Request("http://localhost/native"))
+  assert.equal(fetchResponse.status, 202)
+  assert.equal(fetchResponse.headers.get("x-native"), "fetch")
+  assert.equal(await fetchResponse.text(), "native-fetch")
+  assert.equal(fetchCalls, 1)
 })
 
 test("compiled and generic handlers stay equivalent across fallback boundaries", async () => {

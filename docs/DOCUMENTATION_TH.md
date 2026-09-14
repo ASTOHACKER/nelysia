@@ -1350,6 +1350,17 @@ validation สำหรับ built-in schema subset ที่พิสูจน
 native response และ stream ที่ generate ไม่ได้จะ fallback ไป generic path เสมอ
 ดูคำสั่ง release gate ได้ที่ [`v0.5-release-gates.md`](./v0.5-release-gates.md)
 
+### patch v0.5.1: Bun route-compiled fast path
+
+patch นี้เพิ่ม index `staticFunctionMap` ใน compiled dispatcher สำหรับ route
+ฟังก์ชันแบบไม่มี argument โดยจัดเป็น `static-sync` ส่วน `.getStatic()` ยังเป็น
+ระดับ `static-prebuilt` แยกกัน และ route แบบ params-only ใช้ dynamic specialization
+ที่พิสูจน์ได้ ผลลัพธ์ `Response`, stream และ error จะถูกส่งต่อหรือเข้า error adapter
+เพียงครั้งเดียว; กรณีที่ไม่รองรับยัง fallback ไป generic runtime เสมอ ใช้
+`BENCH_ROUTE_SET=single` หรือ `multi` รัน benchmark ที่จับคู่กันด้วยคำสั่ง
+`npm run benchmark:oha:route:release` รายงานอยู่ที่
+[`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md)
+
 ```bash
 # TechEmpower Round 22 Benchmark Suite (Plaintext & JSON บนระดับ Concurrency 50-500)
 npm run benchmark:teb

@@ -51,6 +51,7 @@ const DURATION_SEC = Number(process.env.BENCH_DURATION_SEC ?? 5)
 const CONCURRENCY = Number(process.env.BENCH_CONCURRENCY ?? 50)
 const ROUNDS = Number(process.env.BENCH_ROUNDS ?? 3)
 const TARGET_SUITE = process.env.BENCH_SUITE ?? "all" // "all" | "bun" | "node"
+const ROUTE_SET = process.env.BENCH_ROUTE_SET === "single" ? "single" : "multi"
 
 async function runCommand(cmd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -150,8 +151,8 @@ function getTargets(): TargetConfig[] {
       command: { bin: "bun", file: "benchmarks/server-bun.ts" }
     },
     {
-      framework: "nelysia-bun-compiled",
-      label: "Nelysia (Route Compiled)",
+      framework: "nelysia-bun-zero-arg",
+      label: "Nelysia (Zero-arg Specialized)",
       runtime: "Bun",
       workload: "JSON Serialization (/json)",
       path: "/json",
@@ -183,7 +184,7 @@ function getTargets(): TargetConfig[] {
       command: { bin: "bun", file: "benchmarks/server-bun.ts" }
     },
     {
-      framework: "nelysia-bun-compiled",
+      framework: "nelysia-bun-params",
       label: "Nelysia (Params Compiled)",
       runtime: "Bun",
       workload: "Dynamic Route (/users/42)",
@@ -295,6 +296,7 @@ async function main() {
   console.log(`========================================================================`)
   console.log(`Settings: Duration: ${DURATION_SEC}s | Concurrency: ${CONCURRENCY} | Rounds: ${ROUNDS} (Median Reported)`)
   console.log(`Suite: ${TARGET_SUITE.toUpperCase()}`)
+  console.log(`Route set: ${ROUTE_SET}`)
   const cpu = cpus()
   let bunVersion = "unavailable"
   let ohaVersion = "unavailable"
@@ -321,7 +323,9 @@ async function main() {
         env: {
           ...process.env,
           FRAMEWORK: target.framework,
-          PORT: String(PORT)
+          PORT: String(PORT),
+          BENCH_ROUTE_SET: ROUTE_SET,
+          BENCH_CASE: target.path.startsWith("/users/") ? "dynamic" : "json"
         },
         stdio: ["ignore", "pipe", "inherit"]
       })
@@ -356,7 +360,7 @@ async function main() {
 
     finalResults.push({
       framework: target.label,
-      workload: target.workload,
+      workload: `${target.workload} [${ROUTE_SET} route]`,
       runtime: target.runtime,
       rps: rpsMed,
       rpsMin: Math.min(...rpsValues),

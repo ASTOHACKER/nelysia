@@ -30,7 +30,7 @@ export function createNodeServer(app: Nelysia) {
   const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
       const method = request.method ?? "GET"
-      if (dispatcher !== undefined && method === "GET" && await tryCompiledGet(dispatcher, prebuilt, request, response)) return
+      if (dispatcher !== undefined && method === "GET" && await tryCompiledGet(app, dispatcher, prebuilt, request, response)) return
       // Fast path: GET/HEAD without body headers never touch the request stream.
       const needsBody = method !== "GET" && method !== "HEAD" && (request.headers["content-length"] !== undefined || request.headers["transfer-encoding"] !== undefined)
       const headers = new Headers(request.headers as Record<string, string>)
@@ -64,9 +64,10 @@ export function createNodeServer(app: Nelysia) {
 }
 
 /** Compiled GET fast path. Returns true when the response was sent; false means
- * the caller must run the generic app.handle() flow (miss, generic route, or a
- * handler result the fast path cannot represent, e.g. a native Response). */
-async function tryCompiledGet(dispatcher: CompiledDispatcher, prebuilt: Map<CompiledRoute, PrebuiltStatic>, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
+ * the caller must run the generic app.handle() flow for a miss or generic route.
+ * Specialized handlers keep native responses/streams direct and adapt errors on
+ * the cold path without invoking the handler a second time. */
+async function tryCompiledGet(app: Nelysia, dispatcher: CompiledDispatcher, prebuilt: Map<CompiledRoute, PrebuiltStatic>, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
   const url = request.url ?? "/"
   const query = url.indexOf("?")
   const pathname = (query === -1 ? url : url.slice(0, query)) || "/"
@@ -84,20 +85,52 @@ async function tryCompiledGet(dispatcher: CompiledDispatcher, prebuilt: Map<Comp
     response.end(staticResponse.bytes)
     return true
   }
-  // static-sync / params: invoke the handler with a minimal context. Anything
-  // unexpected (throw, Response, unserializable value) falls back to generic.
+  // static-sync / params: invoke the handler with a minimal context. The
+  // zero-argument tier does not allocate a request context at all.
   let result: unknown
+  const requestHeaders = new Headers(request.headers as Record<string, string>)
   try {
     result = found.kind === "static-sync"
       ? (found.entry.route.handler as () => unknown)()
       : found.entry.route.handler({ params: found.params } as never)
-    if (result instanceof Promise) result = await result.catch(() => FALLBACK)
-  } catch {
-    return false
+    result = await result
+  } catch (error) {
+    const handled = await app.handleAdapterError(error, { method: "GET", url, headers: requestHeaders })
+    await writeResponse(response, handled)
+    return true
   }
-  if (result === FALLBACK || result instanceof Response || isResponseData(result)) return false
+  const addRequestId = (headers: Headers): Headers => {
+    if (requestId !== undefined) headers.set("x-request-id", requestId)
+    return headers
+  }
+  if (result instanceof Response) {
+    await writeResponse(response, {
+      status: result.status,
+      headers: addRequestId(new Headers(result.headers)),
+      body: result,
+      [responseMarker]: true
+    })
+    return true
+  }
+  if (result instanceof ReadableStream) {
+    await writeResponse(response, {
+      status: 200,
+      headers: addRequestId(new Headers()),
+      body: result,
+      [responseMarker]: true
+    })
+    return true
+  }
+  if (isResponseData(result)) {
+    await writeResponse(response, result)
+    return true
+  }
   const serialized = serializeHandlerResult(result)
-  if (serialized === undefined) return false
+  if (serialized === undefined) {
+    const handled = await app.handleAdapterError(new TypeError("Response could not be serialized"), { method: "GET", url, headers: requestHeaders })
+    await writeResponse(response, handled)
+    return true
+  }
   const headers: Record<string, string | number> = { "content-length": serialized.bytes.length }
   if (serialized.contentType !== undefined) headers["content-type"] = serialized.contentType
   if (requestId !== undefined) headers["x-request-id"] = requestId
@@ -105,8 +138,6 @@ async function tryCompiledGet(dispatcher: CompiledDispatcher, prebuilt: Map<Comp
   response.end(serialized.bytes)
   return true
 }
-
-const FALLBACK = Symbol("nelysia.compiled-fallback")
 
 function isResponseData(value: unknown): value is { status: number; headers: Headers; body: unknown } {
   return typeof value === "object" && value !== null && (value as { [key: symbol]: unknown })[responseMarker] === true

@@ -1454,6 +1454,17 @@ runtime behavior, native responses, and streams remain on the generic path.
 See [`v0.5-release-gates.md`](./v0.5-release-gates.md) for the release evidence
 commands and the distinction between implemented code and completed soak evidence.
 
+### v0.5.1 Bun route-compiled patch
+
+The patch adds a compiled dispatcher index for static function routes. A
+zero-argument `.get()` handler is classified as `static-sync`, while `.getStatic()`
+remains `static-prebuilt`; params-only routes use the specialized dynamic tier and
+unsupported results fall back to the generic runtime. Native `Response` values,
+streams, and handler errors are returned or adapted once. Reproduce the matched
+single-route and multi-route evidence with `BENCH_ROUTE_SET=single` or `multi` and
+`npm run benchmark:oha:route:release`. The patch report is
+[`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md).
+
 ### Running Benchmarks
 
 ```bash

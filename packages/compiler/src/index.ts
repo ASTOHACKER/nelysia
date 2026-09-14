@@ -76,7 +76,11 @@ export function compile(app: Nelysia): CompiledApplication {
     method: route.method,
     path: route.path,
     execution: route.static && route.hooks.length === 0 && route.contextFree ? "compiled" as const : route.static && route.hooks.length === 0 ? "specialized" as const : "generic" as const,
-    reason: route.static && route.hooks.length === 0 && route.contextFree ? "Explicit static response" : isStandaloneRoute(route) ? "Handler and schema source can be embedded" : unsupportedRouteDiagnostic(route).reason
+    reason: route.static && route.hooks.length === 0 && route.contextFree
+      ? "Explicit static response; adapter uses static-prebuilt dispatch"
+      : route.static && route.hooks.length === 0 && route.handler.length === 0
+        ? "Static zero-arg handler; adapter uses static-sync dispatch"
+        : isStandaloneRoute(route) ? "Handler and schema source can be embedded" : unsupportedRouteDiagnostic(route).reason
   }))
   const standaloneBlock = app.telemetry !== undefined
     ? { code: "NELY111" as const, reason: "Telemetry requires the generic runtime" }
@@ -129,12 +133,10 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
       case "static-prebuilt":
         return prebuilt.get(found.entry)!.clone()
       case "static-sync": {
-        // Static without precomputed value: call context-free handler synchronously when possible.
-        try {
-          const result = (found.entry.route.handler as () => unknown)()
-          if (result instanceof Promise) return result.then((v) => fastJson(v))
-          return fastJson(result)
-        } catch { return fallback(request) }
+        // Static function routes are context-free but their value is only known
+        // at request time. Execute once, preserve native results, and keep the
+        // error path out of the hot response pipeline.
+        return runStaticFunction(found.entry, request)
       }
       case "params":
         return runParamsOnly(found.entry, found.params, fallback)
@@ -149,6 +151,26 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
       if (result instanceof Promise) return result.then((v) => fastJson(v), () => fbNoRequest(fb))
       return fastJson(result)
     } catch { return fbNoRequest(fb) }
+  }
+
+  function runStaticFunction(c: CompiledRoute, request: Request): Response | Promise<Response> {
+    try {
+      const result = (c.route.handler as () => unknown)()
+      if (isPromiseLike(result)) return Promise.resolve(result).then((value) => fastJson(value), (error) => handleFastError(error, request))
+      return fastJson(result)
+    } catch (error) {
+      return handleFastError(error, request)
+    }
+  }
+
+  async function handleFastError(error: unknown, request: Request): Promise<Response> {
+    const result = await app.handleAdapterError(error, {
+      method: request.method,
+      url: request.url,
+      headers: request.headers,
+      signal: request.signal
+    })
+    return responseFromResult(result.status, result.headers, result.body)
   }
 
   function fbNoRequest(fb: (r: Request) => Promise<Response>): Promise<Response> {
@@ -207,6 +229,8 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
   }
 
   function fastJson(value: unknown, status = 200, headers?: Record<string, string>): Response {
+    if (value instanceof Response) return value
+    if (value instanceof ReadableStream) return new Response(value, { status, headers })
     if (value === undefined || value === null) return new Response(null, { status, headers })
     const combinedHeaders = headers ? { ...textHeaders, ...headers } : textHeaders
     if (typeof value === "string") return new Response(value, { status, headers: combinedHeaders })
@@ -219,12 +243,18 @@ export function createCompiledBunHandler(app: Nelysia): (request: Request) => Re
 }
 
 function responseFromResult(status: number, headers: HeadersInit | undefined, body: unknown): Response {
+  if (body instanceof Response) return body
+  if (body instanceof ReadableStream) return new Response(body, { status, headers })
   if (body === undefined || body === null) return new Response(null, { status, headers })
   if (typeof body === "string" || body instanceof Uint8Array) {
     const outputHeaders = headers && new Headers(headers).has("content-type") ? headers : { ...(headers ? Object.fromEntries(new Headers(headers).entries()) : {}), "content-type": "text/plain; charset=utf-8" }
     return new Response(body as unknown as BodyInit, { status, headers: outputHeaders })
   }
   return Response.json(body, { status, headers })
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return typeof value === "object" && value !== null && typeof (value as { then?: unknown }).then === "function"
 }
 
 function requestPath(input: string): string {

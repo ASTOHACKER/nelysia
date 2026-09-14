@@ -10,7 +10,7 @@
 
 ## Install
 
-> **Current development note:** the workspace is implementing `@narudom96/nelysia@0.5.0`.
+> **Current development note:** the workspace is implementing `@narudom96/nelysia@0.5.1`.
 > The latest immutable GitHub artifact remains v0.4.0 until the v0.5.0 release gates
 > are complete; npm publication is still pending registry availability.
 
@@ -23,7 +23,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (works once a v0.5.0 package is published)
+# registry install (works once a v0.5.1 package is published)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -61,7 +61,7 @@ import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
   .use(cors())
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.5.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.5.1!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "all"
@@ -89,7 +89,10 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 - [คู่มือการใช้งานอย่างละเอียด (ภาษาไทย)](./docs/DOCUMENTATION_TH.md)
 - [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
 
-### What's New in v0.5.0 (implementation branch)
+### What's New in v0.5.1 (implementation branch)
+- **Bun zero-argument route fast path**: static function routes now use `static-sync` in single- and multi-route dispatchers; `.getStatic()` remains the separate `static-prebuilt` tier.
+- **Native result parity**: `Response`, `ReadableStream`, response metadata, and handler errors are handled once without re-running the handler.
+- **Route benchmark taxonomy**: the release runner separates prebuilt, zero-argument specialized, and params-only workloads with matched single/multi-route fixtures.
 - **Strict JWT route guards**: internal metadata registry, HS256-only verification, optional issuer/audience checks, and no auth work on public routes.
 - **Generated schema fast path**: deterministic built-in params/query/header/response schemas use generated validators; Standard Schema and custom behavior fall back to generic execution with diagnostics.
 - **Production plugins**: `@narudom96/nelysia/upload`, `@narudom96/nelysia/logger`, and `@narudom96/nelysia/timeout` provide multipart storage, redacted typed logging, and deadline cancellation contracts.
@@ -153,6 +156,9 @@ The v0.5.0 release gate and known limitations are documented in
 The v0.5.0 30s × 7 core benchmark evidence is recorded in
 [`docs/benchmark-oha-v05-2026-09-14.md`](./docs/benchmark-oha-v05-2026-09-14.md).
 
+The v0.5.1 Bun route fast-path evidence is recorded in
+[`docs/benchmark-route-fast-path-v051-2026-09-14.md`](./docs/benchmark-route-fast-path-v051-2026-09-14.md).
+
 Runtime support and verification commands are tracked in [`docs/compatibility.md`](./docs/compatibility.md).
 
 Platform examples are documented in [`docs/platform-examples.md`](./docs/platform-examples.md).
@@ -176,7 +182,7 @@ npm run typecheck
 npm run example
 ```
 
-Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The current v0.5.0 workspace also includes runnable full-stack framework fixtures.
+Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The current v0.5.1 workspace also includes runnable full-stack framework fixtures.
 
 With Bun installed, run the Bun target:
 
@@ -297,6 +303,10 @@ npm run benchmark:oha
 
 # Release evidence: 30 seconds × 7 samples, with environment and percentiles
 npm run benchmark:oha:release
+
+# Bun route fast-path evidence: run both matched route-set fixtures
+BENCH_ROUTE_SET=single npm run benchmark:oha:route:release
+BENCH_ROUTE_SET=multi npm run benchmark:oha:route:release
 
 # Staged soak gates (24h is intentionally a separate production-readiness run)
 npm run soak:1m

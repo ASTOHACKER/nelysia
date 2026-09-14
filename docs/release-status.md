@@ -110,6 +110,22 @@ The detailed commands and limitations are in [`v0.5-release-gates.md`](./v0.5-re
 The completed local soak evidence is in [`soak-v05-2026-09-14.md`](./soak-v05-2026-09-14.md).
 The completed core load evidence is in [`benchmark-oha-v05-2026-09-14.md`](./benchmark-oha-v05-2026-09-14.md).
 
+## v0.5.1 Bun route-compiled patch
+
+- [x] Static function routes are indexed in `staticFunctionMap` and classify as `static-sync`
+- [x] `.getStatic()` remains the separate `static-prebuilt` tier
+- [x] Zero-argument handlers execute without request context allocation
+- [x] Native `Response`, `ReadableStream`, response metadata, and errors execute once
+- [x] Node and Fetch adapters preserve the specialized route contract
+- [x] Single-route and multi-route three-tier Bun benchmark fixtures are available
+- [x] Dispatcher, parity, fallback, and no-double-execution tests are covered
+- [x] 30s × 7 route benchmark evidence recorded for both route sets
+- [ ] v0.5.1 GitHub tag/release created after the patch gate passes
+
+The patch must not move or overwrite the v0.5.0 tag. The route benchmark gate is
+tracked separately in [`benchmark-route-fast-path-v051-2026-09-14.md`](./benchmark-route-fast-path-v051-2026-09-14.md)
+and does not make a universal claim against Raw Bun, Elysia, or historical runners.
+
 ## v0.4.0 verification record (2026-09-14)
 
 | Gate | Result | Evidence |

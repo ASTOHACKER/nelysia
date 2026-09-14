@@ -16,6 +16,8 @@ export interface SerializedBody {
 export interface CompiledRoute {
   route: RouteRecord
   paramsOnly: boolean
+  /** A static route whose handler can execute without a context allocation. */
+  zeroArg: boolean
   match: (pathname: string) => Record<string, string> | undefined
   prefixFast?: { prefix: string; paramName: string }
   /** Present when the static value was serializable at compile time. */
@@ -38,6 +40,7 @@ export interface GeneratedRouteSchema {
 export interface CompiledDispatcher {
   routes: CompiledRoute[]
   staticMap: Map<string, CompiledRoute>
+  staticFunctionMap: Map<string, CompiledRoute>
   single?: CompiledRoute
   singleStatic?: CompiledRoute
   singleDynamic?: CompiledRoute
@@ -90,6 +93,7 @@ export function compileDispatcher(app: Nelysia): CompiledDispatcher {
       const entry: CompiledRoute = {
         route,
         paramsOnly: isParamsOnlyHandler(route.handler) && route.paramsSchema === undefined && route.querySchema === undefined && route.headersSchema === undefined && route.responseSchema === undefined,
+        zeroArg: route.static && route.handler.length === 0,
         match: createGeneratedMatcher(route),
         generated: createGeneratedRouteSchema(route)
       }
@@ -105,12 +109,17 @@ export function compileDispatcher(app: Nelysia): CompiledDispatcher {
     })
 
   const staticMap = new Map<string, CompiledRoute>()
-  for (const entry of routes) if (entry.route.static && entry.serialized !== undefined) staticMap.set(entry.route.path, entry)
+  const staticFunctionMap = new Map<string, CompiledRoute>()
+  for (const entry of routes) {
+    if (!entry.route.static) continue
+    if (entry.serialized !== undefined) staticMap.set(entry.route.path, entry)
+    else staticFunctionMap.set(entry.route.path, entry)
+  }
 
   const single = routes.length === 1 ? routes[0] : undefined
   const singleStatic = single !== undefined && single.route.static ? single : undefined
   const singleDynamic = single !== undefined && !single.route.static && single.prefixFast !== undefined && single.paramsOnly ? single : undefined
-  return { routes, staticMap, single, singleStatic, singleDynamic, needsRequestId: app.requestIdEnabled }
+  return { routes, staticMap, staticFunctionMap, single, singleStatic, singleDynamic, needsRequestId: app.requestIdEnabled }
 }
 
 /** Return true only for schemas whose definition is sufficient to reproduce
@@ -232,7 +241,7 @@ function classify(entry: CompiledRoute, params: Record<string, string>): Compile
   if (entry.route.static) {
     return entry.serialized !== undefined
       ? { kind: "static-prebuilt", entry }
-      : { kind: "static-sync", entry }
+      : entry.zeroArg ? { kind: "static-sync", entry } : { kind: "generic", entry, params }
   }
   return entry.paramsOnly
     ? { kind: "params", entry, params }
@@ -249,15 +258,19 @@ function classifyPrefix(entry: CompiledRoute, params: Record<string, string>): C
 /** Shared dispatch core: O(1) static hit, single-route shortcuts, then a
  * per-method-order scan. Returns undefined when the generic fallback owns it. */
 export function lookupCompiled(dispatcher: CompiledDispatcher, pathname: string): CompiledLookup | undefined {
-  const { staticMap, single, singleStatic } = dispatcher
+  const { staticMap, staticFunctionMap, single, singleStatic } = dispatcher
   const hit = staticMap.get(pathname)
   if (hit !== undefined) return { kind: "static-prebuilt", entry: hit }
+  const functionHit = staticFunctionMap.get(pathname)
+  if (functionHit !== undefined) return classify(functionHit, {})
   // Trailing-slash normalization only when needed (avoids alloc on hot path).
   let path = pathname
   if (path.length > 1 && path.charCodeAt(path.length - 1) === 47) {
     path = path.slice(0, -1)
     const hit2 = staticMap.get(path)
     if (hit2 !== undefined) return { kind: "static-prebuilt", entry: hit2 }
+    const functionHit2 = staticFunctionMap.get(path)
+    if (functionHit2 !== undefined) return classify(functionHit2, {})
   }
   // Single-static shortcut: direct string compare, no Map hashing (benchmark case).
   if (singleStatic !== undefined) {

@@ -70,6 +70,10 @@ BENCH_DURATION_SEC=3 BENCH_CONCURRENCY=50 BENCH_ROUNDS=10 BENCH_PORT=4341 npm ru
 
 # Use another base port when the default 4321 is already occupied.
 BENCH_PORT=4331 npm run benchmark:oha
+
+# Bun route-compiled patch evidence (30 seconds × 7, concurrency 50)
+BENCH_ROUTE_SET=single npm run benchmark:oha:route:release
+BENCH_ROUTE_SET=multi npm run benchmark:oha:route:release
 ```
 
 `BENCH_DURATION_SEC` controls each measured sample, `BENCH_CONCURRENCY` sets
@@ -78,6 +82,16 @@ and `BENCH_PORT` changes the base port used by the temporary benchmark servers.
 The runner records failures and refuses to present a successful-looking result
 when a request fails. Install `oha` separately and ensure it is on `PATH` before
 running these commands.
+
+The route patch runner is a Bun-only, same-runner comparison with warmup excluded,
+30 seconds per sample, 7 samples, concurrency 50, and environment metadata. It
+reports three matched tiers: `getStatic` `static-prebuilt`, zero-argument `.get()`
+`static-sync`, and params-only dynamic. `BENCH_ROUTE_SET=single` uses one route;
+`BENCH_ROUTE_SET=multi` adds a non-target route so dispatcher lookup is exercised.
+The zero-argument tier is compared with the standard Bun adapter in the same
+fixture. A result below the 10% median improvement threshold is recorded as
+correctness-only with no performance claim; historical benchmark numbers are not
+combined with this report.
 
 Router scale benchmark (generic path, single `app.handle()` lookup cost as the table grows):
 
