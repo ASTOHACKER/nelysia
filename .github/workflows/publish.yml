@@ -21,7 +21,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false # never use caching in release builds
       - uses: oven-sh/setup-bun@v2
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - run: npm run typecheck
       - run: npm test
       - run: bun test
