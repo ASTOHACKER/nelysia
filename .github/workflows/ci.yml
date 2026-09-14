@@ -18,8 +18,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - uses: denoland/setup-deno@v2
       - run: npm ci --legacy-peer-deps
+      - run: npm run package:build
       - run: npm run typecheck
       - run: npm test
       - run: bun test
       - run: npm run deno:check
-      - run: npm run package:build
