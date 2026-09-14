@@ -16,6 +16,9 @@
 
 ```bash
 curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.6.0/narudom96-nelysia-0.6.0.tgz
+or
+curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v0.6.0/narudom96-nelysia-0.6.0.tgz'
+
 npm install ./nelysia.tgz
 ```
 
