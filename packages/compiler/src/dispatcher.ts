@@ -188,7 +188,7 @@ function isGeneratedResponseData(value: unknown): value is ResponseData {
 }
 
 function isGeneratedResponseOptions(value: unknown): value is { status?: number; headers?: HeadersInit } {
-  return typeof value === "object" && value !== null && ("status" in value || "headers" in value)
+  return typeof value === "object" && value !== null && (("status" in value && typeof (value as { status?: unknown }).status === "number") || "headers" in value)
 }
 
 export type CompiledLookup =
@@ -245,7 +245,8 @@ export function serializeStaticValue(value: unknown): SerializedBody | undefined
     if (value instanceof Response || value instanceof ReadableStream) return undefined
     if (typeof value === "string") return { text: value, contentType: textContentType }
     if (value instanceof Uint8Array) return { bytes: value, contentType: textContentType }
-    return { text: JSON.stringify(value), contentType: jsonContentType }
+    const text = JSON.stringify(value)
+    return text === undefined ? undefined : { text, contentType: jsonContentType }
   } catch {
     return undefined
   }
@@ -523,10 +524,14 @@ export function matchSingleDynamicUrl(entry: { prefixFast?: { prefix: string; pa
   const spec = entry.prefixFast
   if (spec === undefined) return undefined
   const pre = spec.prefix
-  let ps = url.indexOf("/", 8)
-  if (ps === -1) {
-    ps = url.indexOf("/", 7)
-    if (ps === -1) return undefined
+  let ps: number
+  if (url.startsWith("/")) ps = 0
+  else {
+    ps = url.indexOf("/", 8)
+    if (ps === -1) {
+      ps = url.indexOf("/", 7)
+      if (ps === -1) return undefined
+    }
   }
   if (!url.startsWith(pre, ps)) return undefined
   const idStart = ps + pre.length

@@ -7,6 +7,7 @@ export interface HealthOptions {
   readinessPath?: string
   checks?: Record<string, HealthCheck>
   readiness?(): boolean | Promise<boolean>
+  exposeErrors?: boolean
 }
 
 export interface HealthStatus {
@@ -21,26 +22,27 @@ export function health(options: HealthOptions = {}): HealthPlugin {
   const readinessPath = options.readinessPath ?? "/ready"
   if (!path.startsWith("/") || !readinessPath.startsWith("/")) throw new Error("health paths must start with /")
   return ((app: import("../../core/src/app.ts").Nelysia<any, any, any, any>) => {
-    app.get(path, async ({ response }) => runChecks(options.checks))
+    app.get(path, async ({ response }) => runChecks(options.checks, options.exposeErrors))
     app.get(readinessPath, async ({ response }) => {
       const ready = await options.readiness?.() ?? true
-      return ready ? runChecks(options.checks) : response(503, { status: "degraded", checks: { readiness: false } })
+      const status = await runChecks(options.checks, options.exposeErrors)
+      return ready && status.status === "ok" ? status : response(503, { status: "degraded", checks: { ...status.checks, ...(ready ? {} : { readiness: false }) } })
     })
     return app
   }) as HealthPlugin
 }
 
-async function runChecks(checks: Record<string, HealthCheck> | undefined): Promise<HealthStatus> {
+async function runChecks(checks: Record<string, HealthCheck> | undefined, exposeErrors = false): Promise<HealthStatus> {
   const result: Record<string, unknown> = {}
   let healthy = true
   for (const [name, check] of Object.entries(checks ?? {})) {
     try {
       const value = await check()
       result[name] = value
-      if (value === false) healthy = false
+      if (value === false || (typeof value === "object" && value !== null && "ok" in value && (value as { ok?: unknown }).ok === false)) healthy = false
     } catch (error) {
       healthy = false
-      result[name] = { ok: false, error: error instanceof Error ? error.message : String(error) }
+      result[name] = exposeErrors ? { ok: false, error: error instanceof Error ? error.message : String(error) } : { ok: false }
     }
   }
   return { status: healthy ? "ok" : "degraded", checks: result }

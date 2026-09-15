@@ -2,8 +2,8 @@ import { asParsedQuery, createParsedQuery, type Nelysia } from "../../core/src/a
 import { HttpError } from "../../core/src/types.ts"
 import { requestIdFor, responseMarker, type Context, type RouteGraph, type RouteRecord } from "../../core/src/types.ts"
 import type { Schema } from "../../core/src/schema.ts"
-import { createBunHandler } from "../../runtime-bun/src/server.ts"
-import { canGenerateSchema, compileDispatcher, createSchemaIR, executeGeneratedGet, fastPathname, isCompilableRoute, isParamsOnlyHandler, isStaticFastPathRoute, jsonContentType, lookupCompiled, matchSingleDynamicUrl, textContentType, type CompiledRoute } from "./dispatcher.ts"
+import { createBunHandler } from "../../runtime-bun/src/handler.ts"
+import { canGenerateSchema, compileDispatcher, createSchemaIR, executeGeneratedGet, fastPathname, isCompilableRoute, isParamsOnlyHandler, isStaticFastPathRoute, jsonContentType, lookupCompiled, matchSingleDynamicUrl, serializeStaticValue, textContentType, type CompiledRoute } from "./dispatcher.ts"
 import { createHash } from "node:crypto"
 
 export { canGenerateSchema, createGeneratedMatcher, createGeneratedValidator, createSchemaIR, executeGeneratedGet, isParamsOnlyHandler, isStaticFastPathRoute } from "./dispatcher.ts"
@@ -37,6 +37,10 @@ export type BuildDiagnosticCode =
   | "NELY109"
   | "NELY110"
   | "NELY111"
+  | "NELY112"
+  | "NELY113"
+  | "NELY114"
+  | "NELY115"
 
 export interface BuildDiagnostic {
   code: BuildDiagnosticCode
@@ -75,7 +79,7 @@ export interface CompiledApplication {
   graph: RouteGraph
   analyses: RouteAnalysis[]
   handle: Nelysia<any, any, any>["handle"]
-  standaloneBlock?: { code: "NELY107" | "NELY110" | "NELY111"; reason: string }
+  standaloneBlock?: { code: "NELY107" | "NELY110" | "NELY111" | "NELY112" | "NELY114" | "NELY115"; reason: string }
 }
 
 export function compile(app: Nelysia<any, any, any>): CompiledApplication {
@@ -99,8 +103,14 @@ export function compile(app: Nelysia<any, any, any>): CompiledApplication {
           : isStandaloneRoute(route) ? "Handler and schema source can be embedded" : unsupportedRouteDiagnostic(route).reason
     }
   })
-  const standaloneBlock = app.telemetry !== undefined
+  const standaloneBlock = app.hasContextValues
+    ? { code: "NELY112" as const, reason: "Application state or decorations require the full request context" }
+    : app.telemetry !== undefined
     ? { code: "NELY111" as const, reason: "Telemetry requires the generic runtime" }
+    : app.bodyLimit !== 1024 * 1024 || app.usesTrustedProxy || app.usesSecureCookies || app.hasCustomNotFound
+    ? { code: "NELY114" as const, reason: "Application options require the runtime adapter" }
+    : app.hasGlobalLifecycle
+      ? { code: "NELY115" as const, reason: "Application response/request lifecycle cannot be embedded safely" }
     : app.websocketRoutes.length > 0
       ? { code: "NELY110" as const, reason: "WebSocket routes require the runtime adapter" }
       : app.hasFetchMounts
@@ -109,9 +119,9 @@ export function compile(app: Nelysia<any, any, any>): CompiledApplication {
   return { graph: app.graph, analyses, handle: app.handle.bind(app), standaloneBlock }
 }
 
-export function createCompiledBunHandler(app: Nelysia<any, any, any>): (request: Request) => Response | Promise<Response> {
-  const fallback = createBunHandler(app)
-  const useFallback = app.telemetry !== undefined || app.hasGlobalLifecycle
+export function createCompiledBunHandler(app: Nelysia<any, any, any>, fallback?: (request: Request) => Promise<Response>): (request: Request) => Response | Promise<Response> {
+  const genericFallback = fallback ?? createBunHandler(app)
+  const useFallback = app.telemetry !== undefined || app.hasGlobalLifecycle || app.hasFetchMounts
   // Shared Headers instances: Bun normalizes plain-object headers on every
   // construction (~1.8M/s) but reuses Headers instances (~2.8M/s).
   // Keep adapter headers identical to the reference runtime. In particular,
@@ -136,10 +146,10 @@ export function createCompiledBunHandler(app: Nelysia<any, any, any>): (request:
   }
 
   return (request) => {
-    if (dispatcher === undefined) return fallback(request)
+    if (dispatcher === undefined) return genericFallback(request)
     // Fast guard: method check only. Compiled GET routes declare no body schema,
     // so a body on GET is ignored per GET semantics — no Headers/body access here.
-    if (request.method !== "GET") return fallback(request)
+    if (request.method !== "GET") return genericFallback(request)
     const requestId = dispatcher.needsRequestId
       ? request.headers.get("x-request-id") ?? crypto.randomUUID()
       : undefined
@@ -148,15 +158,15 @@ export function createCompiledBunHandler(app: Nelysia<any, any, any>): (request:
     if (dispatcher.singleDynamic !== undefined) {
       const params = matchSingleDynamicUrl(dispatcher.singleDynamic, request.url)
       if (params !== undefined) return runParamsOnly(dispatcher.singleDynamic, params, request, requestId)
-      return fallback(request)
+      return genericFallback(request)
     }
     const found = lookupCompiled(dispatcher, fastPathname(request.url))
-    if (found === undefined) return fallback(request)
+    if (found === undefined) return genericFallback(request)
     // A context-free static route can still use the zero-allocation lane when
     // an application has decorations (for example JWT on public routes).
     // Params-only handlers receive a synthetic context, so contextful apps
     // must use the reference runtime for those routes.
-    if (dispatcher.hasContextValues && found.kind === "params") return fallback(request)
+    if (dispatcher.hasContextValues && found.kind === "params") return genericFallback(request)
     switch (found.kind) {
       case "static-prebuilt":
         return withRequestId(prebuilt.get(found.entry)!.clone(), requestId)
@@ -173,15 +183,15 @@ export function createCompiledBunHandler(app: Nelysia<any, any, any>): (request:
         // per-request decorations/state to hydrate. Routes with opaque
         // behavior remain on the reference adapter, preserving the exact
         // generic lifecycle contract.
-        if (found.entry.generated === undefined || dispatcher.hasContextValues) return fallback(request)
-        return runGeneric(found.entry, found.params, request, fallback, requestId)
+        if (found.entry.generated === undefined || dispatcher.hasContextValues) return genericFallback(request)
+        return runGeneric(found.entry, found.params, request, genericFallback, requestId)
     }
   }
 
   function runParamsOnly(c: CompiledRoute, params: Record<string, string>, request: Request, requestId?: string): Response | Promise<Response> {
     try {
       const result = c.route.handler({ params } as Context)
-      if (isPromiseLike(result)) return Promise.resolve(result).then((value) => fastJson(value, 200, undefined, requestId), (error) => handleFastError(error, request, requestId))
+      if (isPromiseLike(result)) return Promise.resolve(result).then((value) => resolveFastResult(value, request, requestId), (error) => handleFastError(error, request, requestId))
       return fastJson(result, 200, undefined, requestId)
     } catch (error) { return handleFastError(error, request, requestId) }
   }
@@ -189,11 +199,16 @@ export function createCompiledBunHandler(app: Nelysia<any, any, any>): (request:
   function runStaticFunction(c: CompiledRoute, request: Request, requestId?: string): Response | Promise<Response> {
     try {
       const result = (c.route.handler as () => unknown)()
-      if (isPromiseLike(result)) return Promise.resolve(result).then((value) => fastJson(value, 200, undefined, requestId), (error) => handleFastError(error, request, requestId))
+      if (isPromiseLike(result)) return Promise.resolve(result).then((value) => resolveFastResult(value, request, requestId), (error) => handleFastError(error, request, requestId))
       return fastJson(result, 200, undefined, requestId)
     } catch (error) {
       return handleFastError(error, request, requestId)
     }
+  }
+
+  function resolveFastResult(value: unknown, request: Request, requestId?: string): Response | Promise<Response> {
+    try { return fastJson(value, 200, undefined, requestId) }
+    catch (error) { return handleFastError(error, request, requestId) }
   }
 
   async function handleFastError(error: unknown, request: Request, requestId?: string): Promise<Response> {
@@ -223,20 +238,28 @@ export function createCompiledBunHandler(app: Nelysia<any, any, any>): (request:
       responseHeaders.set("x-request-id", requestId)
       return new Response(value.body, { status: value.status, headers: responseHeaders })
     }
-    const responseHeaders = new Headers(headers ? { ...Object.fromEntries(textHeaders.entries()), ...headers } : textHeaders)
-    if (requestId !== undefined) responseHeaders.set("x-request-id", requestId)
-    if (value instanceof ReadableStream) return new Response(value, { status, headers: responseHeaders })
-    if (value === undefined || value === null) return new Response(null, { status, headers: responseHeaders })
-    const combinedHeaders = responseHeaders
-    if (typeof value === "string") return new Response(value, { status, headers: combinedHeaders })
-    if (value instanceof Uint8Array) return new Response(value as unknown as BodyInit, { status, headers: combinedHeaders })
-    // Preserve the framework's charset-bearing JSON contract. Response.json()
-    // normalizes the content type to application/json, which would make the
-    // generated path observably different from app.handle().
-    const jsonResponseHeaders = new Headers(headers ? { ...Object.fromEntries(jsonHeaders.entries()), ...headers } : jsonHeaders)
-    if (requestId !== undefined) jsonResponseHeaders.set("x-request-id", requestId)
-    return new Response(JSON.stringify(value), { status, headers: jsonResponseHeaders })
+    // Keep the object lane separate from text/bytes. The previous version
+    // allocated text headers before discovering that the value was JSON, then
+    // allocated a second JSON header set. A single base-header preparation is
+    // enough and preserves the exact charset-bearing content-type contract.
+    if (typeof value === "string" || value instanceof Uint8Array || value instanceof ReadableStream || value === undefined || value === null) {
+      const responseHeaders = fastHeaders(textHeaders, headers, requestId)
+      if (value instanceof ReadableStream) return new Response(value, { status, headers: responseHeaders })
+      if (value === undefined || value === null) return new Response(null, { status, headers: responseHeaders })
+      return new Response(value as unknown as BodyInit, { status, headers: responseHeaders })
+    }
+    // Do not cache this serialization: zero-arg handlers are allowed to return
+    // request-varying objects, so each invocation must observe fresh state.
+    return new Response(JSON.stringify(value), { status, headers: fastHeaders(jsonHeaders, headers, requestId) })
   }
+}
+
+function fastHeaders(base: Headers, overrides?: Record<string, string>, requestId?: string): Headers {
+  if (overrides === undefined && requestId === undefined) return base
+  const headers = new Headers(base)
+  if (overrides !== undefined) for (const [name, value] of Object.entries(overrides)) headers.set(name, value)
+  if (requestId !== undefined) headers.set("x-request-id", requestId)
+  return headers
 }
 
 function responseFromResult(status: number, headers: HeadersInit | undefined, body: unknown, requestId?: string): Response {
@@ -368,9 +391,9 @@ export function inspect(compiled: CompiledApplication): string {
 export function generateServerSource(options: { entry: string; target: BuildTarget }): string {
   const entry = options.entry.startsWith(".") ? options.entry : `./${options.entry}`
   if (options.target === "bun") {
-    return `import { app } from ${JSON.stringify(entry)}\nimport { createCompiledBunHandler } from "../packages/compiler/src/index.ts"\n\nconst port = Number(process.env.PORT ?? 3000)\nconst server = Bun.serve({ port, fetch: createCompiledBunHandler(app) })\nconsole.log(\`Nelysia compiled Bun server listening on http://localhost:\${server.port}\`)\n`
+    return `import { app } from ${JSON.stringify(entry)}\nimport { createCompiledBunHandler } from "@narudom96/nelysia/compiler"\n\nconst port = Number(process.env.PORT ?? 3000)\nconst server = Bun.serve({ port, fetch: createCompiledBunHandler(app) })\nconsole.log(\`Nelysia compiled Bun server listening on http://localhost:\${server.port}\`)\n`
   }
-  return `import { app } from ${JSON.stringify(entry)}\nimport { createNodeServer } from "../packages/runtime-node/src/server.ts"\n\nconst port = Number(process.env.PORT ?? 3000)\ncreateNodeServer(app).listen(port, () => console.log(\`Nelysia compiled Node server listening on http://localhost:\${port}\`))\n`
+  return `import { app } from ${JSON.stringify(entry)}\nimport { createNodeServer } from "@narudom96/nelysia/runtime-node"\n\nconst port = Number(process.env.PORT ?? 3000)\ncreateNodeServer(app).listen(port, () => console.log(\`Nelysia compiled Node server listening on http://localhost:\${port}\`))\n`
 }
 
 export function generateStandaloneServerSource(options: { entry: string; target: BuildTarget; compiled: CompiledApplication }): string | undefined {
@@ -404,7 +427,7 @@ function isStandaloneRoute(route: RouteRecord): boolean {
   if (route.role !== undefined || route.permissions !== undefined || Object.keys(route.features ?? {}).length > 0 || (route.routeGuards?.length ?? 0) > 0) return false
   const schemas = [route.bodySchema, route.paramsSchema, route.querySchema, route.headersSchema, route.responseSchema, ...Object.values(route.responseSchemas ?? {})]
   if (schemas.some((schema) => schema !== undefined && !canGenerateSchema(schema))) return false
-  if (route.staticValue !== undefined) return true
+  if (route.staticValue !== undefined) return route.staticValue instanceof Response || route.staticValue instanceof ReadableStream ? false : serializeStaticValue(route.staticValue) !== undefined
   const functions = [route.handler, ...(route.requestHooks ?? []), ...(route.parseHooks ?? []), ...route.hooks, ...(route.mapResponseHooks ?? []), ...route.afterHooks, ...(route.afterResponseHooks ?? []), ...route.errorHandlers, ...(route.routeGuards ?? [])]
   return functions.every(canEmbedFunction)
 }
@@ -547,6 +570,7 @@ export function unsupportedRouteDiagnostic(route: RouteRecord, analysisReason?: 
     return { code: "NELY104", reason: "Schema validation requires the generic runtime", field: "schema" }
   }
   if (route.errorHandlers.length > 0) return { code: "NELY108", reason: "Native error handling requires the generic runtime", field: "error" }
+  if (route.staticValue instanceof Response || route.staticValue instanceof ReadableStream) return { code: "NELY113", reason: "Static native values are not replay-safe in a standalone artifact", field: "handler" }
   if (route.hooks.length > 0) return { code: "NELY106", reason: "Context extensions or route hooks require the generic runtime", field: "lifecycle" }
   if (route.auth !== undefined) return { code: "NELY107", reason: "Mounted or authenticated route metadata requires the generic runtime", field: "auth" }
   if ((route.routeGuards?.length ?? 0) > 0 || route.role !== undefined || route.permissions !== undefined || Object.keys(route.features ?? {}).length > 0) return { code: "NELY107", reason: "Route guards and feature metadata require the runtime adapter", field: "features" }

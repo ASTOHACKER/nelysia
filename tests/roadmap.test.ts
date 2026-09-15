@@ -454,4 +454,7 @@ test("session, roles, CSRF, cache, and health modules expose functional contract
 
   const healthy = new Nelysia().use(health({ checks: { database: () => true } }))
   assert.deepEqual((await healthy.inject({ method: "GET", path: "/health" })).body, { status: "ok", checks: { database: true } })
+
+  const degraded = new Nelysia().use(health({ checks: { database: () => ({ ok: false, reason: "offline" }) } }))
+  assert.deepEqual((await degraded.inject({ method: "GET", path: "/health" })).body, { status: "degraded", checks: { database: { ok: false, reason: "offline" } } })
 })

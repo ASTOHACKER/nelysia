@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { randomUUID } from "node:crypto"
 import { WebSocketServer, type WebSocket } from "ws"
 import { HttpError, type Nelysia } from "../../core/src/app.ts"
+import { isJsonContentType, isMultipartContentType } from "../../core/src/body.ts"
 import type { RequestData, ResponseData } from "../../core/src/types.ts"
 import { responseMarker } from "../../core/src/types.ts"
 import { compileDispatcher, executeGeneratedGet, lookupCompiled, matchSingleDynamicUrl, type CompiledDispatcher, type CompiledRoute } from "../../compiler/src/dispatcher.ts"
@@ -16,7 +17,7 @@ export function createNodeServer(app: Nelysia<any, any, any>) {
   const websocketRoutes = new Map(app.websocketRoutes.map((route) => [route.path, route.handlers]))
   // Auto-use the compiled dispatcher for hook-free GET routes. Anything else
   // (misses, non-GET, schemas, hooks, telemetry) flows through app.handle().
-  const dispatcher = app.telemetry !== undefined || app.hasGlobalLifecycle ? undefined : compileDispatcher(app)
+  const dispatcher = app.telemetry !== undefined || app.hasGlobalLifecycle || app.hasFetchMounts ? undefined : compileDispatcher(app)
   const prebuilt = new Map<CompiledRoute, PrebuiltStatic>()
   if (dispatcher !== undefined) {
     for (const entry of dispatcher.routes) {
@@ -28,22 +29,34 @@ export function createNodeServer(app: Nelysia<any, any, any>) {
     }
   }
   const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
+    let cleanupSignal = () => {}
     try {
       const method = request.method ?? "GET"
-      if (dispatcher !== undefined && method === "GET" && await tryCompiledGet(app, dispatcher, prebuilt, request, response)) return
-      // Fast path: GET/HEAD without body headers never touch the request stream.
-      const needsBody = method !== "GET" && method !== "HEAD" && (request.headers["content-length"] !== undefined || request.headers["transfer-encoding"] !== undefined)
+      if (dispatcher !== undefined && method === "GET") {
+        const compiled = tryCompiledGet(app, dispatcher, prebuilt, request, response)
+        if (compiled === true || (compiled instanceof Promise && await compiled)) return
+      }
       const headers = new Headers(request.headers as Record<string, string>)
-      const body = needsBody
+      const requestId = app.requestIdEnabled ? randomUUID() : undefined
+      const connection = requestSignal(request, response)
+      cleanupSignal = connection.cleanup
+      const data: RequestData = { method, url: request.url ?? "/", requestId: headers.get("x-request-id") ?? requestId, remoteAddress: request.socket.remoteAddress, headers, signal: connection.signal }
+      const preflight = app.hasFetchMounts ? undefined : await app.preflight(data)
+      if (preflight?.kind === "response") {
+        if (method !== "GET" && method !== "HEAD") request.resume()
+        await writeResponse(response, preflight.response, method === "HEAD")
+        return
+      }
+      const body = method !== "GET" && method !== "HEAD"
         ? await readBody(request, Number(headers.get("content-length") ?? 0), app.bodyLimit, headers.get("content-type"))
         : undefined
-      const requestId = app.requestIdEnabled ? randomUUID() : undefined
-       const data: RequestData = { method, url: request.url ?? "/", requestId: headers.get("x-request-id") ?? requestId, remoteAddress: request.socket.remoteAddress, headers, body }
-      const result = await app.handle(data)
+      const result = await app.handle({ ...data, body, ...(preflight === undefined ? {} : { preflight }) })
       await writeResponse(response, result, method === "HEAD")
     } catch (error) {
       const result = await app.handleAdapterError(error, { method: request.method ?? "GET", url: request.url ?? "/", headers: new Headers(request.headers as Record<string, string>) })
       await writeResponse(response, result, request.method === "HEAD")
+    } finally {
+      cleanupSignal()
     }
   })
   if (!hasWebSocket) return server
@@ -67,7 +80,7 @@ export function createNodeServer(app: Nelysia<any, any, any>) {
  * the caller must run the generic app.handle() flow for a miss or generic route.
  * Specialized handlers keep native responses/streams direct and adapt errors on
  * the cold path without invoking the handler a second time. */
-async function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledDispatcher, prebuilt: Map<CompiledRoute, PrebuiltStatic>, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
+function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledDispatcher, prebuilt: Map<CompiledRoute, PrebuiltStatic>, request: IncomingMessage, response: ServerResponse): boolean | Promise<boolean> {
   const url = request.url ?? "/"
   const clientRequestId = request.headers["x-request-id"]
   const requestId = dispatcher.needsRequestId
@@ -92,18 +105,12 @@ async function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledD
         method: "GET",
         headers: new Headers(request.headers as Record<string, string>)
       })
-      const result = await executeGeneratedGet(found.entry, found.params, generatedRequest, requestId)
-      await writeResponse(response, result)
-      return true
+      return executeGeneratedGet(found.entry, found.params, generatedRequest, requestId).then(
+        (result) => writeResponse(response, result).then(() => true),
+        (error) => writeHandledResponse(app, response, error, { method: "GET", url, headers: requestHeaders(), requestId })
+      )
     } catch (error) {
-      const handled = await app.handleAdapterError(error, {
-        method: "GET",
-        url,
-        headers: new Headers(request.headers as Record<string, string>),
-        requestId
-      })
-      await writeResponse(response, handled)
-      return true
+      return writeHandledResponse(app, response, error, { method: "GET", url, headers: requestHeaders(), requestId })
     }
   }
   if (found.kind === "static-prebuilt") {
@@ -120,60 +127,55 @@ async function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledD
   // static-sync / params: invoke the handler with a minimal context. The
   // zero-argument tier does not allocate a request context at all.
   let result: unknown
-  const requestHeaders = new Headers(request.headers as Record<string, string>)
   try {
     result = found.kind === "static-sync"
       ? (found.entry.route.handler as () => unknown)()
       : found.entry.route.handler({ params: found.params } as never)
-    result = await result
   } catch (error) {
-    const handled = await app.handleAdapterError(error, { method: "GET", url, headers: requestHeaders, requestId })
-    await writeResponse(response, handled)
-    return true
+    return writeHandledResponse(app, response, error, { method: "GET", url, headers: requestHeaders(), requestId })
   }
-  if (result instanceof HttpError) {
-    const handled = await app.handleAdapterError(result, { method: "GET", url, headers: requestHeaders, requestId })
-    await writeResponse(response, handled)
-    return true
+  if (isPromiseLike(result)) return Promise.resolve(result).then(
+    (value) => finishCompiledResult(value),
+    (error) => writeHandledResponse(app, response, error, { method: "GET", url, headers: requestHeaders(), requestId })
+  )
+  return finishCompiledResult(result)
+
+  function requestHeaders(): Headers {
+    return new Headers(request.headers as Record<string, string>)
   }
-  const addRequestId = (headers: Headers): Headers => {
-    if (requestId !== undefined) headers.set("x-request-id", requestId)
-    return headers
-  }
-  if (result instanceof Response) {
-    await writeResponse(response, {
-      status: result.status,
-      headers: addRequestId(new Headers(result.headers)),
-      body: result,
+
+  function finishCompiledResult(value: unknown): boolean | Promise<boolean> {
+    if (value instanceof HttpError) return writeHandledResponse(app, response, value, { method: "GET", url, headers: requestHeaders(), requestId })
+    const addRequestId = (headers: Headers): Headers => {
+      if (requestId !== undefined) headers.set("x-request-id", requestId)
+      return headers
+    }
+    if (value instanceof Response) return writeResponse(response, {
+      status: value.status,
+      headers: addRequestId(new Headers(value.headers)),
+      body: value,
       [responseMarker]: true
-    })
-    return true
-  }
-  if (result instanceof ReadableStream) {
-    await writeResponse(response, {
+    }).then(() => true)
+    if (value instanceof ReadableStream) return writeResponse(response, {
       status: 200,
       headers: addRequestId(new Headers()),
-      body: result,
+      body: value,
       [responseMarker]: true
-    })
+    }).then(() => true)
+    if (isResponseData(value)) return writeResponse(response, value).then(() => true)
+    const serialized = serializeHandlerResult(value)
+    if (serialized === undefined) return writeHandledResponse(app, response, new TypeError("Response could not be serialized"), { method: "GET", url, headers: requestHeaders(), requestId })
+    const headers: Record<string, string | number> = { "content-length": serialized.bytes.length }
+    if (serialized.contentType !== undefined) headers["content-type"] = serialized.contentType
+    if (requestId !== undefined) headers["x-request-id"] = requestId
+    response.writeHead(200, headers)
+    response.end(serialized.bytes)
     return true
   }
-  if (isResponseData(result)) {
-    await writeResponse(response, result)
-    return true
-  }
-  const serialized = serializeHandlerResult(result)
-  if (serialized === undefined) {
-    const handled = await app.handleAdapterError(new TypeError("Response could not be serialized"), { method: "GET", url, headers: requestHeaders })
-    await writeResponse(response, handled)
-    return true
-  }
-  const headers: Record<string, string | number> = { "content-length": serialized.bytes.length }
-  if (serialized.contentType !== undefined) headers["content-type"] = serialized.contentType
-  if (requestId !== undefined) headers["x-request-id"] = requestId
-  response.writeHead(200, headers)
-  response.end(serialized.bytes)
-  return true
+}
+
+function writeHandledResponse(app: Nelysia<any, any, any>, response: ServerResponse, error: unknown, data: RequestData): Promise<boolean> {
+  return app.handleAdapterError(error, data).then((handled) => writeResponse(response, handled).then(() => true))
 }
 
 function isResponseData(value: unknown): value is { status: number; headers: Headers; body: unknown } {
@@ -193,13 +195,34 @@ function serializeHandlerResult(result: unknown): { bytes: Buffer; contentType?:
 }
 
 function attachWebSocketHandlers(websocket: WebSocket, handlers: { open?(socket: WebSocket): unknown; message?(socket: WebSocket, message: string | Uint8Array): unknown; close?(socket: WebSocket, code: number, reason: string): unknown; error?(socket: WebSocket, error: unknown): unknown }): void {
-  void handlers.open?.(websocket)
+  runWebSocketHandler(() => handlers.open?.(websocket), websocket)
   websocket.on("message", (message, isBinary) => {
     const binary = Array.isArray(message) ? new Uint8Array(Buffer.concat(message)) : message instanceof ArrayBuffer ? new Uint8Array(message) : new Uint8Array(message)
-    void handlers.message?.(websocket, isBinary ? binary : message.toString())
+    runWebSocketHandler(() => handlers.message?.(websocket, isBinary ? binary : message.toString()), websocket)
   })
-  websocket.on("close", (code, reason) => { void handlers.close?.(websocket, code, reason.toString()) })
-  websocket.on("error", (error) => { void handlers.error?.(websocket, error) })
+  websocket.on("close", (code, reason) => { runWebSocketHandler(() => handlers.close?.(websocket, code, reason.toString()), websocket) })
+  websocket.on("error", (error) => { runWebSocketHandler(() => handlers.error?.(websocket, error), websocket) })
+}
+
+function runWebSocketHandler(handler: () => unknown, websocket: WebSocket): void {
+  try {
+    const result = handler()
+    if (isPromiseLike(result)) void Promise.resolve(result).catch((error) => { try { websocket.emit("error", error) } catch {} })
+  } catch (error) {
+    try { websocket.emit("error", error) } catch {}
+  }
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return typeof value === "object" && value !== null && typeof (value as { then?: unknown }).then === "function"
+}
+
+function requestSignal(request: IncomingMessage, response: ServerResponse): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController()
+  const abort = () => { if (!controller.signal.aborted) controller.abort() }
+  request.once("aborted", abort)
+  response.once("close", abort)
+  return { signal: controller.signal, cleanup: () => { request.off("aborted", abort); response.off("close", abort) } }
 }
 
 async function writeResponse(response: ServerResponse, result: ResponseData, head = false): Promise<void> {
@@ -211,7 +234,9 @@ async function writeResponse(response: ServerResponse, result: ResponseData, hea
     response.writeHead(result.status, values)
   }
   if (result.body instanceof Response) {
-    for (const [key, value] of result.body.headers) headers.set(key, value)
+    const merged = new Headers(result.body.headers)
+    for (const [key, value] of headers) merged.set(key, value)
+    for (const [key, value] of merged) headers.set(key, value)
     writeHeaders()
     if (head || !result.body.body) {
       response.end()
@@ -247,16 +272,21 @@ async function writeResponse(response: ServerResponse, result: ResponseData, hea
 
 async function pipeWebBody(response: ServerResponse, body: ReadableStream<Uint8Array>): Promise<void> {
   const reader = body.getReader()
+  let closed = false
+  const onClose = () => { closed = true; void reader.cancel().catch(() => undefined) }
+  response.once("close", onClose)
   try {
     while (true) {
+      if (closed || response.destroyed) break
       const chunk = await reader.read()
       if (chunk.done) break
-      response.write(chunk.value)
+      if (!response.write(chunk.value)) await new Promise<void>((resolve) => response.once("drain", resolve))
     }
   } finally {
+    response.off("close", onClose)
     reader.releaseLock()
   }
-  response.end()
+  if (!closed && !response.destroyed) response.end()
 }
 
 async function readBody(request: IncomingMessage, declaredLength: number, limit: number, contentType: string | null): Promise<unknown> {
@@ -270,16 +300,16 @@ async function readBody(request: IncomingMessage, declaredLength: number, limit:
     chunks.push(buffer)
   }
   if (size === 0) return undefined
-  if (contentType?.toLowerCase().includes("multipart/form-data")) {
+    if (isMultipartContentType(contentType)) {
     const formRequest = new Request("http://nelysia.local/upload", {
       method: "POST",
-      headers: { "content-type": contentType },
+      headers: { "content-type": contentType ?? "application/octet-stream" },
       body: Buffer.concat(chunks)
     })
     return formRequest.formData()
   }
   const text = Buffer.concat(chunks).toString("utf8")
-  if (contentType?.includes("application/json")) {
+  if (isJsonContentType(contentType)) {
     try { return JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }
   }
   return text

@@ -206,9 +206,25 @@ test("compiler keeps application-level runtime features on the adapter path", ()
   assert.equal(telemetry.manifest.sourceToSource, false)
   assert.equal(telemetry.manifest.diagnostics.find((diagnostic) => diagnostic.code === "NELY111")?.code, "NELY111")
 
+  const lifecycle = generateBuildArtifact({
+    entry: "./app.ts",
+    target: "bun",
+    compiled: compile(new Nelysia().onRequest(() => {}).get("/lifecycle", () => "ok"))
+  })
+  assert.equal(lifecycle.manifest.generation, "adapter")
+  assert.equal(lifecycle.manifest.diagnostics.find((diagnostic) => diagnostic.code === "NELY115")?.code, "NELY115")
+
   const websocketApp = new Nelysia().websocket("/events", {})
   const websocket = generateBuildArtifact({ entry: "./app.ts", target: "bun", compiled: compile(websocketApp) })
   assert.equal(websocket.manifest.diagnostics.find((diagnostic) => diagnostic.code === "NELY110")?.code, "NELY110")
+
+  const contextful = generateBuildArtifact({
+    entry: "./app.ts",
+    target: "bun",
+    compiled: compile(new Nelysia().state("version", 1).get("/version", ({ store }) => store.version))
+  })
+  assert.equal(contextful.manifest.generation, "adapter")
+  assert.equal(contextful.manifest.diagnostics.find((diagnostic) => diagnostic.code === "NELY112")?.code, "NELY112")
 })
 
 test("compiler falls back instead of embedding handlers with runtime closures", () => {

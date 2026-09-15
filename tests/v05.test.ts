@@ -80,6 +80,7 @@ test("logger plugin emits request metadata and redacts sensitive fields", async 
     .use(logger({ sink: (entry) => { entries.push(entry) } }))
     .get("/log", ({ logger: routeLogger }) => {
       routeLogger?.info("custom", { authorization: "Bearer secret", safe: "ok" })
+      routeLogger?.info("url", { url: "/search?token=secret&safe=yes", message: "Bearer another-secret" })
       return "ok"
     })
 
@@ -88,6 +89,12 @@ test("logger plugin emits request metadata and redacts sensitive fields", async 
   assert.equal(custom?.fields?.authorization, "[REDACTED]")
   assert.equal(custom?.fields?.safe, "ok")
   assert.ok(entries.some((entry) => entry.message === "request.complete"))
+
+  const complete = entries.find((entry) => entry.message === "request.complete")
+  assert.equal(complete?.fields?.url, "/log")
+  const urlEntry = entries.find((entry) => entry.message === "url")
+  assert.equal(urlEntry?.fields?.url, "/search?token=%5BREDACTED%5D&safe=yes")
+  assert.equal(urlEntry?.fields?.message, "Bearer [REDACTED]")
 })
 
 test("upload plugin exposes multipart files and enforces storage contract", async () => {

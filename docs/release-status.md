@@ -2,8 +2,23 @@
 
 This file is the finite progress board for work after v0.1. A checkbox is marked complete only when code, tests, and a runnable example exist.
 
-> Current package: `1.0.0`. The `v0.5.1` and `v0.6.0` tags/releases are immutable. The
-> 24-hour soak remains deferred, so production readiness is not declared.
+> Current package: `1.1.0`. The `v0.5.1`, `v0.6.0`, and `v1.0.0` tags/releases are immutable.
+> The 24-hour soak remains deferred, so production readiness is not declared.
+
+## v1.1.0 Current Release
+
+- [x] Runtime correctness, adapter parity, compiler safety, package reliability, and Bun stabilization changes included
+- [x] Node/Bun tests, typecheck, package build/imports, packed consumer, framework/deployment smoke, docs check, audit, and `git diff --check`
+- [x] Three pinned-CPU Bun baseline sets recorded with zero functional failures
+- [ ] Bun zero-arg/object performance parity gate within ±2% across three consecutive sets; status is `no-performance-claim`
+- [x] Package version bumped to `1.1.0`
+- [x] Annotated Git tag `v1.1.0` and GitHub Release created
+- [ ] npm publication when the registry account is ready
+- [ ] 24-hour soak before any production-readiness announcement
+
+The v1.1.0 release does not claim a speedup or parity with Elysia. The strict
+performance gate remains open because the recorded runner showed variance and
+one set exceeded the ±2% threshold.
 
 ## v1.0 Current Release
 
@@ -11,13 +26,31 @@ This file is the finite progress board for work after v0.1. A checkbox is marked
 - [x] Public v1.0 contract frozen for routing, context, options, schema, auth, plugins, lifecycle, errors, server, inject, and client
 - [x] Node/Bun tests 181/181, typecheck, package build, imports 25/25, deployment/framework smoke, benchmark/runtime evidence, and 1M/10M soak
 - [x] `npm run docs:check`, API-freeze checklist, security audit, and `git diff --check`
-- [x] Package version bumped to `1.0.0`
+- [x] Package version bumped to `1.0.0` (historical release)
 - [x] Annotated Git tag `v1.0.0` and GitHub Release created
 - [ ] npm publication when the registry account is ready
 - [ ] 24-hour soak before any production-readiness announcement
 
 The v0.7–v0.9 work was delivered as part of the single `v1.0.0` release; separate
 milestone tags are not required. The 24-hour soak remains intentionally deferred.
+
+## v1.1.x Worktree (not released)
+
+- [x] v1.1.0 request preflight: route/mount match and auth/guards run before body parsing
+- [x] Shared bounded Web body parser with case-insensitive JSON and `application/*+json`
+- [x] Bun/Fetch/Node body, native Response, static replay, compression, health and error-path fixes
+- [x] Node relative dynamic matching, stream backpressure/disconnect cancellation and WebSocket rejection handling
+- [x] Standalone safety diagnostics for non-replayable static values and runtime-only application options
+- [x] v1.1 correctness tests: Node `189/189`, Bun `189/189`
+- [x] Package build/imports, packed consumer, deployment smoke `5/5`, framework fixtures `5/5`, docs check and audit
+- [x] Short all-framework evidence with the same `oha 1.16.0` runner; Bun/Node machine-readable JSON recorded
+- [ ] Bun zero-arg/object stability gate: the prior 5s × 3 canonical run was within `±2%`, but the pinned 5s × 5 follow-up baseline was `-2.57%`; three consecutive passing sets are not established and the stabilization report records `no-performance-claim`
+- [ ] v1.1.0/v1.1.1 package version bump, commit, tag, GitHub Release and npm publication (separate release action)
+- [x] 1M/10M soak evidence for v1.1.1 ([soak-v11-2026-09-16.md](./soak-v11-2026-09-16.md)); 24-hour soak remains deferred
+
+Current source is package version `1.1.0`; the latest short benchmark
+is in [`benchmark-runtime-v11-2026-09-16.md`](./benchmark-runtime-v11-2026-09-16.md)
+with raw results in the two `benchmark-runtime-v11-*-latest.json` files.
 
 ## v0.2 Production Expansion
 

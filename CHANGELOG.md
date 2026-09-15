@@ -4,6 +4,22 @@ All notable changes to Nelysia are documented here. Benchmark figures are
 release evidence for the stated host and workload, not universal performance
 claims.
 
+## [1.1.0] — 2026-09-16
+
+This release contains the additive runtime-correctness, adapter-parity,
+compiler-safety, package-reliability, and Bun stabilization work after
+`v1.0.0`.
+
+### Verification status
+
+Node/Bun tests, typecheck, package build/imports, packed consumer, framework and
+deployment smoke, documentation checks, audit, and `git diff --check` passed.
+The Bun stabilization evidence has zero functional failures, but the strict
+three-set performance gate did not pass; this release makes **no performance
+parity or speedup claim**. The 24-hour soak remains deferred and production
+readiness is not declared. npm publication remains separate from this GitHub
+Release.
+
 ## [1.0.0] — 2026-09-15
 
 This release freezes the Nelysia public API after the v0.6–v0.9 workspace gates

@@ -31,10 +31,28 @@ function redactValue(value: unknown, redact: (key: string, value: unknown) => un
   if (sensitiveKey.test(key)) return "[REDACTED]"
   const custom = redact(key, value)
   if (custom !== value) return custom
+  if (typeof value === "string" && (key === "url" || key === "message" || key === "error")) return redactSensitiveText(value)
   if (Array.isArray(value)) return value.map((item) => redactValue(item, redact, key))
   if (typeof value !== "object" || value === null) return value
   const output: Record<string, unknown> = {}
   for (const [childKey, childValue] of Object.entries(value)) output[childKey] = redactValue(childValue, redact, childKey)
+  return output
+}
+
+function redactSensitiveText(value: string): string {
+  let output = value.replace(/\bBearer\s+[^\s]+/gi, "Bearer [REDACTED]")
+  if (!output.startsWith("/") && !/^https?:\/\//i.test(output)) return output
+  try {
+    const url = new URL(output, "http://nelysia.local")
+    for (const key of [...url.searchParams.keys()]) {
+      if (sensitiveKey.test(key)) url.searchParams.set(key, "[REDACTED]")
+    }
+    if (url.origin === "http://nelysia.local") return `${url.pathname}${url.search}${url.hash}`
+    output = url.toString()
+  } catch {
+    // Error/message text is allowed to be non-URL text; keep it after bearer
+    // token redaction rather than changing the logging contract.
+  }
   return output
 }
 

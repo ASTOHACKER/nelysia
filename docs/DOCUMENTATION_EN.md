@@ -1,6 +1,6 @@
 # Nelysia: Comprehensive Technical Documentation
 
-> **Version:** 1.0.0 (Current package and GitHub Release)
+> **Version:** 1.1.0 (Current package and GitHub Release)
 > **Target Runtimes:** Bun 1.4+, Node.js 22+, and Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **Language:** TypeScript / JavaScript (ESM)
 
@@ -12,20 +12,21 @@ options](./core/route-options.md), [errors](./core/errors.md), [authentication
 overview](./auth/overview.md), [JWT](./auth/jwt.md), [Better Auth](./auth/better-auth.md),
 [sessions](./auth/session.md), [roles and permissions](./auth/roles-permissions.md),
 and [plugin authoring](./plugins/authoring-plugins.md). Each page contains
-English and Thai guidance for the same v1.0.0 contract.
+English and Thai guidance for the frozen v1.0 contract plus additive v1.1.0 runtime fixes.
 
 For the complete version path and frozen public contract, see the
 [Nelysia v1.0 Guide](./v1.0.md). It explains what is verified in the workspace
 versus what has or has not been published as a package release.
 
-The post-v0.5.1 additive work is included in the v1.0.0 release. The public API
-contract is frozen; future capabilities must be additive within 1.x. Historical
+The post-v0.5.1 additive work was included in the v1.0.0 release. The v1.1.0
+runtime correctness and stabilization work is additive; the public API contract
+remains frozen and future capabilities must be additive within 1.x. Historical
 milestones are documented in
 [`roadmap-after-v051.md`](./roadmap-after-v051.md). The current package also
 exports production contracts from `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache`, and `@narudom96/nelysia/health`; these remain on the
-v1.0.0 package line.
+v1.1.0 package line.
 
 Runnable examples: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts), and
@@ -1530,7 +1531,7 @@ nelysia dev ./src/app.ts --port 3000
 
 ### Standalone Generation
 
-When route handlers, lifecycle functions, and schema definitions can be embedded safely, the compiler emits a standalone source-to-source server with no development-router import. It supports all HTTP methods, path parameters, wildcard matching, request parsing, validation, response serialization, headers, HEAD, OPTIONS, 405, and route error handling. Patterns that cannot be embedded safely fall back to the adapter entrypoint with an explicit diagnostic naming their method, path, and reason. Stable route diagnostic codes include `NELY101` unsupported method, `NELY102` request lifecycle, `NELY103` response lifecycle, `NELY104` schema validation, `NELY105` opaque handler, and `NELY106`–`NELY111` for context, module, native response, streaming, WebSocket, and runtime dependency exclusions.
+When route handlers, lifecycle functions, and schema definitions can be embedded safely, the compiler emits a standalone source-to-source server with no development-router import. It supports all HTTP methods, path parameters, wildcard matching, request parsing, validation, response serialization, headers, HEAD, OPTIONS, 405, and route error handling. Patterns that cannot be embedded safely fall back to the adapter entrypoint with an explicit diagnostic naming their method, path, and reason. Stable route diagnostic codes include `NELY101` unsupported method, `NELY102` request lifecycle, `NELY103` response lifecycle, `NELY104` schema validation, `NELY105` opaque handler, `NELY106`–`NELY111` for context, module, native response, streaming, WebSocket, and runtime dependency exclusions, and `NELY112`–`NELY115` for application context values, non-replayable static values, runtime-only application options, and lifecycle behavior that cannot be embedded safely.
 
 > Deliberate limit: handlers that depend on unavailable runtime closures, platform objects, or opaque integrations remain on the generic fallback path.
 
@@ -1543,7 +1544,7 @@ Even without a standalone build, the Node, Bun, and Fetch adapters serve hook-fr
 Build outputs:
 - `dist/server.bun.ts` (or `dist/server.node.ts`): Optimized entrypoint.
 - `dist/server.bun.ts.map` (or `dist/server.node.ts.map`): Source map of the artifact.
-- `dist/manifest.json`: Target, artifact, route analyses, diagnostics (`NELY001`/`NELY003` plus reason codes `NELY101`–`NELY111`), `generation` (`standalone`|`adapter`), `dispatcher` (fast-path coverage flag), `reproducible: true`, and content-addressed `cacheKey`.
+- `dist/manifest.json`: Target, artifact, route analyses, diagnostics (`NELY001`/`NELY003` plus reason codes `NELY101`–`NELY115`), `generation` (`standalone`|`adapter`), `dispatcher` (fast-path coverage flag), `reproducible: true`, and content-addressed `cacheKey`.
 - `.nelysia-cache/<hash>.json`: Content-addressed build cache.
 
 ### Deploying with Docker

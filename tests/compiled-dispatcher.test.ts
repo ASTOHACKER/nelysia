@@ -76,6 +76,18 @@ test("multi-route zero-arg static functions use static-sync without context allo
   assert.equal(receivedArguments, 0)
 })
 
+test("zero-arg object responses are serialized per request without sharing mutable output", async () => {
+  let sequence = 0
+  const app = new Nelysia({ requestId: false }).get("/object", () => ({ sequence: ++sequence }))
+  const handler = createCompiledBunHandler(app)
+  const first = await handler(new Request("http://localhost/object"))
+  const second = await handler(new Request("http://localhost/object"))
+  assert.deepEqual(await first.json(), { sequence: 1 })
+  assert.deepEqual(await second.json(), { sequence: 2 })
+  assert.equal(first.headers.get("content-type"), "application/json; charset=utf-8")
+  assert.equal(second.headers.get("content-type"), "application/json; charset=utf-8")
+})
+
 test("zero-arg static function fast path preserves async, native, stream, and error results", async () => {
   let errorCalls = 0
   const app = new Nelysia({ requestId: false })
@@ -111,18 +123,11 @@ test("zero-arg static function fast path preserves async, native, stream, and er
   assert.equal(errorCalls, 1)
 })
 
-test("static literal native responses and streams remain direct specialized results", async () => {
+test("static literal native responses are replay-safe and streams are rejected", async () => {
   const app = new Nelysia({ requestId: false })
     .getStatic("/native", new Response("native", { status: 202, headers: { "x-native": "yes" } }))
-    .getStatic("/stream", new ReadableStream({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode("stream"))
-        controller.close()
-      }
-    }))
   const dispatcher = compileDispatcher(app)
   assert.equal(dispatcher.staticFunctionMap.get("/native")?.route.path, "/native")
-  assert.equal(dispatcher.staticFunctionMap.get("/stream")?.route.path, "/stream")
   assert.equal(lookupCompiled(dispatcher, "/native")?.kind, "static-sync")
 
   const handler = createCompiledBunHandler(app)
@@ -130,7 +135,8 @@ test("static literal native responses and streams remain direct specialized resu
   assert.equal(native.status, 202)
   assert.equal(native.headers.get("x-native"), "yes")
   assert.equal(await native.text(), "native")
-  assert.equal(await (await handler(new Request("http://localhost/stream"))).text(), "stream")
+  assert.equal(await (await handler(new Request("http://localhost/native"))).text(), "native")
+  assert.throws(() => new Nelysia().getStatic("/stream", new ReadableStream()), /not replay-safe/i)
 })
 
 test("compiled Bun fast responses preserve the request-id policy", async () => {

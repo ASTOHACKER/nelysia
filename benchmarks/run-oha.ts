@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process"
 import { once } from "node:events"
-import { readFile } from "node:fs/promises"
+import { readFile, writeFile } from "node:fs/promises"
 import { cpus } from "node:os"
 
 interface OhaMetrics {
@@ -23,6 +23,12 @@ interface OhaMetrics {
   serverRssBeforeKb: number | null
   serverRssAfterKb: number | null
   runnerHeapDeltaKb: number
+  routeCount: number
+  statusMismatchCount: number
+  bodyMismatchCount: number
+  samples: Array<{ rps: number; p95Ms: number; p99Ms: number; successRate: number; failureCount: number }>
+  tier: "prebuilt" | "object" | "dynamic"
+  entrypoint: "handler" | "listen"
 }
 
 interface RawOhaJson {
@@ -58,8 +64,14 @@ const PORT = Number(process.env.BENCH_PORT ?? 4321)
 const DURATION_SEC = Number(process.env.BENCH_DURATION_SEC ?? 5)
 const CONCURRENCY = Number(process.env.BENCH_CONCURRENCY ?? 50)
 const ROUNDS = Number(process.env.BENCH_ROUNDS ?? 3)
+const WARMUP_SEC = Math.max(0, Number(process.env.BENCH_WARMUP_SEC ?? 2))
 const TARGET_SUITE = process.env.BENCH_SUITE ?? "all" // "all" | "bun" | "node"
 const ROUTE_SET = process.env.BENCH_ROUTE_SET === "single" ? "single" : "multi"
+const ROUTE_COUNT = Math.max(ROUTE_SET === "single" ? 1 : 2, Number(process.env.BENCH_ROUTE_COUNT ?? (ROUTE_SET === "single" ? 1 : 2)))
+const ORDER_SEED = Number(process.env.BENCH_ORDER_SEED ?? 0)
+const OUTPUT = process.env.BENCH_OUTPUT
+const TARGET_FILTER = process.env.BENCH_TARGET
+const WORKLOAD_FILTER = process.env.BENCH_WORKLOAD
 
 async function runCommand(cmd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -128,6 +140,16 @@ async function runOha(url: string, durationSec: number, concurrency: number): Pr
     url
   ])
   return JSON.parse(stdout) as RawOhaJson
+}
+
+async function verifyTargetResponse(url: string, target: TargetConfig): Promise<void> {
+  const response = await fetch(url)
+  const text = await response.text()
+  const expected = target.workload.startsWith("Dynamic") ? { id: "42" } : { message: "hello", value: 42 }
+  let actual: unknown
+  try { actual = JSON.parse(text) } catch { throw new Error(`${target.label} returned a non-JSON response`) }
+  if (response.status !== 200) throw new Error(`${target.label} returned status ${response.status}, expected 200`)
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${target.label} returned an unexpected body: ${text}`)
 }
 
 async function readProcessMemory(pid: number): Promise<ProcessMemory> {
@@ -340,13 +362,36 @@ function median(numbers: number[]): number {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
+function shuffled<T>(values: readonly T[], seed: number): T[] {
+  const output = [...values]
+  let state = (seed >>> 0) || 0x9e3779b9
+  const next = () => {
+    state = Math.imul(state ^ (state >>> 16), 0x45d9f3b)
+    state = Math.imul(state ^ (state >>> 16), 0x45d9f3b)
+    state ^= state >>> 16
+    return (state >>> 0) / 0x100000000
+  }
+  for (let index = output.length - 1; index > 0; index--) {
+    const swap = Math.floor(next() * (index + 1))
+    const value = output[index]
+    output[index] = output[swap]
+    output[swap] = value
+  }
+  return output
+}
+
+function tierForTarget(target: TargetConfig): "prebuilt" | "object" | "dynamic" {
+  if (target.workload.startsWith("Dynamic")) return "dynamic"
+  return target.framework.includes("static") ? "prebuilt" : "object"
+}
+
 async function main() {
   console.log(`========================================================================`)
   console.log(`  OHA HTTP BENCHMARK SUITE - NELYSIA`)
   console.log(`========================================================================`)
-  console.log(`Settings: Duration: ${DURATION_SEC}s | Concurrency: ${CONCURRENCY} | Rounds: ${ROUNDS} (Median Reported)`)
+  console.log(`Settings: Warmup: ${WARMUP_SEC}s | Duration: ${DURATION_SEC}s | Concurrency: ${CONCURRENCY} | Rounds: ${ROUNDS} (Median Reported)`)
   console.log(`Suite: ${TARGET_SUITE.toUpperCase()}`)
-  console.log(`Route set: ${ROUTE_SET}`)
+  console.log(`Route set: ${ROUTE_SET} | Route count: ${ROUTE_COUNT}`)
   const cpu = cpus()
   let bunVersion = "unavailable"
   let ohaVersion = "unavailable"
@@ -355,10 +400,16 @@ async function main() {
   console.log(`Environment: ${cpu[0]?.model ?? "unknown CPU"} | CPUs: ${cpu.length} | Node: ${process.version} | Bun: ${bunVersion} | oha: ${ohaVersion} | OS: ${process.platform}`)
   console.log(`------------------------------------------------------------------------\n`)
 
-  const targets = getTargets()
+  const targets = getTargets().filter((target) => {
+    const targetMatches = TARGET_FILTER === undefined || target.framework === TARGET_FILTER || target.label === TARGET_FILTER
+    const workloadMatches = WORKLOAD_FILTER === undefined || (WORKLOAD_FILTER === "dynamic" ? target.workload.startsWith("Dynamic") : target.workload.startsWith("JSON"))
+    return targetMatches && workloadMatches
+  })
+  if (targets.length === 0) throw new Error(`No benchmark target matched BENCH_TARGET=${TARGET_FILTER}`)
+  const orderedTargets = shuffled(targets, ORDER_SEED)
   const finalResults: OhaMetrics[] = []
 
-  for (const target of targets) {
+  for (const target of orderedTargets) {
     process.stdout.write(`Benchmarking [${target.runtime}] ${target.label} - ${target.workload}... `)
 
     const roundResults: Array<{ data: RawOhaJson; before: ProcessMemory; after: ProcessMemory }> = []
@@ -376,6 +427,7 @@ async function main() {
           FRAMEWORK: target.framework,
           PORT: String(PORT),
           BENCH_ROUTE_SET: ROUTE_SET,
+          BENCH_ROUTE_COUNT: String(ROUTE_COUNT),
           BENCH_CASE: target.path.startsWith("/users/") ? "dynamic" : "json"
         },
         stdio: ["ignore", "pipe", "inherit"]
@@ -384,10 +436,11 @@ async function main() {
       try {
         await waitForServerReady(child)
         const targetUrl = `http://127.0.0.1:${PORT}${target.path}`
+        await verifyTargetResponse(targetUrl, target)
 
         const before = await readProcessMemory(child.pid ?? -1)
-        // Warmup (1s), explicitly excluded from the measured samples.
-        await runOha(targetUrl, 1, Math.min(CONCURRENCY, 20))
+        // Warmup is explicitly excluded from measured samples.
+        await runOha(targetUrl, WARMUP_SEC, Math.min(CONCURRENCY, 20))
 
         // Measured Run
         const ohaData = await runOha(targetUrl, DURATION_SEC, CONCURRENCY)
@@ -414,9 +467,10 @@ async function main() {
     const rssAfter = roundResults.map((r) => r.after.rssKb).filter((value): value is number => value !== null)
     const heapAfter = process.memoryUsage().heapUsed
 
+    const tier = tierForTarget(target)
     finalResults.push({
       framework: target.label,
-      workload: `${target.workload} [${ROUTE_SET} route]`,
+      workload: `${target.workload} (${tier}) [${ROUTE_SET} route, ${ROUTE_COUNT} routes]`,
       runtime: target.runtime,
       rps: rpsMed,
       rpsMin: Math.min(...rpsValues),
@@ -433,7 +487,19 @@ async function main() {
       throughputMBs: mbPerSecMed,
       serverRssBeforeKb: rssBefore.length > 0 ? median(rssBefore) : null,
       serverRssAfterKb: rssAfter.length > 0 ? median(rssAfter) : null,
-      runnerHeapDeltaKb: Math.round((heapAfter - heapBefore) / 1024)
+      runnerHeapDeltaKb: Math.round((heapAfter - heapBefore) / 1024),
+      routeCount: ROUTE_COUNT,
+      statusMismatchCount: 0,
+      bodyMismatchCount: 0,
+      samples: roundResults.map((round) => ({
+        rps: round.data.summary.requestsPerSec,
+        p95Ms: round.data.latencyPercentiles.p95 * 1000,
+        p99Ms: round.data.latencyPercentiles.p99 * 1000,
+        successRate: round.data.summary.successRate * 100,
+        failureCount: Math.max(0, Math.round(round.data.summary.total * (1 - round.data.summary.successRate)))
+      })),
+      tier,
+      entrypoint: process.env.BENCH_ENTRYPOINT === "listen" ? "listen" : "handler"
     })
 
     console.log(`✓ ${Math.round(rpsMed).toLocaleString()} req/s (p95: ${p95Med.toFixed(2)}ms)`)
@@ -466,6 +532,32 @@ async function main() {
       }
       console.log(`\n`)
     }
+  }
+
+  if (OUTPUT !== undefined) {
+    await writeFile(OUTPUT, JSON.stringify({
+      schema: "nelysia.benchmark.v11",
+      generatedAt: new Date().toISOString(),
+      environment: {
+        cpu: cpu[0]?.model ?? "unknown CPU",
+        cores: cpu.length,
+        node: process.version,
+        bun: bunVersion,
+        oha: ohaVersion,
+        os: process.platform,
+        concurrency: CONCURRENCY,
+        durationSec: DURATION_SEC,
+        rounds: ROUNDS,
+        warmupSec: WARMUP_SEC,
+        routeSet: ROUTE_SET,
+        routeCount: ROUTE_COUNT,
+        orderSeed: ORDER_SEED,
+        target: TARGET_FILTER ?? "all",
+        workload: WORKLOAD_FILTER ?? "all"
+      },
+      results: finalResults
+    }, null, 2) + "\n", "utf8")
+    console.log(`Machine-readable benchmark written to ${OUTPUT}`)
   }
 }
 

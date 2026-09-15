@@ -1,6 +1,6 @@
 {
   "name": "@narudom96/nelysia",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": false,
   "publishConfig": {
     "access": "public"
@@ -35,7 +35,11 @@
     "benchmark:bun": "bun run benchmarks/run-bun.ts",
     "benchmark:oha": "node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:oha:bun": "BENCH_SUITE=bun node --experimental-strip-types benchmarks/run-oha.ts",
+    "benchmark:oha:bun:listen": "BENCH_SUITE=bun BENCH_ENTRYPOINT=listen node --experimental-strip-types benchmarks/run-oha.ts",
+    "benchmark:oha:bun:listen:short": "BENCH_PORT=4371 BENCH_SUITE=bun BENCH_ENTRYPOINT=listen BENCH_DURATION_SEC=5 BENCH_WARMUP_SEC=2 BENCH_CONCURRENCY=50 BENCH_ROUNDS=3 BENCH_ORDER_SEED=20260916 node --experimental-strip-types benchmarks/run-oha.ts",
+    "benchmark:verify:bun:stabilization": "node spec/scripts/check-bun-parity.mjs docs/benchmark-bun-stabilization-2026-09-16.json docs/benchmark-bun-stabilization-20260917.json docs/benchmark-bun-stabilization-20260918.json",
     "benchmark:oha:node": "BENCH_SUITE=node node --experimental-strip-types benchmarks/run-oha.ts",
+    "benchmark:oha:short": "BENCH_DURATION_SEC=5 BENCH_CONCURRENCY=50 BENCH_ROUNDS=3 node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:oha:release": "BENCH_PORT=4370 BENCH_DURATION_SEC=30 BENCH_CONCURRENCY=50 BENCH_ROUNDS=7 node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:oha:route:release": "BENCH_SUITE=bun BENCH_DURATION_SEC=30 BENCH_CONCURRENCY=50 BENCH_ROUNDS=7 node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:jwt": "bun run benchmarks/run-jwt.ts",
@@ -58,6 +62,7 @@
     "deno:check": "deno check examples/deno/main.ts",
     "deployment:smoke": "node spec/scripts/check-deployments.mjs",
     "package:imports": "node spec/scripts/check-package-imports.mjs",
+    "package:consumer": "node spec/scripts/check-packed-build.mjs",
     "framework:check": "node spec/scripts/check-framework-fixtures.mjs",
     "docs:check": "node spec/scripts/check-docs.mjs",
     "api:freeze:check": "node spec/scripts/check-api-freeze.mjs",
@@ -68,6 +73,8 @@
     "release:check:v08": "npm run typecheck && npm test && bun test && npm run package:build && npm run benchmark:short && npm run benchmark:runtime && npm run docs:check && npm audit --omit=dev && git diff --check",
     "release:check:v09": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:tarball && npm run package:imports && npm run deployment:smoke && npm run framework:check && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
     "release:check:v1": "npm run release:check:v09 && npm run benchmark:short && npm run benchmark:runtime && npm run soak:gate && npm run api:freeze:check",
+    "release:check:v11": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run package:consumer && npm run framework:check && npm run deployment:smoke && npm run docs:check && npm audit --omit=dev && git diff --check",
+    "release:check:v111": "npm run release:check:v11 && npm run benchmark:oha:bun:listen:short && npm run benchmark:oha:short && npm run soak:gate",
     "release:check:roadmap": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:tarball && npm run package:imports && npm run deployment:smoke && npm run framework:check && npm run benchmark:short && npm run benchmark:runtime && npm run soak:gate && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
     "inspect": "node --experimental-strip-types packages/cli/src/index.ts inspect",
     "routes": "node --experimental-strip-types packages/cli/src/index.ts routes",
@@ -86,7 +93,8 @@
   "files": [
     "dist-package",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "docs"
   ],
   "exports": {
     ".": "./dist-package/packages/core/src/index.js",

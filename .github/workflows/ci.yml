@@ -28,3 +28,9 @@ jobs:
       - run: npm test
       - run: bun test
       - run: npm run deno:check
+      - run: npm run package:imports
+      - run: npm run package:consumer
+      - run: npm run framework:check
+      - run: npm run docs:check
+      - run: npm audit --omit=dev
+      - run: git diff --check

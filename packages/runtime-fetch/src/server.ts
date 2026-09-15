@@ -1,4 +1,5 @@
 import { HttpError, type Nelysia } from "../../core/src/app.ts"
+import { parseWebRequestBody } from "../../core/src/body.ts"
 import { compileDispatcher, executeGeneratedGet, fastPathname, lookupCompiled, type CompiledDispatcher } from "../../compiler/src/dispatcher.ts"
 import { responseMarker } from "../../core/src/types.ts"
 
@@ -20,6 +21,7 @@ export function createFetchHandler(app: Nelysia<any, any, any>): (request: Reque
     return dispatcher
   }
   return async (request, context) => {
+    if (app.hasFetchMounts) return genericFetch(app, request, context)
     if (dispatcher !== undefined && context === undefined && request.method === "GET") {
       const fast = await tryCompiledGet(app, dispatcher, request)
       if (fast !== undefined) return fast
@@ -102,9 +104,9 @@ function isResponseData(value: unknown): value is { status: number; headers: Hea
 }
 
 function responseData(result: { status: number; headers: Headers; body: unknown }, withId: (headers: Headers) => Headers): Response {
-  const headers = withId(new Headers(result.headers))
+  const headers = withId(new Headers(result.body instanceof Response ? result.body.headers : result.headers))
+  for (const [key, value] of result.headers) headers.set(key, value)
   if (result.body instanceof Response) {
-    for (const [key, value] of result.body.headers) headers.set(key, value)
     return new Response(result.body.body, { status: result.status, headers })
   }
   if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers })
@@ -116,43 +118,30 @@ function responseData(result: { status: number; headers: Headers; body: unknown 
 
 async function errorResponse(app: Nelysia<any, any, any>, error: unknown, request: Request): Promise<Response> {
   const result = await app.handleAdapterError(error, { method: request.method, url: request.url, headers: request.headers })
-  if (result.body instanceof Response) return result.body
+  return responseFromData(result)
+}
+
+async function genericFetch(app: Nelysia<any, any, any>, request: Request, context?: FetchRequestContext): Promise<Response> {
+  const data = { method: request.method, url: request.url, headers: request.headers, rawRequest: request, ...context }
+  try {
+    const preflight = await app.preflight(data)
+    if (preflight.kind === "response") return responseFromData(preflight.response)
+    const body = await parseWebRequestBody(request, app.bodyLimit)
+    const result = await app.handle({ ...data, body, preflight })
+    return responseFromData(result)
+  } catch (error) {
+    return responseFromData(await app.handleAdapterError(error, data))
+  }
+}
+
+function responseFromData(result: { status: number; headers: Headers; body: unknown }): Response {
+  if (result.body instanceof Response) {
+    const headers = new Headers(result.body.headers)
+    for (const [key, value] of result.headers) headers.set(key, value)
+    return new Response(result.body.body, { status: result.status, headers })
+  }
   if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers: result.headers })
   const output = typeof result.body === "string" ? result.body : result.body === undefined ? null : JSON.stringify(result.body)
   if (result.body !== undefined && result.body !== null && typeof result.body !== "string") result.headers.set("content-type", "application/json; charset=utf-8")
   return new Response(output, { status: result.status, headers: result.headers })
-}
-
-async function genericFetch(app: Nelysia<any, any, any>, request: Request, context?: FetchRequestContext): Promise<Response> {
-  try {
-    let body: unknown
-    if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
-      const contentType = request.headers.get("content-type")
-      const declaredLength = Number(request.headers.get("content-length") ?? 0)
-      if (declaredLength > app.bodyLimit) throw new HttpError(413, "Request body is too large")
-      if (contentType?.toLowerCase().includes("multipart/form-data")) {
-        body = await request.formData()
-      } else {
-        const text = await request.text()
-        if (new TextEncoder().encode(text).byteLength > app.bodyLimit) throw new HttpError(413, "Request body is too large")
-        body = text || undefined
-        if (contentType?.includes("application/json") && text) {
-          try { body = JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }
-        }
-      }
-    }
-    const result = await app.handle({ method: request.method, url: request.url, headers: request.headers, body, ...context })
-    if (result.body instanceof Response) return result.body
-    if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers: result.headers })
-    const output = typeof result.body === "string" ? result.body : result.body === undefined ? null : JSON.stringify(result.body)
-    if (result.body !== undefined && result.body !== null && typeof result.body !== "string") result.headers.set("content-type", "application/json; charset=utf-8")
-    return new Response(output, { status: result.status, headers: result.headers })
-  } catch (error) {
-    const result = await app.handleAdapterError(error, { method: request.method, url: request.url, headers: request.headers, ...context })
-    if (result.body instanceof Response) return result.body
-    if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers: result.headers })
-    const output = typeof result.body === "string" ? result.body : result.body === undefined ? null : JSON.stringify(result.body)
-    if (result.body !== undefined && result.body !== null && typeof result.body !== "string") result.headers.set("content-type", "application/json; charset=utf-8")
-    return new Response(output, { status: result.status, headers: result.headers })
-  }
 }

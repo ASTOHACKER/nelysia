@@ -118,15 +118,14 @@ flowchart TD
     CheckParam -- ไม่ใช่ --> Tier4[GENERIC TIER<br>รันผ่าน Full Lifecycle Pipeline]
 ```
 
-* **การจัดระดับการรัน (4 Execution Tiers):**
-  1. **`static-prebuilt`:** Static Routes ที่คืนค่าคงที่ผ่าน `app.getStatic("/ping", "pong")` จะ serialize เป็น bytes ล่วงหน้าและตอบกลับโดยไม่สร้าง Context Object
-  2. **`static-sync`:** Zero-argument `.get("/ping", () => "pong")` ที่ผลลัพธ์อยู่ใน supported subset จะ lookup ผ่าน `staticFunctionMap` และข้าม request-context allocation; native `Response`, stream, หรือ error ใช้ adapter/fallback ที่เหมาะสม
-  3. **`SPECIALIZED`:** เส้นทางที่มี Parameter แต่ไม่มีการใช้ Cookie หรือ Query ที่ซับซ้อน จะสกัดเฉพาะตัวแปรใน Path โดยไม่เสียเวลา Parse ส่วนอื่น
-  4. **`GENERIC`:** เส้นทางที่มี Dynamic Middleware, Hooks, หรือ Schema ซับซ้อน จะทำงานบน Generic Pipeline อย่างปลอดภัย
+* **การจัดระดับการรัน (3 Public Execution Lanes):**
+  1. **`COMPILED`:** Route ที่ compiler พิสูจน์ semantics ได้ โดยมี subtier ภายในคือ `static-prebuilt` และ `static-sync`; subtier เหล่านี้เป็น diagnostics ภายใน ไม่ใช่ public lane ใหม่
+  2. **`SPECIALIZED`:** เส้นทางที่มี Parameter หรือ schema ที่พิสูจน์ได้ จะสกัดเฉพาะข้อมูลที่จำเป็นโดยไม่ bypass lifecycle, auth หรือ validation
+  3. **`GENERIC`:** เส้นทางที่มี Dynamic Middleware, Hooks, context/runtime dependency หรือ behavior ที่ compiler พิสูจน์ไม่ได้ จะทำงานบน Generic Pipeline อย่างปลอดภัย
 * **CLI Engine (`nelysia inspect` / `nelysia build`):**
   - วิเคราะห์ Route Graph และส่งออกเป็นรายงานความพร้อมในการ Optimize
   - สร้างไฟล์ Standalone Server (`dist/server.bun.ts` หรือ `dist/server.node.ts`)
-  - สร้าง `dist/manifest.json` พร้อมรหัส Diagnostics (`NELY001`, `NELY003` และ reason codes `NELY101`–`NELY111`) และ Content-addressed Cache Hash ในโฟลเดอร์ `.nelysia-cache/`
+  - สร้าง `dist/manifest.json` พร้อมรหัส Diagnostics (`NELY001`, `NELY003` และ reason codes `NELY101`–`NELY115`) และ Content-addressed Cache Hash ในโฟลเดอร์ `.nelysia-cache/`
 
 ---
 

@@ -1,6 +1,6 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 1.0.0 (package และ GitHub Release ปัจจุบัน)
+> **เวอร์ชัน:** 1.1.0 (package และ GitHub Release ปัจจุบัน)
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
 
@@ -12,19 +12,20 @@ Reference แบบแยกหมวดที่เปิดอ่าน offlin
 [ภาพรวม authentication](./auth/overview.md), [JWT](./auth/jwt.md),
 [Better Auth](./auth/better-auth.md), [session](./auth/session.md),
 [roles และ permissions](./auth/roles-permissions.md) และ [การเขียน plugin](./plugins/authoring-plugins.md)
-โดยแต่ละหน้ารวมภาษาอังกฤษและไทยของ contract v1.0.0 เดียวกัน
+โดยแต่ละหน้ารวมภาษาอังกฤษและไทยของ contract v1.0 ที่ freeze แล้ว และการแก้ไขแบบ additive ใน v1.1.0
 
 สำหรับเส้นทาง version ตั้งแต่ v0.6 ถึง v1.0 และ public contract ที่เตรียม freeze
 ให้ดู [Nelysia v1.0 Guide](./v1.0.md) ซึ่งแยกสถานะ workspace ที่ตรวจผ่านออกจาก
 สถานะ package/release ที่ publish แล้วอย่างชัดเจน
 
-ฟีเจอร์ additive หลัง v0.5.1 รวมอยู่ใน release v1.0.0 แล้ว และ public API ถูก
+ฟีเจอร์ additive หลัง v0.5.1 รวมอยู่ใน release v1.0.0 แล้ว และ v1.1.0 เพิ่มการแก้
+runtime correctness/stabilization แบบไม่ทำลาย compatibility โดย public API ยังคง
 freeze แล้ว ส่วนประวัติแผนงานอยู่ที่
 [`roadmap-after-v051.md`](./roadmap-after-v051.md) โดย worktree ปัจจุบันมี
 subpath สำหรับ production contract ได้แก่ `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache` และ `@narudom96/nelysia/health` แล้ว แต่ยังคง
-package line เป็น v1.0.0
+package line เป็น v1.1.0
 
 ตัวอย่างที่รันได้: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts) และ
@@ -1413,7 +1414,7 @@ nelysia client src/app.ts --out src/generated/nelysia-client.ts --force
 
 - Static route จะ pre-serialize body ไว้ล่วงหน้าและ serve ผ่าน `Response.clone()` ที่เร็วที่สุด
 - Dynamic route แบบ `/users/:id` จะ match prefix ตรงๆ และดึง param จาก URL โดยไม่ split array
-- Route ที่ไม่เข้าเงื่อนไขจะ fallback ไปใช้ adapter พร้อม diagnostic ที่ระบุ method, path และสาเหตุ โดยใช้ code คงที่ เช่น `NELY101` (method), `NELY102` (request lifecycle), `NELY103` (response lifecycle), `NELY104` (schema), `NELY105` (opaque handler) และ `NELY106`–`NELY111` สำหรับ context/module/native response/stream/WebSocket/runtime dependency
+- Route ที่ไม่เข้าเงื่อนไขจะ fallback ไปใช้ adapter พร้อม diagnostic ที่ระบุ method, path และสาเหตุ โดยใช้ code คงที่ เช่น `NELY101` (method), `NELY102` (request lifecycle), `NELY103` (response lifecycle), `NELY104` (schema), `NELY105` (opaque handler), `NELY106`–`NELY111` สำหรับ context/module/native response/stream/WebSocket/runtime dependency และ `NELY112`–`NELY115` สำหรับ application context values, static value ที่ replay ไม่ได้, application option ที่ต้องใช้ runtime และ lifecycle ที่ฝังใน artifact ไม่ได้
 
 > ข้อจำกัดที่ตั้งใจไว้: handler ที่พึ่งพา closure, platform object หรือ integration แบบ opaque จะ fallback ไป generic runtime — ดู diagnostics ใน manifest
 
@@ -1445,7 +1446,7 @@ nelysia dev ./src/app.ts --port 3000
 ผลลัพธ์จากการสั่ง Build จะถูกบันทึกไว้ในโฟลเดอร์ `dist/`:
 - `dist/server.bun.ts` (หรือ `dist/server.node.ts`): โค้ดเซิร์ฟเวอร์ที่ปรับแต่งประสิทธิภาพแล้ว
 - `dist/server.bun.ts.map` (หรือ `dist/server.node.ts.map`): source map ของ artifact
-- `dist/manifest.json`: สรุป target, artifact, route analyses, diagnostics (`NELY001`/`NELY003` และ reason codes `NELY101`–`NELY111`), `generation` (`standalone`|`adapter`), `dispatcher` (flag บอก fast-path coverage), `reproducible: true` และ content-addressed `cacheKey`
+- `dist/manifest.json`: สรุป target, artifact, route analyses, diagnostics (`NELY001`/`NELY003` และ reason codes `NELY101`–`NELY115`), `generation` (`standalone`|`adapter`), `dispatcher` (flag บอก fast-path coverage), `reproducible: true` และ content-addressed `cacheKey`
 - `.nelysia-cache/<cacheKey>.json`: แคช manifest ตาม hash ของเนื้อหา
 
 ### Deploy ด้วย Docker

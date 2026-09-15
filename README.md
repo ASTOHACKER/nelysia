@@ -10,14 +10,14 @@
 
 ## Install
 
-> **Current release:** `@narudom96/nelysia@1.0.0` is available as a GitHub Release
+> **Current release:** `@narudom96/nelysia@1.1.0` is available as a GitHub Release
 > tarball. The v1.0 API contract and v0.6–v0.9 verification gates are recorded; the separate
 > 24-hour production-readiness soak is intentionally deferred, and npm publication is pending.
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.0.0/narudom96-nelysia-1.0.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.1.0/narudom96-nelysia-1.1.0.tgz
 or
-curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v1.0.0/narudom96-nelysia-1.0.0.tgz'
+curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v1.1.0/narudom96-nelysia-1.1.0.tgz'
 
 npm install ./nelysia.tgz
 ```
@@ -26,7 +26,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (when the v1.0.0 package is published)
+# registry install (when the v1.1.0 package is published)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -43,7 +43,7 @@ Use this while the package is not yet (or whenever it is not) on the npm registr
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.0.0/narudom96-nelysia-1.0.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.1.0/narudom96-nelysia-1.1.0.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -52,10 +52,10 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v1.0.0/narudom96-nelysia-1.0.0.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v1.1.0/narudom96-nelysia-1.1.0.tgz
 ```
 
-Replace `v1.0.0` / the filename with the latest release you see on the releases page.
+Replace `v1.1.0` / the filename with the latest release you see on the releases page.
 
 ```ts
 // app.ts
@@ -64,7 +64,7 @@ import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
   .use(cors())
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.0.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.1.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "all"
@@ -212,6 +212,9 @@ Open the complete static documentation at [`docs/index.html`](./docs/index.html)
 
 Latest verified test and benchmark results: [`docs/benchmark-results.html`](./docs/benchmark-results.html).
 
+Current v1.1.x runtime evidence: [`docs/benchmark-runtime-v11-2026-09-16.md`](./docs/benchmark-runtime-v11-2026-09-16.md),
+with [`docs/soak-v11-2026-09-16.md`](./docs/soak-v11-2026-09-16.md) for the 1M/10M request-count gates.
+
 Current v0.5 release `oha` report: [`docs/benchmark-oha-v05-2026-09-14.md`](./docs/benchmark-oha-v05-2026-09-14.md).
 The separate compatibility snapshot is [`docs/benchmark-oha-2026-09-14.md`](./docs/benchmark-oha-2026-09-14.md).
 
@@ -348,9 +351,22 @@ npm run benchmark:oha
 # Release evidence: 30 seconds × 7 samples, with environment and percentiles
 npm run benchmark:oha:release
 
+# Current v1.1.x short evidence: 5 seconds × 3, concurrency 50
+BENCH_ENTRYPOINT=listen npm run benchmark:oha:bun:listen
+npm run benchmark:oha:node
+
 # Bun route fast-path evidence: run both matched route-set fixtures
 BENCH_ROUTE_SET=single npm run benchmark:oha:route:release
 BENCH_ROUTE_SET=multi npm run benchmark:oha:route:release
+
+# Route-count smoke: keep the matched route and vary the indexed route table
+BENCH_ROUTE_SET=single BENCH_ROUTE_COUNT=1 BENCH_DURATION_SEC=5 npm run benchmark:oha:bun:listen
+BENCH_ROUTE_SET=multi BENCH_ROUTE_COUNT=10 BENCH_DURATION_SEC=5 npm run benchmark:oha:bun:listen
+BENCH_ROUTE_SET=multi BENCH_ROUTE_COUNT=100 BENCH_DURATION_SEC=5 npm run benchmark:oha:bun:listen
+BENCH_ROUTE_SET=multi BENCH_ROUTE_COUNT=500 BENCH_DURATION_SEC=5 npm run benchmark:oha:bun:listen
+
+# Verify three consecutive stabilization JSON runs (fails with no-performance-claim if not stable)
+npm run benchmark:verify:bun:stabilization
 
 # Staged soak gates (24h is intentionally deferred and remains a separate production-readiness run)
 npm run soak:1m
@@ -358,21 +374,27 @@ npm run soak:10m
 npm run soak:24h
 ```
 
-Latest local `oha` snapshot (10 rounds, 3 seconds per sample, concurrency 50,
-zero failures):
+Latest v1.1.x local `oha` evidence (3 rounds, 5 seconds per sample,
+concurrency 50, zero failures):
 
 | Workload | Raw runtime | Nelysia | Peer baseline |
 | :--- | ---: | ---: | ---: |
-| Bun static JSON | 95,306 req/s | 95,173 req/s | Elysia 76,062 |
-| Bun dynamic params | 82,904 req/s | 83,855 req/s | Elysia 82,816 |
-| Node JSON | 47,572 req/s | 27,451 req/s | Fastify 38,879; Express 21,130 |
-| Node dynamic params | 47,607 req/s | 40,919 req/s | Fastify 38,846; Express 20,527 |
+| Bun object JSON (zero-arg, `app.listen()`) | 83,370 req/s | 81,882 req/s | Elysia 82,496; Hono 76,718 |
+| Bun prebuilt JSON (`getStatic`) | n/a | 89,039 req/s | separate prebuilt tier |
+| Bun dynamic params (`app.listen()`) | 83,989 req/s | 81,077 req/s | Elysia 81,972; Hono 72,671 |
+| Node object JSON | 50,177 req/s | 47,313 req/s | Fastify 42,681 |
+| Node dynamic params | 47,319 req/s | 39,832 req/s | Fastify 37,340 |
 
 Environment for this compatibility snapshot: AMD Ryzen 5 5600 (6 cores / 12
-threads), Bun 1.4.0, Node.js v26.8.1, and oha 1.16.0. These are local
-directional measurements; release-gate results are in the [v0.5 report](./docs/benchmark-oha-v05-2026-09-14.md),
-and the snapshot methodology, previous runs, and variance notes are in the
-[compatibility report](./docs/benchmark-oha-2026-09-14.md).
+threads), Bun 1.4.0, Node.js v26.8.2, and oha 1.16.0. These are local
+directional measurements; the full current evidence with p50/p95/p99, RSS,
+heap and failures is in [Node regression JSON](./docs/benchmark-node-regression-2026-09-16.json)
+and the [all-framework baseline](./docs/benchmark-runtime-v11-final.json). The focused
+[Bun parity evidence](./docs/benchmark-bun-parity-2026-09-16.md) records the same-runner comparison
+and its raw [internal JSON output](./docs/benchmark-bun-parity-2026-09-16.json) plus the
+[public `app.listen()` JSON output](./docs/benchmark-bun-listen-parity-shuffled-2026-09-16.json).
+Historical snapshots remain in the [v0.5 report](./docs/benchmark-oha-v05-2026-09-14.md)
+and [compatibility report](./docs/benchmark-oha-2026-09-14.md).
 
 Invalid input returns `400`; a request body larger than the configured `bodyLimit` returns `413`.
 

@@ -8,6 +8,34 @@ const framework = process.env.FRAMEWORK ?? "nelysia-bun-static"
 const port = Number(process.env.PORT ?? 4310)
 const routeSet = process.env.BENCH_ROUTE_SET === "single" ? "single" : "multi"
 const benchCase = process.env.BENCH_CASE === "dynamic" ? "dynamic" : "json"
+const routeCount = Math.max(routeSet === "single" ? 1 : 2, Number(process.env.BENCH_ROUTE_COUNT ?? (routeSet === "single" ? 1 : 2)))
+
+function addNelysiaFillerRoutes(app: Nelysia): Nelysia {
+  const baseRouteCount = routeSet === "multi" ? 2 : 1
+  for (let index = baseRouteCount; index < routeCount; index++) {
+    if (benchCase === "json") app.get(`/bench/${index}`, () => ({ message: "hello", value: 42 }))
+    else app.get(`/users/bench-${index}/:id`, ({ params }) => ({ id: params.id }))
+  }
+  return app
+}
+
+function addElysiaFillerRoutes(app: Elysia): Elysia {
+  const baseRouteCount = routeSet === "multi" ? 2 : 1
+  for (let index = baseRouteCount; index < routeCount; index++) {
+    if (benchCase === "json") app.get(`/bench/${index}`, () => ({ message: "hello", value: 42 }))
+    else app.get(`/users/bench-${index}/:id`, (context: { params?: Record<string, string> }) => ({ id: context.params?.id ?? "42" }))
+  }
+  return app
+}
+
+function addHonoFillerRoutes(app: Hono): Hono {
+  const baseRouteCount = routeSet === "multi" ? 2 : 1
+  for (let index = baseRouteCount; index < routeCount; index++) {
+    if (benchCase === "json") app.get(`/bench/${index}`, (context) => context.json({ message: "hello", value: 42 }))
+    else app.get(`/users/bench-${index}/:id`, (context) => context.json({ id: context.req.param("id") }))
+  }
+  return app
+}
 
 function addOtherRoute(app: Nelysia, routeKind: "static" | "zero-arg" | "params" | "standard"): Nelysia {
   if (benchCase === "json") {
@@ -29,7 +57,7 @@ function buildNelysia(routeKind: "static" | "zero-arg" | "params" | "standard"):
     app.get("/users/:id", ({ params }) => ({ id: params.id }))
   }
   if (routeSet === "multi") addOtherRoute(app, routeKind)
-  return app
+  return addNelysiaFillerRoutes(app)
 }
 
 function buildElysia(): Elysia {
@@ -40,7 +68,7 @@ function buildElysia(): Elysia {
     if (benchCase === "json") app.get("/users/:id", (context: { params?: Record<string, string> }) => ({ id: context.params?.id ?? "42" }))
     else app.get("/json", () => ({ message: "hello", value: 42 }))
   }
-  return app
+  return addElysiaFillerRoutes(app)
 }
 
 function buildHono(): Hono {
@@ -51,7 +79,18 @@ function buildHono(): Hono {
     if (benchCase === "json") app.get("/users/:id", (context) => context.json({ id: context.req.param("id") }))
     else app.get("/json", (context) => context.json({ message: "hello", value: 42 }))
   }
-  return app
+  return addHonoFillerRoutes(app)
+}
+
+function startNelysiaWithSelectedEntrypoint(app: Nelysia, framework: string): void {
+  if (process.env.BENCH_ENTRYPOINT === "listen") {
+    app.listen(port)
+    console.log(`ready:${framework}:${port}`)
+    return
+  }
+  const handler = createCompiledBunHandler(app)
+  Bun.serve({ port, fetch: handler })
+  console.log(`ready:${framework}:${port}`)
 }
 
 if (framework === "raw-bun") {
@@ -64,25 +103,19 @@ if (framework === "raw-bun") {
         const id = url.slice(url.lastIndexOf("/") + 1)
         return new Response(JSON.stringify({ id }), { headers: jsonHeader })
       }
-      return new Response('{"message":"hello","value":42}', { headers: jsonHeader })
+      return new Response(JSON.stringify({ message: "hello", value: 42 }), { headers: jsonHeader })
     }
   })
   console.log(`ready:${framework}:${port}`)
 } else if (framework === "nelysia-bun-static") {
   const app = buildNelysia("static")
-  const handler = createCompiledBunHandler(app)
-  Bun.serve({ port, fetch: handler })
-  console.log(`ready:${framework}:${port}`)
+  startNelysiaWithSelectedEntrypoint(app, framework)
 } else if (framework === "nelysia-bun-zero-arg" || framework === "nelysia-bun-compiled") {
   const app = buildNelysia("zero-arg")
-  const handler = createCompiledBunHandler(app)
-  Bun.serve({ port, fetch: handler })
-  console.log(`ready:${framework}:${port}`)
+  startNelysiaWithSelectedEntrypoint(app, framework)
 } else if (framework === "nelysia-bun-params") {
   const app = buildNelysia("params")
-  const handler = createCompiledBunHandler(app)
-  Bun.serve({ port, fetch: handler })
-  console.log(`ready:${framework}:${port}`)
+  startNelysiaWithSelectedEntrypoint(app, framework)
 } else if (framework === "nelysia-bun-standard") {
   const app = buildNelysia("standard")
   const handler = createBunHandler(app)

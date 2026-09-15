@@ -48,7 +48,7 @@ for (const stale of [
 ]) {
   if (text.includes(stale)) failures.push(`stale documentation claim: ${stale}`)
 }
-if (!text.includes("NELY101") || !text.includes("NELY111")) failures.push("compiler reason-code range is not documented")
+if (!text.includes("NELY101") || !text.includes("NELY111") || !text.includes("NELY112") || !text.includes("NELY113") || !text.includes("NELY114") || !text.includes("NELY115")) failures.push("compiler reason-code range is not documented")
 
 // Keep the local portal useful when opened from file:// with no network. This
 // validates both the file target and the fragment target for every relative

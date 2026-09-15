@@ -415,6 +415,30 @@ test("compresses negotiated response bodies and preserves decompressed content",
   assert.deepEqual(JSON.parse(decoded), { message: "compressed" })
 })
 
+test("compression preserves native responses and readable streams", async () => {
+  const app = new Nelysia()
+    .get("/native", () => new Response("native", { status: 201, headers: { "x-native": "yes" } }))
+    .get("/stream", () => new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("stream"))
+        controller.close()
+      }
+    }), { status: 202, headers: { "x-stream": "yes" } }))
+    .use(compression())
+
+  const native = await app.handle({ method: "GET", url: "/native", headers: new Headers({ "accept-encoding": "gzip" }) })
+  assert.equal(native.status, 201)
+  assert.equal(native.headers.get("x-native"), "yes")
+  assert.equal(native.headers.get("content-encoding"), null)
+  assert.equal(await new Response(native.body as ReadableStream).text(), "native")
+
+  const stream = await app.handle({ method: "GET", url: "/stream", headers: new Headers({ "accept-encoding": "gzip" }) })
+  assert.equal(stream.status, 202)
+  assert.equal(stream.headers.get("x-stream"), "yes")
+  assert.equal(stream.headers.get("content-encoding"), null)
+  assert.equal(await new Response(stream.body as ReadableStream).text(), "stream")
+})
+
 test("exports telemetry spans for success and error paths", async () => {
   const spans: { status: number; route: string; requestId: string; error?: unknown }[] = []
   const app = new Nelysia({ telemetry: { exportSpan: (span) => { spans.push(span) } } })

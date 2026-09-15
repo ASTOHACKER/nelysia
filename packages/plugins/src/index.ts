@@ -142,16 +142,34 @@ export function compression(options: CompressionOptions = {}): (app: Nelysia<any
   const threshold = options.threshold ?? 0
   if (!Number.isFinite(threshold) || threshold < 0) throw new Error("compression threshold must be non-negative")
   return (app) => app.onAfterHandle((context, result) => {
-    if (!context.request.headers?.get("accept-encoding")?.includes("gzip")) return
+    if (!acceptsGzip(context.request.headers?.get("accept-encoding"))) return
     if (result.headers.has("content-encoding") || result.body === undefined || result.body === null) return
-    const source = typeof result.body === "string" ? new TextEncoder().encode(result.body) : result.body instanceof Uint8Array ? result.body : new TextEncoder().encode(JSON.stringify(result.body))
+    // A native response or live stream owns its body/status/headers. Treating
+    // it as JSON would serialize the Response object to "{}" and destroy the
+    // stream contract.
+    if (result.body instanceof Response || result.body instanceof ReadableStream) return
+    const isText = typeof result.body === "string" || result.body instanceof Uint8Array
+    const source: Uint8Array = typeof result.body === "string" ? new TextEncoder().encode(result.body) : result.body instanceof Uint8Array ? result.body : new TextEncoder().encode(JSON.stringify(result.body))
     const bytes = source
     if (bytes.byteLength < threshold || typeof CompressionStream === "undefined") return
     result.body = new Response(bytes as unknown as BodyInit).body?.pipeThrough(new CompressionStream("gzip"))
     result.headers.set("content-encoding", "gzip")
-    result.headers.set("vary", "Accept-Encoding")
+    const vary = result.headers.get("vary")
+    result.headers.set("vary", vary && !vary.toLowerCase().split(",").map((part) => part.trim()).includes("accept-encoding") ? `${vary}, Accept-Encoding` : vary ?? "Accept-Encoding")
+    if (!result.headers.has("content-type")) result.headers.set("content-type", isText ? "text/plain; charset=utf-8" : "application/json; charset=utf-8")
     result.headers.delete("content-length")
   })
+}
+
+function acceptsGzip(value: string | null | undefined): boolean {
+  if (!value) return false
+  for (const item of value.toLowerCase().split(",")) {
+    const [encoding, ...params] = item.trim().split(";")
+    if (encoding !== "gzip" && encoding !== "*") continue
+    const q = params.find((param) => param.trim().startsWith("q="))?.trim().slice(2)
+    if (q === undefined || Number(q) > 0) return true
+  }
+  return false
 }
 
 export function cors(options: CorsOptions = {}): (app: Nelysia<any, any, any>) => Nelysia<any, any, any> {

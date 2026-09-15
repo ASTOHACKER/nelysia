@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 import { access, mkdir, readFile, writeFile } from "node:fs/promises"
+import { realpathSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { compile, generateBuildArtifact, inspect } from "../../compiler/src/index.ts"
 import { generateClientTypes } from "../../openapi/src/index.ts"
 import type { ServerInfo } from "../../core/src/types.ts"
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main()
+if (isCliEntrypoint()) await main()
+
+function isCliEntrypoint(): boolean {
+  if (!process.argv[1]) return false
+  try { return realpathSync(process.argv[1]) === fileURLToPath(import.meta.url) }
+  catch { return false }
+}
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2)

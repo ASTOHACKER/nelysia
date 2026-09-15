@@ -1,6 +1,6 @@
 # Nelysia Documentation Map
 
-> Current package line: `v1.0.0` · Node.js 22+ · Bun 1.4+
+> Current package line: `v1.1.0` · Node.js 22+ · Bun 1.4+
 
 หน้านี้เป็นจุดเริ่มต้นของเอกสารทั้งหมด เอกสารแบ่งตามคำถามที่ต้องการตอบ
 เพื่อไม่ให้คู่มือใช้งานปะปนกับ roadmap หรือ benchmark evidence
@@ -29,6 +29,7 @@
 ## API และสถาปัตยกรรม
 
 - [Architecture Blueprint](./ARCHITECTURE.md) — execution lanes, compiler และ runtime boundary
+- Compiler diagnostics `NELY113`/`NELY114`/`NELY115` ระบุ static replay, runtime-only application options และ lifecycle ที่ embed ไม่ได้
 - [Feature Modules](./feature-modules.md) — การแบ่ง module/service/model/plugin/test
 - [Platform Examples](./platform-examples.md) — Next.js, Nuxt, SvelteKit, Astro, TanStack Start
 - [Elysia Parity](./elysia-parity.md) — parity ที่ตั้งใจรองรับและสิ่งที่ไม่ copy
@@ -76,6 +77,16 @@
 ## Benchmark และ soak evidence
 
 - [Benchmark Results](./benchmark-results.html) — หน้าสรุปผลล่าสุด
+- [Runtime Evidence หลัง v1.0.0](./benchmark-runtime-v11-2026-09-16.md) — public Bun `app.listen()` และ short regression gate
+- [Bun machine-readable evidence](./benchmark-runtime-v11-latest.json) — raw JSON จาก runner เดียวกัน
+- [Node machine-readable evidence](./benchmark-runtime-v11-node-latest.json) — raw JSON จาก runner เดียวกัน
+- [Final all-framework short evidence](./benchmark-runtime-v11-final.json) — 5s × 3, order seed และ machine metadata ครบ
+- [Bun parity evidence](./benchmark-bun-parity-2026-09-16.md) — zero-arg/object และ dynamic เทียบ Elysia ใน runner เดียวกัน
+- [Bun parity JSON](./benchmark-bun-parity-2026-09-16.json) — raw machine-readable output
+- [Bun public `app.listen()` JSON](./benchmark-bun-listen-parity-shuffled-2026-09-16.json) — warmup 2s และ deterministic shuffle
+- [Bun stabilization evidence](./benchmark-bun-stabilization-2026-09-16.md) — pinned baseline, probe และ `no-performance-claim`
+- [Node regression JSON](./benchmark-node-regression-2026-09-16.json) — Node adapter comparison หลัง Bun-only change
+- [v1.1.x request-count soak](./soak-v11-2026-09-16.md) — 1M/10M evidence; 24h deferred
 - [v0.5 Core oha Report](./benchmark-oha-v05-2026-09-14.md) — release benchmark
 - [JWT Security Report](./benchmark-jwt-v05-2026-09-14.md) — public/protected matrix
 - [v0.5.1 Route Fast-Path Report](./benchmark-route-fast-path-v051-2026-09-14.md)
@@ -126,6 +137,7 @@ npm run docs:check
 npm run framework:check
 npm run benchmark:short
 npm run benchmark:runtime
+npm run benchmark:oha:short
 npm run release:check:v06 # historical v0.6 gate
 
 # Current v1.0 release-line checks
@@ -133,6 +145,8 @@ npm run release:check:v07
 npm run release:check:v08
 npm run release:check:v09
 npm run release:check:v1
+npm run release:check:v11
+npm run release:check:v111 # รวม 1M/10M soak; ไม่รวม 24h
 ```
 
 ผลการตรวจสอบในรอบล่าสุดและข้อที่ยัง deferred ให้ดูที่

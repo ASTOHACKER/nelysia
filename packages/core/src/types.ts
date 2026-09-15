@@ -10,7 +10,15 @@ export interface RequestData {
   env?: unknown
   executionContext?: unknown
   signal?: AbortSignal
+  /** Original Web Request when an adapter can preserve its stream semantics. */
+  rawRequest?: Request
+  /** Adapter preflight marker. Guards/hooks run before body parsing. */
+  preflight?: RequestPreflight
 }
+
+export type RequestPreflight =
+  | { kind: "route"; route: RouteRecord; params: Record<string, string>; context: Context; responseHeaders: Headers }
+  | { kind: "response"; response: ResponseData }
 
 export type FetchHandler = (request: Request) => Response | Promise<Response>
 
@@ -199,8 +207,9 @@ export type RouteContract = {
 
 type ResponseStatusKey<Key> = Key extends "default" ? Key : Key extends number ? `${Key}` | Key : Key extends `${number}` ? Key : never
 type Simplify<Value> = Value extends Record<string, unknown> ? { [Key in keyof Value]: Value[Key] } : Value
+type DirectResponseInput = import("./schema.ts").Schema | import("./schema.ts").StandardSchema | string
 type ResponseContractMap<Value, Models extends Record<string, unknown>> = Value extends object
-  ? {
+  ? Value extends DirectResponseInput ? {} : {
       [Key in Extract<keyof Value, string | number> as ResponseStatusKey<Key>]: Simplify<SchemaValue<Value[Key], Models>>
     }
   : {}
@@ -213,11 +222,13 @@ type ResponseErrorMap<Value, Models extends Record<string, unknown>> = {
 type ResponseContractUnion<Value, Models extends Record<string, unknown>> = ResponseContractMap<Value, Models>[keyof ResponseContractMap<Value, Models>]
 type ResponseSuccessUnion<Value, Models extends Record<string, unknown>> = ResponseSuccessMap<Value, Models>[keyof ResponseSuccessMap<Value, Models>]
 type ResponseErrorUnion<Value, Models extends Record<string, unknown>> = ResponseErrorMap<Value, Models>[keyof ResponseErrorMap<Value, Models>]
-type ResponseContractValues<Value, Models extends Record<string, unknown>> = [keyof ResponseContractMap<Value, Models>] extends [never]
+type ResponseContractValues<Value, Models extends Record<string, unknown>> = Value extends DirectResponseInput
   ? SchemaValue<Value, Models>
-  : [keyof ResponseSuccessMap<Value, Models>] extends [never]
-    ? ResponseContractUnion<Value, Models>
-    : ResponseSuccessUnion<Value, Models>
+  : [keyof ResponseContractMap<Value, Models>] extends [never]
+    ? SchemaValue<Value, Models>
+    : [keyof ResponseSuccessMap<Value, Models>] extends [never]
+      ? ResponseContractUnion<Value, Models>
+      : ResponseSuccessUnion<Value, Models>
 type ResponseErrorValues<Value, Models extends Record<string, unknown>> = [keyof ResponseErrorMap<Value, Models>] extends [never]
   ? unknown
   : ResponseErrorUnion<Value, Models>
@@ -274,15 +285,25 @@ type InjectRouteKey<Routes extends RouteMap, Method extends string, Path extends
     : never
 }[Extract<keyof Routes, string>]
 
+type InjectContractResponse<Contract> = Contract extends { response: infer Response }
+  ? Response
+  : Contract extends { responses: infer Responses extends object }
+    ? Responses[keyof Responses]
+    : unknown
+
+type InjectContractStatuses<Contract> = Contract extends { responses: infer Responses extends object }
+  ? Responses
+  : {}
+
 export type InjectResponseBodyFor<Routes extends RouteMap, Options> = Options extends { method: infer Method extends string; path: infer Path extends string }
   ? Routes[InjectRouteKey<Routes, Method, Path> & keyof Routes] extends infer Contract
-    ? Contract extends { response: infer Response } ? Response : unknown
+    ? InjectContractResponse<Contract>
     : unknown
   : unknown
 
 export type InjectResponseStatusesFor<Routes extends RouteMap, Options> = Options extends { method: infer Method extends string; path: infer Path extends string }
   ? Routes[InjectRouteKey<Routes, Method, Path> & keyof Routes] extends infer Contract
-    ? Contract extends { responses: infer Responses } ? Responses : {}
+    ? InjectContractStatuses<Contract>
     : {}
   : {}
 

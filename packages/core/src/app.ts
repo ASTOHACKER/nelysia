@@ -83,6 +83,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   private readonly namedPlugins = new Map<string, string>()
   private readonly moduleDependencies = new Set<Nelysia<any, any, any>>()
   private readonly modulePromises: Promise<void>[] = []
+  private moduleCompletion?: Promise<void>
   private moduleState: "loaded" | "pending" | "rejected" = "loaded"
   private moduleLoadError?: unknown
   readonly telemetry?: Telemetry
@@ -415,6 +416,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   }
 
   use<PluginApp extends Nelysia<any, any, any, any>>(plugin: PluginApp): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>, MergeMacroNames<MacroNames, MacrosOf<PluginApp>>>
+  use<PluginApp extends Nelysia<any, any, any, any>>(plugin: Promise<PluginApp>): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>, MergeMacroNames<MacroNames, MacrosOf<PluginApp>>>
   use<Added extends object>(plugin: NelysiaPlugin<Added>): Nelysia<Extensions & Added, Routes, Models, MacroNames>
   use<PluginApp extends Nelysia<any, any, any, any>>(plugin: (app: Nelysia<Extensions, Routes, Models, MacroNames>) => PluginApp): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>, MergeMacroNames<MacroNames, MacrosOf<PluginApp>>>
   use(plugin: LazyPlugin): this
@@ -433,6 +435,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
         throw error
       })
       this.modulePromises.push(pending)
+      this.moduleCompletion = undefined
       return this
     }
     if (isNelysia(plugin)) {
@@ -458,6 +461,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
           this.moduleLoadError = error
           throw error
         }))
+        this.moduleCompletion = undefined
       } else {
         this.mount("/", plugin)
       }
@@ -475,16 +479,21 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
         this.moduleLoadError = error
         throw error
       }))
+      this.moduleCompletion = undefined
     }
     return this
   }
 
   /** Explicit lazy-plugin spelling. `.use(Promise)` remains supported for v0.x compatibility. */
+  lazy(loader: () => LazyPlugin): this
+  lazy<PluginApp extends Nelysia<any, any, any, any>>(loader: () => PluginApp | Promise<PluginApp>): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>, MergeMacroNames<MacroNames, MacrosOf<PluginApp>>>
   lazy(loader: () => LazyPlugin): this {
     return this.use(Promise.resolve().then(loader))
   }
 
   /** Explicit lazy sub-application spelling with a prefix. */
+  mountLazy<Prefix extends string, PluginApp extends Nelysia<any, any, any, any>>(prefix: Prefix, loader: () => PluginApp | Promise<PluginApp>): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, RoutesOf<PluginApp>>>, Models & ModelsOf<PluginApp>, MergeMacroNames<MacroNames, MacrosOf<PluginApp>>>
+  mountLazy(prefix: string, loader: () => Nelysia<any, any, any> | FetchHandler | Promise<Nelysia<any, any, any> | FetchHandler>): this
   mountLazy(prefix: string, loader: () => Nelysia<any, any, any> | FetchHandler | Promise<Nelysia<any, any, any> | FetchHandler>): this {
     this.moduleState = "pending"
     const pending = Promise.resolve().then(loader).then((resolved) => {
@@ -499,6 +508,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       throw error
     })
     this.modulePromises.push(pending)
+    this.moduleCompletion = undefined
     return this
   }
 
@@ -518,6 +528,10 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return this.fetchMounts.length > 0
   }
 
+  get usesTrustedProxy(): boolean { return this.trustedProxy }
+  get usesSecureCookies(): boolean { return this.secureCookies }
+  get hasCustomNotFound(): boolean { return this.notFoundHandler !== undefined }
+
   get modelDefinitions(): ReadonlyMap<string, Schema | StandardSchema> {
     return this.models
   }
@@ -530,7 +544,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   get<Path extends string, Options extends RouteOptions<Models, MacroNames> = RouteOptions<Models, MacroNames>, Result = unknown>(path: Path, handler: (context: RouteContext<Extensions, Options, Models>) => Result | Promise<Result>, options?: Options): Nelysia<Extensions, AddRoute<Routes, "GET", Path, Options, Result, Models>, Models, MacroNames>
   get<Path extends string, Value>(path: Path, body: Value, options?: RouteOptions<Models, MacroNames>): Nelysia<Extensions, AddRoute<Routes, "GET", Path, RouteOptions<Models, MacroNames>, Value, Models>, Models, MacroNames>
   get(path: string, handlerOrBody: unknown, options?: RouteOptions<Models, MacroNames>): Nelysia<any, any, any, any> {
-    const app = this.route("GET", path, (typeof handlerOrBody === "function" ? handlerOrBody : () => handlerOrBody) as Handler<any>, options)
+    if (handlerOrBody instanceof ReadableStream) throw new Error("getStatic(ReadableStream) is not replay-safe; use a handler that creates a new stream per request")
+    const app = this.route("GET", path, (typeof handlerOrBody === "function" ? handlerOrBody : () => cloneStaticValue(handlerOrBody)) as Handler<any>, options)
     if (typeof handlerOrBody !== "function") {
       this.graph.routes[this.graph.routes.length - 1].contextFree = true
       this.graph.routes[this.graph.routes.length - 1].staticValue = handlerOrBody
@@ -538,7 +553,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return app
   }
   getStatic(path: string, body: unknown): this {
-    this.route("GET", path, () => body)
+    if (body instanceof ReadableStream) throw new Error("getStatic(ReadableStream) is not replay-safe; use a handler that creates a new stream per request")
+    this.route("GET", path, () => cloneStaticValue(body))
     this.graph.routes[this.graph.routes.length - 1].contextFree = true
     this.graph.routes[this.graph.routes.length - 1].staticValue = body
     return this
@@ -726,8 +742,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const actualPort = typeof port === "number" ? port : port.port
     const hostname = typeof port === "object" ? port.hostname : undefined
     const runtime = globalThis as typeof globalThis & { Bun?: unknown }
-    if (runtime.Bun && this.modulePromises.length === 0) {
-      const server = createBunServer(this, actualPort) as { port: number; hostname?: string }
+    const startBun = () => {
+      const server = createBunServer(this, actualPort, { hostname }) as { port: number; hostname?: string }
       const resolvedHost = server.hostname ?? hostname ?? "localhost"
       const info: ServerInfo = {
         port: server.port,
@@ -738,6 +754,10 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       }
       if (callback) callback(info)
       return server
+    }
+    if (runtime.Bun) {
+      if (this.modulePromises.length === 0) return startBun()
+      return attachServerControls(this.waitForModules().then(startBun))
     }
     const start = async () => {
       const { createNodeServer } = await import("../../runtime-node/src/server.ts")
@@ -778,6 +798,14 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const isFormData = typeof FormData !== "undefined" && body instanceof FormData
     if (body !== undefined && !isFormData && typeof body !== "string" && !(body instanceof Uint8Array) && !(body instanceof ReadableStream)) {
       if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8")
+    }
+    const bodySize = typeof body === "string" ? new TextEncoder().encode(body).byteLength
+      : body instanceof Uint8Array ? body.byteLength
+        : body !== undefined && !isFormData && !(body instanceof ReadableStream) ? new TextEncoder().encode(JSON.stringify(body)).byteLength : 0
+    if (bodySize > this.bodyLimit) {
+      const error = new HttpError(413, "Request body is too large")
+      const handled = await this.handleAdapterError(error, { method: input.method ?? "GET", url, headers, body })
+      return { status: handled.status, statusCode: handled.status, headers: handled.headers, body: handled.body, async json<T = InjectResponseBodyFor<Routes, Options>>(_status?: PropertyKey): Promise<T> { return (typeof handled.body === "string" ? JSON.parse(handled.body) : handled.body) as T }, async text(): Promise<string> { return typeof handled.body === "string" ? handled.body : JSON.stringify(handled.body) } } as InjectResponse<InjectResponseBodyFor<Routes, Options>, InjectResponseStatusesFor<Routes, Options>>
     }
     const res = await this.handle({
       method: input.method ?? "GET",
@@ -1005,11 +1033,66 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   }
 
   private async waitForModules(): Promise<void> {
+    if (this.moduleCompletion !== undefined) return this.moduleCompletion
+    const completion = (async () => {
     let completed = 0
     while (completed < this.modulePromises.length) {
       const pending = this.modulePromises.slice(completed)
       await Promise.all(pending)
       completed += pending.length
+    }
+    })()
+    this.moduleCompletion = completion
+    return completion
+  }
+
+  /**
+   * Adapter preflight: match the route and run request hooks/guards before an
+   * adapter consumes a request body. The returned context is reused by
+   * handle(), which preserves auth data set by a guard.
+   */
+  async preflight(request: RequestData): Promise<import("./types.ts").RequestPreflight> {
+    await this.waitForModules()
+    const { pathname, search } = splitUrl(request.url)
+    const method = fastNormalizeMethod(request.method)
+    if (method === undefined) return { kind: "response", response: this.response(400, { error: "Unsupported HTTP method" }) }
+    const mounted = this.fetchMounts.find((entry) => matchesMount(entry.prefix, pathname))
+    if (mounted !== undefined) {
+      const target = request.rawRequest ?? new Request(toAbsoluteUrl(request.url), {
+        method: request.method,
+        headers: request.headers,
+        body: request.body === undefined || request.body instanceof ReadableStream || request.body instanceof Uint8Array || typeof request.body === "string"
+          ? request.body as BodyInit | null | undefined
+          : JSON.stringify(request.body)
+      })
+      const mountedResponse = await mounted.handler(target)
+      return { kind: "response", response: { status: mountedResponse.status, headers: new Headers(mountedResponse.headers), body: mountedResponse, [responseMarker]: true } }
+    }
+    const lookupMethod = method === "HEAD" ? "GET" : method
+    const normalized = normalizePathname(pathname)
+    const direct = this.staticRoutes.get(`${lookupMethod} ${normalized}`)
+    const match = direct === undefined ? lookupDynamicRoute(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, splitSegments(normalized)) : undefined
+    const route = direct ?? match?.route
+    if (route === undefined) {
+      return { kind: "response", response: await this.handle({ ...request, body: undefined, preflight: undefined }) }
+    }
+    const params = match?.params ?? {}
+    const { context, responseHeaders } = this.createContext(request, params, search, method)
+    context.route = { method: route.method, path: route.path, features: route.features ?? {}, auth: route.auth }
+    try {
+      for (const hook of route.requestHooks ?? []) {
+        const result = await hook(request)
+        if (isResponse(result)) return { kind: "response", response: result }
+        if (result instanceof Response) return { kind: "response", response: responseFromNative(result, context.set, responseHeaders) }
+      }
+      for (const guard of route.routeGuards ?? []) {
+        const result = await guard(context)
+        if (isResponse(result)) return { kind: "response", response: result }
+        if (result instanceof Response) return { kind: "response", response: responseFromNative(result, context.set, responseHeaders) }
+      }
+      return { kind: "route", route, params, context, responseHeaders }
+    } catch (error) {
+      return { kind: "response", response: await this.handleAdapterError(error, { ...request, preflight: undefined }) }
     }
   }
 
@@ -1081,7 +1164,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     if (method === undefined) return this.response(400, { error: "Unsupported HTTP method" })
     const mounted = this.fetchMounts.find((entry) => matchesMount(entry.prefix, pathname))
     if (mounted !== undefined) {
-      const target = new Request(toAbsoluteUrl(request.url), {
+      const target = request.rawRequest ?? new Request(toAbsoluteUrl(request.url), {
         method: request.method,
         headers: request.headers,
         body: request.body === undefined || request.body instanceof ReadableStream || request.body instanceof Uint8Array || typeof request.body === "string"
@@ -1145,22 +1228,31 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     }
     const hasTelemetry = this.telemetry !== undefined
     const startedAt = hasTelemetry ? performance.now() : 0
-    const { context, responseHeaders } = this.createContext(request, params, search, method)
+    const preflight = request.preflight?.kind === "route" && request.preflight.route === route ? request.preflight : undefined
+    const { context, responseHeaders } = preflight === undefined
+      ? this.createContext(request, params, search, method)
+      : { context: preflight.context, responseHeaders: preflight.responseHeaders }
+    if (preflight !== undefined) {
+      context.body = request.body
+      context.request = { ...context.request, ...request, headers: asHeaders(request.headers), body: request.body }
+    }
     context.route = { method: route.method, path: route.path, features: route.features ?? {}, auth: route.auth }
     const requestId = context.requestId
     try {
       await this.emitTelemetryEvent({ phase: "request.start", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
       let parsedRequest = request
       await this.emitTelemetryEvent({ phase: "route.matched", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
-      for (const hook of route.requestHooks ?? []) {
-        const result = await hook(parsedRequest)
-        if (isResponse(result)) return result
-        if (result instanceof Response) return responseFromNative(result, context.set)
-      }
-      for (const guard of route.routeGuards ?? []) {
-        const result = await guard(context)
-        if (isResponse(result)) return result
-        if (result instanceof Response) return responseFromNative(result, context.set)
+      if (preflight === undefined) {
+        for (const hook of route.requestHooks ?? []) {
+          const result = await hook(parsedRequest)
+          if (isResponse(result)) return result
+          if (result instanceof Response) return responseFromNative(result, context.set)
+        }
+        for (const guard of route.routeGuards ?? []) {
+          const result = await guard(context)
+          if (isResponse(result)) return result
+          if (result instanceof Response) return responseFromNative(result, context.set)
+        }
       }
       await this.emitTelemetryEvent({ phase: "parse", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
       for (const hook of route.parseHooks ?? []) {
@@ -1212,7 +1304,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       await this.exportTelemetrySpan({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: errorStatus, durationMs: hasTelemetry ? performance.now() - startedAt : 0, error })
       context.set.status = errorStatus
       for (const handler of route.errorHandlers) {
-        const result = await handler(error, context)
+        let result: unknown
+        try { result = await handler(error, context) } catch { continue }
         if (isResponse(result)) return result
         if (result instanceof Response) {
           return responseFromNative(result, context.set, responseHeaders)
@@ -1252,7 +1345,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     await this.exportTelemetrySpan({ name: `${method} ${route?.path ?? pathname}`, requestId: context.requestId, method, route: route?.path ?? pathname, status: errorStatus, durationMs: 0, error })
     const handlers = route?.errorHandlers ?? this.errorHandlers
     for (const handler of uniqueIdentity(handlers)) {
-      const result = await handler(error, context)
+      let result: unknown
+      try { result = await handler(error, context) } catch { continue }
       if (isResponse(result)) return result
       if (result instanceof Response) return responseFromNative(result, context.set, responseHeaders)
       if (result !== undefined) return { status: context.set.status ?? 500, body: result, headers: mergeHeaders(responseHeaders, context.set.headers), [responseMarker]: true }
@@ -1570,8 +1664,12 @@ function createContextResponse(base: Headers, bodyOrStatus: unknown, optionsOrBo
   return { status: options?.status ?? 200, body: bodyOrStatus, headers: mergeHeaders(base, options?.headers), [responseMarker]: true }
 }
 
+function cloneStaticValue(value: unknown): unknown {
+  return value instanceof Response ? value.clone() : value
+}
+
 function isResponseOptions(value: unknown): value is ResponseOptions {
-  return typeof value === "object" && value !== null && ("status" in value || "headers" in value)
+  return typeof value === "object" && value !== null && (("status" in value && (value as { status?: unknown }).status !== undefined && typeof (value as { status?: unknown }).status === "number") || "headers" in value)
 }
 
 function mergeHeaders(base: Headers, extra?: HeadersInit): Headers {

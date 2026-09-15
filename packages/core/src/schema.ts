@@ -16,6 +16,8 @@ export interface StandardSchema<T = unknown> {
 
 export type Infer<S extends Schema> = S extends Schema<infer T> ? T : never
 
+type UnionToIntersection<Value> = (Value extends unknown ? (argument: Value) => void : never) extends ((argument: infer Intersection) => void) ? Intersection : never
+
 type ShapeInfer<Shape extends Record<string, Schema>> = {
   [K in keyof Shape as Shape[K]["optional"] extends true ? never : K]: Infer<Shape[K]>
 } & {
@@ -118,7 +120,7 @@ export const t = {
     const shape = Object.fromEntries(Object.entries(schema.shape).filter(([key]) => !excluded.has(key))) as Omit<Shape, Keys[number]>
     return t.Object(shape) as unknown as Schema<Omit<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
   },
-  Intersect: <Items extends readonly Schema[]>(items: Items): Schema<Infer<Items[number]>> => ({
+  Intersect: <Items extends readonly Schema[]>(items: Items): Schema<UnionToIntersection<Infer<Items[number]>>> => ({
     kind: "intersect",
     definition: { allOf: items.map((item) => item.definition ?? { type: item.kind }) },
     async validate(value, path = "body") {
@@ -129,7 +131,7 @@ export const t = {
           ? { ...(output as Record<string, unknown>), ...(validated as Record<string, unknown>) }
           : validated
       }
-      return output as Infer<Items[number]>
+      return output as UnionToIntersection<Infer<Items[number]>>
     }
   }),
   Enum: <Values extends readonly (string | number)[]>(values: Values): Schema<Values[number]> => ({
