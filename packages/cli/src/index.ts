@@ -148,9 +148,9 @@ export async function createProject(name: string, root = "."): Promise<string[]>
   const src = join(directory, "src")
   await mkdir(src, { recursive: true })
   const files: Record<string, string> = {
-    "package.json": JSON.stringify({ name, private: true, type: "module", scripts: { dev: "nelysia dev", build: "nelysia build" }, dependencies: { "@narudom96/nelysia": `^${packageJson.version ?? "0.5.1"}` } }, null, 2) + "\n",
+    "package.json": JSON.stringify({ name, private: true, type: "module", scripts: { dev: "nelysia dev", build: "nelysia build" }, dependencies: { "@narudom96/nelysia": `^${packageJson.version ?? "1.0.0"}` } }, null, 2) + "\n",
     "tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true }, include: ["src/**/*.ts"] }, null, 2) + "\n",
-    "src/app.ts": `import { Nelysia } from "@narudom96/nelysia"\n\nexport const app = new Nelysia()\n  .get("/health", () => ({ status: "ok" }))\n\napp.listen(3000)\n`
+    "src/app.ts": `import { Nelysia } from "@narudom96/nelysia"\n\nexport const app = new Nelysia()\n  .get("/health", () => ({ status: "ok" }))\n`
   }
   for (const [file, content] of Object.entries(files)) await writeFile(join(directory, file), content, { flag: "wx" })
   return Object.keys(files)

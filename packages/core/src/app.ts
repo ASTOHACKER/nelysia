@@ -1,6 +1,6 @@
 import { allowedMethodsFor, compilePath, lookupDynamicRoute, normalizeMethod, normalizePathname, splitSegments } from "./router.ts"
 import { fromStandardSchema, type Schema, type StandardSchema } from "./schema.ts"
-import { HttpError, responseMarker, type AddRoute, type AfterHook, type AfterResponseHook, type ApplyGuard, type Context, type ContextExtension, type CookieOptions, type DecorationOptions, type ErrorHandler, type FetchHandler, type GuardOptions, type Handler, type Hook, type HookOptions, type HookScope, type InjectOptions, type InjectResponse, type InjectResponseBody, type InjectResponseBodyFor, type MacroDefinition, type MapResponseHook, type MergeRouteMaps, type ModelValues, type ModuleGraphNode, type NelysiaOptions, type NelysiaPlugin, type ParseHook, type ParsedQuery, type RequestData, type RequestHook, type ResponseData, type ResponseOptions, type RouteContext, type RouteGraph, type RouteGuard, type RouteMap, type RouteOptions, type RouteRecord, type SchemaInput, type ServerInfo, type Telemetry, type TransformHook, type TypedInjectOptions, type WebSocketHandlers } from "./types.ts"
+import { HttpError, responseMarker, type AddRoute, type AfterHook, type AfterResponseHook, type ApplyGuard, type AuthStrategyDescriptor, type AuthStrategySetting, type AuthStrategyProvider, type Context, type ContextExtension, type CookieOptions, type DecorationOptions, type ErrorHandler, type FetchHandler, type GuardOptions, type Handler, type Hook, type HookOptions, type HookScope, type InjectOptions, type InjectResponse, type InjectResponseBodyFor, type InjectResponseStatusesFor, type MacroDefinition, type MapResponseHook, type MergeRouteMaps, type ModelValues, type ModuleGraphNode, type NormalizedRouteMetadata, type NelysiaOptions, type NelysiaPlugin, type ParseHook, type ParsedQuery, type RateLimitRouteOptions, type RequestData, type RequestHook, type ResponseData, type ResponseOptions, type RouteContext, type RouteFeatureProvider, type RouteGraph, type RouteGuard, type RouteMap, type RouteMetadataOptions, type RouteOptions, type RouteRecord, type SchemaInput, type ServerInfo, type Telemetry, type TransformHook, type TypedInjectOptions, type WebSocketHandlers } from "./types.ts"
 import { createBunServer } from "../../runtime-bun/src/server.ts"
 
 const asHeaders = (headers?: Headers): Headers => headers ?? new Headers()
@@ -36,6 +36,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   readonly name?: string
   readonly seed?: unknown
   readonly bodyLimit: number
+  private readonly routeOptions: RouteMetadataOptions
   private readonly trustedProxy: boolean
   private readonly secureCookies: boolean
   private hooks: Hook[] = []
@@ -91,6 +92,12 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   private readonly dynamicRoutes = new Map<string, RouteRecord[]>()
   private readonly mountedRoutes = new Set<RouteRecord>()
   private readonly routeGuardRegistrations: Array<{ guard: RouteGuard; applies: (auth: RouteRecord["auth"]) => boolean }> = []
+  private readonly authStrategyProviders = new Map<string, AuthStrategyProvider>()
+  private readonly routeFeatureProviders = new Map<string, RouteFeatureProvider>()
+  private readonly appliedRouteFeatures = new WeakMap<RouteRecord, Set<string>>()
+  private readonly routeFeatureHooks = new WeakMap<RouteRecord, { guards: RouteGuard[]; after: AfterHook[] }>()
+  private readonly appliedAuthorization = new WeakSet<RouteRecord>()
+  private readonly routeAuthorizationHooks = new WeakMap<RouteRecord, Hook>()
   /** Public so runtime adapters can skip UUID generation when disabled. */
   readonly requestIdEnabled: boolean
   private notFoundHandler?: Handler
@@ -99,6 +106,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     this.prefix = normalizePrefix(options.prefix)
     this.name = options.name
     this.seed = options.seed
+    this.routeOptions = options.routeOptions === undefined ? {} : cloneRouteMetadata(options.routeOptions)
     this.bodyLimit = options.bodyLimit ?? 1024 * 1024
     this.telemetry = options.telemetry
     this.trustedProxy = options.trustedProxy ?? false
@@ -117,8 +125,96 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return this
   }
 
+  /** Register an authentication provider without wrapping handlers. Providers
+   * are matched after routing and before parsing/validation. */
+  registerAuthStrategy(name: string, provider: AuthStrategyProvider): this {
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(name)) throw new Error(`Invalid auth strategy name: ${name}`)
+    const existing = this.authStrategyProviders.get(name)
+    if (existing !== undefined && existing !== provider) throw new Error(`Conflicting auth strategy provider: ${name}`)
+    this.authStrategyProviders.set(name, provider)
+    this.registerRouteGuard(provider.guard, (auth) => authMatchesStrategy(auth, name))
+    return this
+  }
+
+  /** Register a lazy route feature implementation. A route must declare the
+   * feature after its provider is installed; no feature is auto-enabled. */
+  registerRouteFeature<Value = unknown>(name: string, provider: RouteFeatureProvider<Value>): this {
+    const existing = this.routeFeatureProviders.get(name)
+    if (existing !== undefined && existing !== provider) throw new Error(`Conflicting route feature provider: ${name}`)
+    this.routeFeatureProviders.set(name, provider as RouteFeatureProvider)
+    for (const route of this.graph.routes) {
+      const value = route.features?.[name]
+      if (value !== undefined && value !== false) this.applyRouteFeature(route, name, value)
+    }
+    return this
+  }
+
   private routeGuardsFor(auth: RouteRecord["auth"]): RouteGuard[] {
     return this.routeGuardRegistrations.filter((registration) => registration.applies(auth)).map((registration) => registration.guard)
+  }
+
+  private normalizeAuthSetting(auth: AuthStrategySetting | undefined): AuthStrategySetting | undefined {
+    if (auth === undefined || auth === false) return auth
+    if (auth === "optional") {
+      const names = [...this.authStrategyProviders.keys()]
+      if (names.length !== 1) throw new Error(`auth optional requires exactly one registered provider; found ${names.length}`)
+      return { strategy: names[0] as never, optional: true }
+    }
+    if (auth === true) {
+      // Boolean auth is a deprecated v0.x escape hatch. Keep accepting it so
+      // custom route guards registered through registerRouteGuard continue to
+      // work; named strategies use the strict provider check below.
+      return auth
+    }
+    const strategy = typeof auth === "string" ? auth : auth.strategy
+    if (!this.authStrategyProviders.has(strategy)) throw new Error(`No auth provider registered for strategy "${strategy}"`)
+    return auth
+  }
+
+  private applyRouteFeature(route: RouteRecord, name: string, value: unknown): void {
+    if (value === undefined || value === false) return
+    const provider = this.routeFeatureProviders.get(name)
+    if (provider === undefined) throw new Error(`No route feature provider registered for "${name}" on ${route.method} ${route.path}`)
+    const applied = this.appliedRouteFeatures.get(route) ?? new Set<string>()
+    if (applied.has(name)) return
+    const generated = this.routeFeatureHooks.get(route) ?? { guards: [], after: [] }
+    if (provider.beforeHandle) {
+      route.routeGuards ??= []
+      const guard = provider.beforeHandle(value)
+      route.routeGuards.push(guard)
+      generated.guards.push(guard)
+    }
+    if (provider.afterHandle) {
+      const after = provider.afterHandle(value)
+      route.afterHooks.push(after)
+      generated.after.push(after)
+    }
+    applied.add(name)
+    this.appliedRouteFeatures.set(route, applied)
+    this.routeFeatureHooks.set(route, generated)
+  }
+
+  private applyRouteFeatures(route: RouteRecord): void {
+    for (const [name, value] of Object.entries(route.features ?? {})) this.applyRouteFeature(route, name, value)
+  }
+
+  private applyRouteAuthorization(route: RouteRecord): void {
+    if (this.appliedAuthorization.has(route) || (route.role === undefined && route.permissions === undefined)) return
+    // Authentication providers remain route guards and therefore run before
+    // parsing/validation. Authorization is deliberately a normal route hook:
+    // role/permission resolvers supplied by `derive()` must run first so a
+    // roles provider can build `context.permissions` from the authenticated
+    // claims before this policy is evaluated.
+    const authorizationHook: Hook = (context) => authorizeRoute(context, route)
+    route.hooks.push(authorizationHook)
+    this.routeAuthorizationHooks.set(route, authorizationHook)
+    this.appliedAuthorization.add(route)
+  }
+
+  private inheritProviders(child: Nelysia<any, any, any>): void {
+    for (const [name, provider] of this.authStrategyProviders) child.authStrategyProviders.set(name, provider)
+    for (const registration of this.routeGuardRegistrations) child.routeGuardRegistrations.push(registration)
+    for (const [name, provider] of this.routeFeatureProviders) child.routeFeatureProviders.set(name, provider)
   }
 
   onBeforeHandle(hook: Hook): this
@@ -294,8 +390,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return this as unknown as Nelysia<Extensions, Routes, Models & ModelValues<Definitions>, MacroNames>
   }
 
-  guard<Guard extends GuardOptions<Models>, Child extends Nelysia<any, any, any>>(options: Guard, callback: (app: Nelysia<any, any, any>) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, ApplyGuard<RoutesOf<Child>, Guard, Models>>, Models & ModelsOf<Child>>
-  guard(options: GuardOptions<Models>, callback: (app: Nelysia<any, any, any>) => void): this
+  guard<Guard extends GuardOptions<Models>, Child extends Nelysia<any, any, any, any>>(options: Guard, callback: (app: Nelysia<Extensions, Routes, Models, MacroNames>) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, ApplyGuard<RoutesOf<Child>, Guard, Models>>, Models & ModelsOf<Child>, MergeMacroNames<MacroNames, MacrosOf<Child>>>
+  guard(options: GuardOptions<Models>, callback: (app: Nelysia<Extensions, Routes, Models, MacroNames>) => void): this
   guard(options: GuardOptions<Models>, callback: (app: Nelysia<any, any, any>) => void): this {
     const child = new Nelysia({
       bodyLimit: this.bodyLimit,
@@ -304,7 +400,9 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       requestId: this.requestIdEnabled,
       telemetry: this.telemetry
     })
+    this.inheritProviders(child)
     for (const [name, schema] of this.models) child.models.set(name, schema)
+    for (const [name, definition] of this.macros) child.macros.set(name, definition)
     callback(child)
     this.applyGuard(child, options)
     this.mount("/", child)
@@ -316,9 +414,9 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return this
   }
 
-  use<PluginApp extends Nelysia<any, any, any>>(plugin: PluginApp): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>>
+  use<PluginApp extends Nelysia<any, any, any, any>>(plugin: PluginApp): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>, MergeMacroNames<MacroNames, MacrosOf<PluginApp>>>
   use<Added extends object>(plugin: NelysiaPlugin<Added>): Nelysia<Extensions & Added, Routes, Models, MacroNames>
-  use<PluginApp extends Nelysia<any, any, any>>(plugin: (app: Nelysia<Extensions, Routes, Models>) => PluginApp): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>>
+  use<PluginApp extends Nelysia<any, any, any, any>>(plugin: (app: Nelysia<Extensions, Routes, Models, MacroNames>) => PluginApp): Nelysia<Extensions & ExtensionsOf<PluginApp>, MergeRouteMaps<Routes, RoutesOf<PluginApp>>, Models & ModelsOf<PluginApp>, MergeMacroNames<MacroNames, MacrosOf<PluginApp>>>
   use(plugin: LazyPlugin): this
   use(plugin: LazyPlugin): this {
     if (isPromiseLike(plugin)) {
@@ -462,7 +560,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return this
   }
 
-  mount<Prefix extends string, Child extends Nelysia<any, any, any>>(prefix: Prefix, child: Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, RoutesOf<Child>>>, Models & ModelsOf<Child>>
+  mount<Prefix extends string, Child extends Nelysia<any, any, any, any>>(prefix: Prefix, child: Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, RoutesOf<Child>>>, Models & ModelsOf<Child>, MergeMacroNames<MacroNames, MacrosOf<Child>>>
   mount(prefix: string, handler: FetchHandler): this
   mount(prefix: string, childOrHandler: Nelysia<any, any, any> | FetchHandler): this {
     if (typeof childOrHandler === "function") {
@@ -471,6 +569,14 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     }
     const child = childOrHandler
     const base = prefix === "/" ? "" : prefix.replace(/\/$/, "")
+    // Macro definitions are compile-time keys, but their runtime hooks and
+    // schemas are still needed by routes added to the parent after mounting.
+    // Copy inherited definitions forward and reject ambiguous replacements.
+    for (const [name, definition] of child.macros) {
+      const existing = this.macros.get(name)
+      if (existing !== undefined && existing !== definition) throw new Error(`Conflicting macro definition: ${name}`)
+      this.macros.set(name, definition)
+    }
     for (const [name, value] of child.stateValues) {
       if (!this.stateValues.has(name)) this.stateValues.set(name, value)
     }
@@ -492,28 +598,51 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       const path = `${base}${route.path === "/" ? "" : route.path}`.replace(/\/\/+/g, "/") || "/"
       const metadata = compilePath(path)
       if (this.graph.routes.some((candidate) => candidate.method === route.method && candidate.path === path)) throw new Error(`Duplicate route: ${route.method} ${path}`)
+      const childMetadata = route.metadata ?? {
+        auth: route.auth,
+        role: route.role,
+        permissions: route.permissions,
+        features: route.features
+      }
+      const inheritedMetadata = mergeRouteMetadata(this.routeOptions, childMetadata)
+      const inheritedAuth = this.normalizeAuthSetting(inheritedMetadata.auth)
+      const inheritedFeatures = routeFeaturesFrom(inheritedMetadata)
+      const childFeatureNames = new Set(Object.keys(route.features ?? {}))
+      const childGeneratedFeatureHooks = child.routeFeatureHooks.get(route)
+      const rebuiltFeatureNames = new Set(Object.keys(inheritedFeatures).filter((name) => this.routeFeatureProviders.has(name)))
       const mounted: RouteRecord = {
         ...route,
         path,
         ...metadata,
+        auth: inheritedAuth,
+        role: inheritedMetadata.role ?? authDescriptorValue(inheritedAuth, "role"),
+        permissions: inheritedMetadata.permissions ?? authDescriptorValue(inheritedAuth, "permissions"),
+        features: inheritedFeatures,
+        metadata: undefined,
         hooks: uniqueHooks([
           ...this.contextExtensionHooks,
           ...this.hooks.filter((hook) => !this.localHooks.includes(hook)),
           ...this.transformHooks.filter((hook) => !this.localTransformHooks.includes(hook)),
           ...this.scopedHooks,
           ...this.scopedTransformHooks,
-          ...route.hooks
+          ...route.hooks.filter((hook) => hook !== child.routeAuthorizationHooks.get(route))
         ]),
         requestHooks: uniqueIdentity([...(route.requestHooks ?? []), ...child.requestHooks, ...this.requestHooks.filter((hook) => !this.localRequestHooks.includes(hook))]),
         parseHooks: uniqueIdentity([...(route.parseHooks ?? []), ...child.parseHooks, ...this.parseHooks.filter((hook) => !this.localParseHooks.includes(hook))]),
         mapResponseHooks: uniqueIdentity([...(route.mapResponseHooks ?? []), ...child.mapResponseHooks, ...this.mapResponseHooks.filter((hook) => !this.localMapResponseHooks.includes(hook))]),
         afterResponseHooks: uniqueIdentity([...(route.afterResponseHooks ?? []), ...child.afterResponseHooks, ...this.afterResponseHooks.filter((hook) => !this.localAfterResponseHooks.includes(hook))]),
-        afterHooks: uniqueIdentity([...this.afterHooks.filter((hook) => !this.localAfterHooks.includes(hook)), ...this.scopedAfterHooks, ...route.afterHooks]),
+        afterHooks: uniqueIdentity([...this.afterHooks.filter((hook) => !this.localAfterHooks.includes(hook)), ...this.scopedAfterHooks, ...route.afterHooks.filter((hook) => !childGeneratedFeatureHooks?.after.includes(hook))]),
         // Give the mounted route's own handlers first chance to recover its
         // failures; parent handlers remain the fallback for the subtree.
         errorHandlers: uniqueIdentity([...route.errorHandlers, ...child.scopedErrorHandlers, ...this.errorHandlers.filter((handler) => !this.localErrorHandlers.includes(handler)), ...this.scopedErrorHandlers]),
-        routeGuards: uniqueIdentity([...(route.routeGuards ?? []), ...this.routeGuardsFor(route.auth)])
+        routeGuards: uniqueIdentity([...(route.routeGuards ?? []).filter((guard) => !childGeneratedFeatureHooks?.guards.includes(guard)), ...this.routeGuardsFor(inheritedAuth)])
       }
+      mounted.metadata = normalizeRouteMetadata(mounted)
+      for (const name of Object.keys(inheritedFeatures)) {
+        if (childFeatureNames.has(name) && !rebuiltFeatureNames.has(name)) continue
+        this.applyRouteFeature(mounted, name, inheritedFeatures[name])
+      }
+      this.applyRouteAuthorization(mounted)
       this.registerRoute(mounted, true)
       mountedRoutes.push(mounted)
     }
@@ -568,10 +697,10 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return this
   }
 
-  group<Prefix extends string, Child extends Nelysia<any, any, any>>(prefix: Prefix, callback: (app: Nelysia<any, any, any>) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, RoutesOf<Child>>>, Models & ModelsOf<Child>>
-  group(prefix: string, callback: (app: Nelysia<any, any, any>) => void): this
-  group<Prefix extends string, Guard extends GuardOptions<Models>, Child extends Nelysia<any, any, any>>(prefix: Prefix, options: Guard, callback: (app: Nelysia<any, any, any>) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, ApplyGuard<RoutesOf<Child>, Guard, Models>>>, Models & ModelsOf<Child>>
-  group(prefix: string, options: GuardOptions<Models>, callback: (app: Nelysia<any, any, any>) => void): this
+  group<Prefix extends string, Child extends Nelysia<any, any, any, any>>(prefix: Prefix, callback: (app: Nelysia<Extensions, Routes, Models, MacroNames>) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, RoutesOf<Child>>>, Models & ModelsOf<Child>, MergeMacroNames<MacroNames, MacrosOf<Child>>>
+  group(prefix: string, callback: (app: Nelysia<Extensions, Routes, Models, MacroNames>) => void): this
+  group<Prefix extends string, Guard extends GuardOptions<Models>, Child extends Nelysia<any, any, any, any>>(prefix: Prefix, options: Guard, callback: (app: Nelysia<Extensions, Routes, Models, MacroNames>) => Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, ApplyGuard<RoutesOf<Child>, Guard, Models>>>, Models & ModelsOf<Child>, MergeMacroNames<MacroNames, MacrosOf<Child>>>
+  group(prefix: string, options: GuardOptions<Models>, callback: (app: Nelysia<Extensions, Routes, Models, MacroNames>) => void): this
   group(prefix: string, optionsOrCallback: GuardOptions<Models> | ((app: Nelysia<any, any, any>) => void), maybeCallback?: (app: Nelysia<any, any, any>) => void): this {
     const child = new Nelysia({
       bodyLimit: this.bodyLimit,
@@ -580,6 +709,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       requestId: this.requestIdEnabled,
       telemetry: this.telemetry
     })
+    this.inheritProviders(child)
+    for (const [name, definition] of this.macros) child.macros.set(name, definition)
     const callback = typeof optionsOrCallback === "function" ? optionsOrCallback : maybeCallback
     if (!callback) throw new Error("group requires a callback")
     callback(child)
@@ -633,10 +764,11 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return attachServerControls(pending)
   }
 
-  async inject(options: TypedInjectOptions<Routes> = {} as TypedInjectOptions<Routes>): Promise<InjectResponse<InjectResponseBody<Routes>>> {
+  async inject<Options extends TypedInjectOptions<Routes> = TypedInjectOptions<Routes>>(options: Options = {} as Options): Promise<InjectResponse<InjectResponseBodyFor<Routes, Options>, InjectResponseStatusesFor<Routes, Options>>> {
     await this.waitForModules()
     const input = options as InjectOptions
     let url = input.url ?? input.path ?? "/"
+    url = applyPathParams(url, input.params)
     if (input.query) {
       const q = new URLSearchParams(input.query).toString()
       if (q) url += (url.includes("?") ? "&" : "?") + q
@@ -658,7 +790,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       statusCode: res.status,
       headers: res.headers,
       body: res.body,
-      async json<T = InjectResponseBody<Routes>>(): Promise<T> {
+      async json<T = InjectResponseBodyFor<Routes, Options>>(_status?: PropertyKey): Promise<T> {
         if (typeof res.body === "string") return JSON.parse(res.body) as T
         if (res.body instanceof Response) return (await res.body.json()) as T
         if (res.body instanceof ReadableStream) return (await new Response(res.body).json()) as T
@@ -678,23 +810,24 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
         if (res.body instanceof ReadableStream) return new Uint8Array(await new Response(res.body).arrayBuffer())
         return new TextEncoder().encode(JSON.stringify(res.body))
       }
-    }
+    } as InjectResponse<InjectResponseBodyFor<Routes, Options>, InjectResponseStatusesFor<Routes, Options>>
   }
 
   /** Explicit route-map aware alias for callers that want path-specific
    * response inference at the call site. */
-  async injectTyped<Options extends TypedInjectOptions<Routes>>(options: Options): Promise<InjectResponse<InjectResponseBodyFor<Routes, Options>>> {
-    return this.inject(options as TypedInjectOptions<Routes>) as Promise<InjectResponse<InjectResponseBodyFor<Routes, Options>>>
+  async injectTyped<Options extends TypedInjectOptions<Routes>>(options: Options): Promise<InjectResponse<InjectResponseBodyFor<Routes, Options>, InjectResponseStatusesFor<Routes, Options>>> {
+    return this.inject(options) as Promise<InjectResponse<InjectResponseBodyFor<Routes, Options>, InjectResponseStatusesFor<Routes, Options>>>
   }
 
   /** Escape hatch for tests and callers that intentionally do not use the
    * route map, while keeping `inject()` strict for typed applications. */
   async injectUntyped(options: InjectOptions = {}): Promise<InjectResponse> {
-    return this.inject(options as TypedInjectOptions<Routes>) as Promise<InjectResponse>
+    return this.inject(options as TypedInjectOptions<Routes>) as unknown as Promise<InjectResponse>
   }
 
   route(method: string, path: string, handler: Handler<any>, options: RouteOptions<Models, MacroNames> = {}): this {
     const effectivePath = joinPrefix(this.prefix, path)
+    const effectiveMetadata = mergeRouteMetadata(this.routeOptions, options)
     const metadata = compilePath(effectivePath)
     if (this.graph.routes.some((route) => route.method === normalizeMethod(method) && route.path === effectivePath)) {
       throw new Error(`Duplicate route: ${method.toUpperCase()} ${path}`)
@@ -710,7 +843,11 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       if (macro.headers !== undefined) macroSchemas.headersSchema = this.resolveSchema(macro.headers)
       if (macro.response !== undefined) macroSchemas.responseSchema = this.resolveSchema(macro.response)
     }
-    const route = {
+    const auth = this.normalizeAuthSetting(effectiveMetadata.auth)
+    const responseMap = isResponseDefinitionMap(options.response) ? options.response : undefined
+    const responseSchemas = mergeResponseDefinitions(responseMap, options.responses)
+    const responseSchemaInput = responseMap === undefined ? options.response as SchemaInput | undefined : undefined
+    const route: RouteRecord = {
       method: normalizeMethod(method),
       path: effectivePath,
       ...metadata,
@@ -722,24 +859,30 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       hooks: [...this.contextExtensionHooks, ...this.transformHooks, ...this.hooks, ...macroHooks],
       afterHooks: [...this.afterHooks],
       errorHandlers: [...this.errorHandlers],
-      routeGuards: this.routeGuardsFor(options.auth),
+      routeGuards: this.routeGuardsFor(auth),
       summary: options.summary,
       description: options.description,
       tags: options.tags,
-      auth: options.auth,
-       bodySchema: this.resolveSchema(options.body) ?? macroSchemas.bodySchema,
-       paramsSchema: this.resolveSchema(options.params) ?? macroSchemas.paramsSchema,
-       querySchema: this.resolveSchema(options.query) ?? macroSchemas.querySchema,
-       headersSchema: this.resolveSchema(options.headers) ?? macroSchemas.headersSchema,
-       responseSchema: this.resolveSchema(options.response) ?? macroSchemas.responseSchema,
-       bodyModel: modelName(options.body),
-       paramsModel: modelName(options.params),
-       queryModel: modelName(options.query),
-       headersModel: modelName(options.headers),
-       responseModel: modelName(options.response),
-       responseSchemas: this.resolveResponseSchemas(options.responses),
-       responseModels: modelNames(options.responses)
+      auth,
+      role: effectiveMetadata.role ?? authDescriptorValue(auth, "role"),
+      permissions: effectiveMetadata.permissions ?? authDescriptorValue(auth, "permissions"),
+      features: routeFeaturesFrom(effectiveMetadata),
+      bodySchema: this.resolveSchema(options.body) ?? macroSchemas.bodySchema,
+      paramsSchema: this.resolveSchema(options.params) ?? macroSchemas.paramsSchema,
+      querySchema: this.resolveSchema(options.query) ?? macroSchemas.querySchema,
+      headersSchema: this.resolveSchema(options.headers) ?? macroSchemas.headersSchema,
+      responseSchema: this.resolveSchema(responseSchemaInput) ?? macroSchemas.responseSchema,
+      bodyModel: modelName(options.body),
+      paramsModel: modelName(options.params),
+      queryModel: modelName(options.query),
+      headersModel: modelName(options.headers),
+      responseModel: modelName(responseSchemaInput),
+      responseSchemas: this.resolveResponseSchemas(responseSchemas),
+      responseModels: modelNames(responseSchemas)
     }
+    route.metadata = normalizeRouteMetadata(route)
+    this.applyRouteFeatures(route)
+    this.applyRouteAuthorization(route)
     this.registerRoute(route)
     return this
   }
@@ -904,7 +1047,29 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       if (options.params !== undefined && route.paramsSchema === undefined) route.paramsSchema = child.resolveSchema(options.params)
       if (options.query !== undefined && route.querySchema === undefined) route.querySchema = child.resolveSchema(options.query)
       if (options.headers !== undefined && route.headersSchema === undefined) route.headersSchema = child.resolveSchema(options.headers)
-      if (options.response !== undefined && route.responseSchema === undefined) route.responseSchema = child.resolveSchema(options.response)
+      if (options.response !== undefined && route.responseSchema === undefined && !isResponseDefinitionMap(options.response)) route.responseSchema = child.resolveSchema(options.response)
+      if (route.responseSchemas === undefined) {
+        const responseMap = mergeResponseDefinitions(isResponseDefinitionMap(options.response) ? options.response : undefined, options.responses)
+        if (responseMap !== undefined) {
+          route.responseSchemas = child.resolveResponseSchemas(responseMap)
+          route.responseModels = modelNames(responseMap)
+        }
+      }
+      const inheritedMetadata = mergeRouteMetadata(child.routeOptions, options)
+      if (route.auth === undefined && inheritedMetadata.auth !== undefined) {
+        route.auth = child.normalizeAuthSetting(inheritedMetadata.auth)
+        route.routeGuards = uniqueIdentity([...(route.routeGuards ?? []), ...child.routeGuardsFor(route.auth)])
+      }
+      if (route.role === undefined) route.role = inheritedMetadata.role ?? authDescriptorValue(route.auth, "role")
+      if (route.permissions === undefined) route.permissions = inheritedMetadata.permissions ?? authDescriptorValue(route.auth, "permissions")
+      const features = route.features ?? (route.features = {})
+      for (const [name, value] of Object.entries(routeFeaturesFrom(inheritedMetadata))) {
+        if (!(name in features)) features[name] = value
+        else if (features[name] !== false && value !== undefined) features[name] = mergeFeatureValue(value, features[name])
+      }
+      route.metadata = normalizeRouteMetadata(route)
+      child.applyRouteFeatures(route)
+      child.applyRouteAuthorization(route)
       if (options.beforeHandle !== undefined) route.hooks.push(options.beforeHandle)
     }
   }
@@ -981,6 +1146,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const hasTelemetry = this.telemetry !== undefined
     const startedAt = hasTelemetry ? performance.now() : 0
     const { context, responseHeaders } = this.createContext(request, params, search, method)
+    context.route = { method: route.method, path: route.path, features: route.features ?? {}, auth: route.auth }
     const requestId = context.requestId
     try {
       await this.emitTelemetryEvent({ phase: "request.start", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
@@ -1196,7 +1362,160 @@ function splitUrl(input: string): { pathname: string; search: string } {
     : { pathname: value.slice(0, queryIndex) || "/", search: value.slice(queryIndex + 1) }
 }
 
+function applyPathParams(input: string, params?: Record<string, string>): string {
+  if (params === undefined) return input
+  const queryIndex = input.indexOf("?")
+  const pathname = queryIndex === -1 ? input : input.slice(0, queryIndex)
+  const search = queryIndex === -1 ? "" : input.slice(queryIndex)
+  const expanded = pathname
+    .replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (_, name: string) => {
+      const value = params[name]
+      return value === undefined ? `:${name}` : encodeURIComponent(value)
+    })
+    .replace(/\/\*$/, () => params["*"] === undefined ? "/*" : `/${encodeURIComponent(params["*"])}`)
+  return expanded + search
+}
+
 export { HttpError }
+
+function authMatchesStrategy(auth: RouteRecord["auth"], name: string): boolean {
+  if (auth === true) return true
+  if (typeof auth === "string") return auth === name
+  return typeof auth === "object" && auth !== null && auth.strategy === name
+}
+
+function authDescriptorValue(auth: AuthStrategySetting | undefined, key: "role" | "permissions"): string | readonly string[] | undefined {
+  if (typeof auth !== "object" || auth === null) return undefined
+  return auth[key]
+}
+
+function routeFeaturesFrom(options: { rateLimit?: RateLimitRouteOptions | `${number}/${"s" | "m" | "h"}` | false; cache?: unknown; timeout?: unknown; features?: Record<string, unknown> }): Record<string, unknown> {
+  const features: Record<string, unknown> = {}
+  if (options.rateLimit !== undefined) features.rateLimit = options.rateLimit
+  if (options.cache !== undefined) features.cache = options.cache
+  if (options.timeout !== undefined) features.timeout = options.timeout
+  for (const [name, value] of Object.entries(options.features ?? {})) {
+    if (features[name] === undefined) features[name] = value
+  }
+  return features
+}
+
+/** Merge only route metadata. Request/response schemas and lifecycle hooks are
+ * intentionally excluded because they have different inheritance rules. */
+function mergeRouteMetadata(parent: RouteMetadataOptions, child: Partial<RouteMetadataOptions>): RouteMetadataOptions {
+  const merged = cloneRouteMetadata(parent)
+  const scalarKeys: Array<keyof RouteMetadataOptions> = ["auth", "role", "permissions", "rateLimit", "cache", "timeout"]
+  for (const key of scalarKeys) {
+    const value = child[key]
+    if (value !== undefined) {
+      const parentValue = merged[key]
+      ;(merged as Record<string, unknown>)[key] = mergeMetadataValue(parentValue, value)
+    }
+  }
+  if (child.features !== undefined) {
+    const features = { ...(merged.features ?? {}) }
+    for (const [name, value] of Object.entries(child.features)) {
+      features[name] = mergeMetadataValue(features[name], value)
+    }
+    merged.features = features
+  }
+  return merged
+}
+
+function cloneRouteMetadata(value: RouteMetadataOptions): RouteMetadataOptions {
+  const auth = copyMetadataRecord(value.auth)
+  const rateLimit = copyMetadataRecord(value.rateLimit)
+  const cache = copyMetadataRecord(value.cache)
+  const timeout = copyMetadataRecord(value.timeout)
+  return {
+    ...value,
+    ...(auth === undefined ? {} : { auth: auth as unknown as AuthStrategyDescriptor }),
+    ...(rateLimit === undefined ? {} : { rateLimit: rateLimit as unknown as RateLimitRouteOptions }),
+    ...(cache === undefined ? {} : { cache: cache as unknown as NonNullable<RouteMetadataOptions["cache"]> }),
+    ...(timeout === undefined ? {} : { timeout: timeout as unknown as NonNullable<RouteMetadataOptions["timeout"]> }),
+    ...(value.features === undefined ? {} : { features: { ...value.features } })
+  }
+}
+
+function copyMetadataRecord(value: unknown): Record<string, unknown> | undefined {
+  return isPlainRecord(value) ? { ...value } : undefined
+}
+
+function mergeMetadataValue(parent: unknown, child: unknown): unknown {
+  return isPlainRecord(parent) && isPlainRecord(child) ? { ...parent, ...child } : child
+}
+
+function normalizeRouteMetadata(route: RouteRecord): NormalizedRouteMetadata {
+  const features = { ...(route.features ?? {}) }
+  return {
+    auth: route.auth,
+    role: route.role,
+    permissions: route.permissions,
+    rateLimit: features.rateLimit as NormalizedRouteMetadata["rateLimit"],
+    cache: features.cache as NormalizedRouteMetadata["cache"],
+    timeout: features.timeout as NormalizedRouteMetadata["timeout"],
+    features
+  }
+}
+
+function mergeFeatureValue(parent: unknown, child: unknown): unknown {
+  if (isPlainRecord(parent) && isPlainRecord(child)) return { ...parent, ...child }
+  return child
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+function isResponseDefinitionMap(value: unknown): value is Record<string | number, SchemaInput> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false
+  if ("validate" in value || "~standard" in value) return false
+  return Object.keys(value).every((key) => key === "default" || /^(?:[1-5]\d\d)$/.test(key))
+}
+
+function mergeResponseDefinitions(
+  primary: Record<string | number, SchemaInput> | undefined,
+  secondary: Record<string | number, SchemaInput> | undefined
+): Record<string | number, SchemaInput> | undefined {
+  if (primary === undefined && secondary === undefined) return undefined
+  const output: Record<string | number, SchemaInput> = { ...(primary ?? {}) }
+  for (const [status, schema] of Object.entries(secondary ?? {})) {
+    if (Object.prototype.hasOwnProperty.call(output, status)) throw new Error(`Conflicting response schema for status ${status}`)
+    output[status] = schema
+  }
+  return output
+}
+
+function authorizeRoute(context: Context, route: RouteRecord): ResponseData | void {
+  // A role/permission policy is an authentication boundary even when the
+  // caller omitted the explicit `auth` shorthand. An anonymous request must
+  // therefore receive 401 before policy evaluation can produce 403.
+  const requiredAuth = (route.auth !== undefined && route.auth !== false) || route.role !== undefined || route.permissions !== undefined
+  const claims = context.auth
+  if (requiredAuth && claims === undefined) return context.response(401, { error: "Unauthorized" })
+  if (route.role === undefined && route.permissions === undefined) return
+
+  const source = claims && typeof claims === "object" ? claims as Record<string, unknown> : {}
+  const permissionApi = (context as Context & { permissions?: { roles?: readonly string[]; has?(role: string): boolean; can?(permission: string): boolean } }).permissions
+  const claimRoles = source.roles
+  const roles = new Set<string>([
+    ...(permissionApi?.roles ?? []),
+    ...(typeof source.role === "string" ? [source.role] : Array.isArray(source.role) ? source.role.filter((value): value is string => typeof value === "string") : []),
+    ...(Array.isArray(claimRoles) ? claimRoles.filter((value): value is string => typeof value === "string") : [])
+  ])
+  const requiredRoles = route.role === undefined ? [] : typeof route.role === "string" ? [route.role] : [...route.role]
+  if (requiredRoles.length > 0 && !requiredRoles.some((role) => permissionApi?.has?.(role) ?? roles.has(role))) {
+    return context.response(403, { error: "Forbidden" })
+  }
+
+  const requiredPermissions = route.permissions === undefined ? [] : typeof route.permissions === "string" ? [route.permissions] : [...route.permissions]
+  const claimPermissions = new Set(Array.isArray(source.permissions) ? source.permissions.filter((value): value is string => typeof value === "string") : [])
+  if (requiredPermissions.some((permission) => !(permissionApi?.can?.(permission) ?? claimPermissions.has(permission)))) {
+    return context.response(403, { error: "Forbidden" })
+  }
+}
 
 function isResponse(value: unknown): value is ResponseData {
   return typeof value === "object" && value !== null && (value as ResponseData)[responseMarker] === true

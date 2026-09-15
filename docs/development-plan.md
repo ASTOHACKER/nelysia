@@ -42,8 +42,9 @@ No hook is removed based only on whether its return value is consumed. Side effe
 The post-v0.5.1 continuation is maintained in
 [`docs/roadmap-after-v051.md`](./roadmap-after-v051.md). It uses the public
 execution labels `COMPILED`, `SPECIALIZED`, and `GENERIC`, keeps unsupported
-behavior on the generic fallback, and stages 1M/10M/30m/1h/6h evidence before
-the separately deferred 24-hour soak.
+behavior on the generic fallback, and uses 1M/10M as the current request-count
+evidence. 30m/1h/6h and the separately deferred 24-hour soak are future evidence
+options, not mandatory v1.0 gates in the current plan.
 
 ## Next gates
 

@@ -1,18 +1,23 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 0.6.0 (package และ GitHub Release ปัจจุบัน)
+> **เวอร์ชัน:** 1.0.0 (package และ GitHub Release ปัจจุบัน)
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
 
 เริ่มจาก [แผนผังเอกสาร](./README.md) เพื่อเลือกคู่มือ, สถานะ release หรือ
 รายงาน benchmark ที่ต้องการได้เร็วขึ้น
 
-ฟีเจอร์ additive หลัง v0.5.1 รวมอยู่ใน release v0.6.0 แล้ว ส่วนแผนงานถัดไปอยู่ที่
+สำหรับเส้นทาง version ตั้งแต่ v0.6 ถึง v1.0 และ public contract ที่เตรียม freeze
+ให้ดู [Nelysia v1.0 Guide](./v1.0.md) ซึ่งแยกสถานะ workspace ที่ตรวจผ่านออกจาก
+สถานะ package/release ที่ publish แล้วอย่างชัดเจน
+
+ฟีเจอร์ additive หลัง v0.5.1 รวมอยู่ใน release v1.0.0 แล้ว และ public API ถูก
+freeze แล้ว ส่วนประวัติแผนงานอยู่ที่
 [`roadmap-after-v051.md`](./roadmap-after-v051.md) โดย worktree ปัจจุบันมี
 subpath สำหรับ production contract ได้แก่ `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache` และ `@narudom96/nelysia/health` แล้ว แต่ยังคง
-package line เป็น v0.6.0
+package line เป็น v1.0.0
 
 ตัวอย่างที่รันได้: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts) และ
@@ -212,7 +217,7 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v0.5.1!</h1>"))
+  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v1.0.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "default",
@@ -241,7 +246,7 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v0.5.1!</h1>
+# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v1.0.0!</h1>
 
 curl "http://localhost:3000/users/42?filter=active"
 # ผลลัพธ์: {"id":"42","filter":"active","timestamp":1726180000000}
@@ -274,6 +279,12 @@ const app = new Nelysia({
   // แนะนำสำหรับ benchmark และ service ที่ไม่ต้องการ ID)
   requestId: false,
 
+  // Metadata ที่จะสืบทอดไปยังทุก Route ของ application นี้ (ใส่หรือไม่ใส่ก็ได้)
+  routeOptions: {
+    timeout: 5_000,
+    cache: false
+  },
+
   // การตรวจจับ Telemetry ระดับ Global
   telemetry: {
     onRequest(ctx) { console.log(`Request เข้ามา: ${ctx.request.method} ${ctx.request.url}`) },
@@ -282,6 +293,12 @@ const app = new Nelysia({
   }
 })
 ```
+
+`routeOptions` คือค่าเริ่มต้นระดับ application สำหรับ route metadata โดย
+ตัวเลือกของ group และ route จะถูกใช้ทับตามลำดับ application → parent group →
+child group → route ค่าที่ใกล้ที่สุดชนะ object จะ merge แบบ shallow, array จะ
+แทนค่าก่อนหน้า และ `false` ใช้ปิด feature ที่สืบทอดมา แต่ยังต้อง register
+provider ด้วย `.use(...)` ก่อนจึงจะเปิดใช้ feature ที่มีชื่อได้
 
 ### เมธอดสำหรับ Routing
 
@@ -451,6 +468,8 @@ loader จนกว่าจะ await module boundary และ `.mountLazy(pref
 sub-app ที่มี prefix; `.use(Promise)` แบบเดิมยังใช้ได้
 
 ```ts
+const Order = t.Object({ id: t.String() })
+const Unauthorized = t.Object({ error: t.String() })
 const app = new Nelysia()
   .onBeforeHandle({ as: "global" }, () => undefined)
   .lazy(() => import("./feature.ts").then(({ app }) => app))
@@ -483,6 +502,17 @@ const typed = new Nelysia()
 
 const response = await typed.injectTyped({ method: "GET", path: "/users/42" })
 const user = await response.json() // { id: string }
+```
+
+ถ้าต้องการส่ง route pattern โดยตรง สามารถส่ง `params` ที่มี type ตาม route ได้
+ระบบจะขยาย URL ก่อน match และรูปแบบเดิมที่ส่ง path จริงยังใช้ได้เหมือนเดิม:
+
+```ts
+const response = await typed.injectTyped({
+  method: "GET",
+  path: "/users/:id",
+  params: { id: "42" }
+})
 ```
 
 ใช้ `injectUntyped()` เฉพาะกรณีที่ต้องการ escape hatch สำหรับ test ที่ไม่ใช้
@@ -561,7 +591,7 @@ app.post("/users", ({ body, set }) => {
 
 ### การแชร์ข้อมูลภายใน Request ด้วย `context.store`
 
-ในเวอร์ชัน v0.1.3+ `context.store` เป็น Dictionary เปล่าระดับ Request สำหรับส่งผ่านข้อมูลระหว่าง Lifecycle Hooks (`onBeforeHandle`, Route Handler, `onAfterHandle`):
+ในเวอร์ชัน v0.1.3+ `context.store` เป็น Dictionary ระดับ Request สำหรับส่งผ่านข้อมูลระหว่าง Lifecycle Hooks (`onBeforeHandle`, Route Handler, `onAfterHandle`) ค่าใน `state(name, value)` จะถูก copy เข้า store ของ request นั้น การแก้ store ของ request หนึ่งจะไม่เปลี่ยน request ถัดไป หากต้องการข้อมูลที่อยู่ข้าม request/process ให้ใช้ external store:
 
 ```ts
 // ตรวจสอบ JWT ใน onBeforeHandle แล้วเก็บ User ไว้ใน store
@@ -1046,6 +1076,33 @@ const app = new Nelysia()
 - `timeout()` เพิ่ม deadline ผ่าน `context.signal` ค่าเริ่มต้น `504` และ clear
   timer ทุกเส้นทางการจบงาน แต่ไม่สามารถหยุด synchronous JavaScript ที่กำลังรันอยู่ได้
 
+### Unified route metadata และ Provider
+
+Route และ group ใช้ metadata contract ชุดเดียวกัน ต้อง register provider ก่อน
+ประกาศ feature และจะไม่มีการเปิดใช้ feature โดยอัตโนมัติ:
+
+```ts
+const app = new Nelysia()
+  .use(jwt<{ sub: string }>({ secret: process.env.JWT_SECRET! }))
+  .use(rateLimit({ limit: 100, windowMs: 60_000 }))
+  .use(cache())
+  .use(timeout({ timeoutMs: 5_000 }))
+  .post("/orders/:id", ({ auth }) => ({ id: auth.sub }), {
+    auth: { strategy: "jwt", role: "user", permissions: ["orders:write"] },
+    response: { 201: Order, 401: Unauthorized },
+    rateLimit: "20/min",
+    timeout: 5_000,
+    cache: false
+  })
+```
+
+ลำดับการสืบทอดคือ application → parent group → child group → route โดยค่าที่
+ใกล้ที่สุดชนะ object จะ merge แบบ shallow ส่วน array/permission จะแทนค่าก่อนหน้า
+และ `false` ใช้ปิด feature ที่สืบทอดมา ถ้า auth หรือ feature provider ที่ระบุชื่อ
+ยังไม่ได้ register ระบบจะ fail ตอน registration พร้อม method, path และชื่อ feature
+Route ที่ไม่มี metadata จะไม่สร้าง guard, timer, parser หรือ store ของ provider นั้น
+เมื่อ authentication ไม่ผ่านจะตอบ `401` และเมื่อ role/permission ไม่ผ่านจะตอบ `403`
+
 ---
 
 ## 10. OpenAPI 3.1 และหน้าเอกสาร Redoc / Swagger UI
@@ -1355,7 +1412,7 @@ nelysia client src/app.ts --out src/generated/nelysia-client.ts --force
 
 ### Adapter Dispatcher (Fast Path ค่าเริ่มต้น)
 
-แม้ไม่ build แบบ standalone adapter ของ Node, Bun และ Fetch ก็ serve route `GET` ที่ไม่มี hook ผ่าน compiled dispatcher ตัวกลาง (`packages/compiler/src/dispatcher.ts`): static hit แบบ O(1) ด้วย payload ที่ serialize ล่วงหน้า, dynamic lookup แยกตาม method ที่ split pathname ครั้งเดียว, prefix matching สำหรับ route แบบ `/users/:id` และ generated validation สำหรับ built-in params/query/header/response schema ที่เป็น deterministic ส่วน body schema, Standard Schema/custom behavior, hook, method อื่น และ telemetry จะ fallback ไป generic router เสมอ manifest บันทึกด้วย `dispatcher: true`, diagnostic `NELY002` สำหรับ generated schema และ `NELY003` สำหรับ coverage
+แม้ไม่ build แบบ standalone adapter ของ Node, Bun และ Fetch ก็ serve route `GET` ที่ไม่มี hook ผ่าน compiled dispatcher ตัวกลาง (`packages/compiler/src/dispatcher.ts`): static hit แบบ O(1) ด้วย payload ที่ serialize ล่วงหน้า, static zero-arg ผ่าน `static-sync`, dynamic lookup แยกตาม method ที่ split pathname ครั้งเดียว, prefix matching สำหรับ route แบบ `/users/:id` และ generated validation สำหรับ built-in params/query/header/response schema ที่เป็น deterministic ส่วน body schema, Standard Schema/custom behavior, hook, method อื่น และ telemetry จะ fallback ไป generic router เสมอ manifest บันทึกด้วย `dispatcher: true`, diagnostic `NELY002` สำหรับ generated schema และ `NELY003` สำหรับ coverage
 
 ### คำสั่ง CLI
 ```bash
@@ -1579,6 +1636,9 @@ npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
 npm run benchmark:oha:release
+
+# short regression matrix สำหรับ route count 1/10/100/500
+npm run benchmark:short
 # ถ้า port เริ่มต้น 4321 ถูกใช้งานอยู่:
 BENCH_PORT=4341 npm run benchmark:oha
 
@@ -1597,8 +1657,8 @@ npm run soak:24h
 # Soak ยาว (เช่น 1M requests บนตาราง 200 routes)
 SOAK_ITERATIONS=1000000 SOAK_ROUTES=200 npm run soak
 
-# รัน gate รวมของ v0.5 (ไม่รวม benchmark ยาวและ soak 24 ชั่วโมง)
-npm run release:check:v05
+# รัน gate รวมของ v0.6 (ไม่รวม soak 24 ชั่วโมง)
+npm run release:check:v06
 ```
 
 ### compatibility snapshot ที่บันทึกไว้จาก `oha` 10 รอบ (2026-09-14)
@@ -1686,7 +1746,7 @@ Nelysia ได้รับแรงบันดาลใจจาก Developer E
 
 | ฟีเจอร์ / รูปแบบ | ElysiaJS | Nelysia | เหตุผลและจุดต่างของ Nelysia |
 | :--- | :--- | :--- | :--- |
-| **State & Decorator** | `app.state('k', v)`<br>`app.decorate('db', db)`<br>→ รับผ่าน `({ db, store }) => ...` | `context.store`<br>→ รับผ่าน `({ store }) => { store.db = ... }` | Elysia แทรก property เข้าไปใน context object ทำให้ V8 Hidden Class เปลี่ยนรูป (de-opt) ส่วน Nelysia ยึด object shape เดิมเพื่อรักษา V8 Inline Cache ให้เร็วคงที่ |
+| **State & Decorator** | `app.state('k', v)`<br>`app.decorate('db', db)`<br>→ รับผ่าน `({ db, store }) => ...` | `context.store`<br>→ รับผ่าน `({ store }) => { store.db = ... }` | `state()` ให้ค่าเริ่มต้นใน request store ส่วน `decorate()` เพิ่ม context extension แบบ typed ใช้ store สำหรับข้อมูลของ request และวัด hot path บน runtime เป้าหมาย |
 | **การต่อ Sub-App** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | แนะนำให้ใช้ `.mount()` กับ routing tree ที่มี prefix และ `.use()` กับ Plugin; รูปแบบเดิม `.use(subApp)` ยังรองรับเพื่อ compatibility |
 | **การจัดกลุ่ม Route** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | ไวยากรณ์เหมือนกัน โดย group ใน Nelysia จะสืบทอด Lifecycle Hooks (`onBeforeHandle`) จากกลุ่มแม่โดยตรง |
 | **Guards & Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Nelysia ใช้ Hook ปกติผ่าน group เพื่อให้ AOT Dispatch Compiler วิเคราะห์เส้นทางและคอมไพล์ได้เร็วแม่นยำ |
@@ -1787,7 +1847,7 @@ ROUTES=1000 N=100000 node --experimental-strip-types benchmarks/router-scale.ts
 
 ## 22. เช็กลิสต์ Deploy ขึ้น Production
 
-- [x] `npm run release:check:v05` ผ่านสำหรับ release gate ที่ไม่รวม 24 ชั่วโมง (typecheck + tests + package/import/deployment checks + soak 1M/10M + Deno + audit)
+- [x] constituent checks ของ v0.6 workspace gate ที่ไม่รวม 24 ชั่วโมงผ่านและมีหลักฐานบันทึกไว้ (typecheck + tests + package/tarball/import/deployment checks + benchmark/runtime + soak 1M/10M + Deno + audit); ถ้าต้องการรันรวมให้ใช้ `npm run release:check:v06`
 - [x] `npm run framework:check` ผ่าน หลังติดตั้ง dependency ของ fixture ทั้ง 5 ตัว
 - [ ] ดู coverage ของ dispatcher: build แล้วอ่าน `NELY003` ใน `dist/manifest.json` — route ร้อนควรอยู่บน fast path
 - [ ] ตั้ง `bodyLimit` ให้พอดี payload ใหญ่สุด; `trustedProxy: false` ไว้ trừคุม proxy เอง

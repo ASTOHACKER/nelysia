@@ -64,7 +64,7 @@ test("compiled application has parity with reference execution", async () => {
   for (const request of [{ method: "GET", url: "/" }, { method: "GET", url: "/users/42" }, { method: "GET", url: "/nope" }]) {
     assert.deepEqual(await compiled.handle(request), await app.handle(request))
   }
-  assert.match(inspect(compiled), /GET \/users\/:id\n  Execution: GENERIC/)
+  assert.match(inspect(compiled), /GET \/users\/:id\n  Execution: SPECIALIZED/)
 })
 
 test("compiled Bun handler specializes context-free static routes", async () => {
@@ -307,6 +307,7 @@ test("OpenAPI plugin serves a live document", async () => {
   const app = new Nelysia().get("/users/:id", ({ params }) => params.id).use(openapi({ title: "Live API" }))
   const result = await app.handle({ method: "GET", url: "/openapi.json" })
   assert.equal((result.body as { info: { title: string } }).info.title, "Live API")
+  assert.equal((result.body as { info: { version: string } }).info.version, "1.0.0")
   assert.ok((result.body as { paths: Record<string, unknown> }).paths["/users/{id}"])
 })
 

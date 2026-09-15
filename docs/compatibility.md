@@ -1,6 +1,6 @@
 # Compatibility Matrix
 
-This matrix records verified behavior in the current `v0.5.1` workspace. It is
+This matrix records verified behavior in the current `v1.0.0` release. It is
 intentionally narrower than a promise of support for every version of a runtime.
 
 | Capability | Node 26.8.2 | Bun 1.4.0 |
@@ -70,7 +70,7 @@ fresh post-roadmap 1M/10M rerun is recorded in
 separate 24-hour soak is intentionally deferred and has not been run; therefore
 this matrix does not make a production-readiness claim.
 
-The v0.6.0 release includes the post-v0.5.1 typed context, JWT DX, compiler
+The v1.0.0 release includes the post-v0.5.1 typed context, JWT DX, compiler
 specialization, and production subpaths `session`, `roles`, `csrf`, `cache`,
 and `health`. Future additive work remains documented in
 [`roadmap-after-v051.md`](./roadmap-after-v051.md); the v0.5.1 tag remains immutable.

@@ -10,14 +10,14 @@
 
 ## Install
 
-> **Current release:** `@narudom96/nelysia@0.6.0` is available as a GitHub Release
-> tarball. The v0.6 additive core, DX, and production-module checks are recorded; the separate
+> **Current release:** `@narudom96/nelysia@1.0.0` is available as a GitHub Release
+> tarball. The v1.0 API contract and v0.6–v0.9 verification gates are recorded; the separate
 > 24-hour production-readiness soak is intentionally deferred, and npm publication is pending.
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.6.0/narudom96-nelysia-0.6.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.0.0/narudom96-nelysia-1.0.0.tgz
 or
-curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v0.6.0/narudom96-nelysia-0.6.0.tgz'
+curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v1.0.0/narudom96-nelysia-1.0.0.tgz'
 
 npm install ./nelysia.tgz
 ```
@@ -26,7 +26,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (works once a v0.6.0 package is published)
+# registry install (when the v1.0.0 package is published)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -43,7 +43,7 @@ Use this while the package is not yet (or whenever it is not) on the npm registr
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v0.6.0/narudom96-nelysia-0.6.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.0.0/narudom96-nelysia-1.0.0.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -52,10 +52,10 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v0.6.0/narudom96-nelysia-0.6.0.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v1.0.0/narudom96-nelysia-1.0.0.tgz
 ```
 
-Replace `v0.5.1` / the filename with the latest release you see on the releases page.
+Replace `v1.0.0` / the filename with the latest release you see on the releases page.
 
 ```ts
 // app.ts
@@ -64,7 +64,7 @@ import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
   .use(cors())
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.6.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.0.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "all"
@@ -94,8 +94,10 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 - [Interactive Documentation Portal (เว็บคู่มือใช้งาน)](./docs/index.html)
 - [Release Notes / Changelog](./CHANGELOG.md)
 - [Roadmap หลัง v0.5.1](./docs/roadmap-after-v051.md)
+- [Final Roadmap สู่ v1.0](./docs/roadmap-v1.md)
+- [Nelysia v1.0 Guide — Public Contract และสถานะ Release](./docs/v1.0.md)
 
-### What's included in v0.5.1
+### Historical v0.5.1 patch highlights
 - **Bun zero-argument route fast path**: static function routes now use `static-sync` in single- and multi-route dispatchers; `.getStatic()` remains the separate `static-prebuilt` tier.
 - **Native result parity**: `Response`, `ReadableStream`, response metadata, and handler errors are handled once without re-running the handler.
 - **Route benchmark taxonomy**: the release runner separates prebuilt, zero-argument specialized, and params-only workloads with matched single/multi-route fixtures.
@@ -131,7 +133,7 @@ The recorded release evidence is available in the [core load report](./docs/benc
 | :---: | :--- | :--- |
 | **1** | **3-Lane AOT Execution** | Public lanes are `COMPILED`, `SPECIALIZED`, and `GENERIC`; `static-prebuilt` and `static-sync` are internal compiled subtiers. |
 | **2** | **95,173 req/s — Raw Bun parity snapshot** | Historical ten-round local `oha` snapshot: Nelysia **95,173** vs Raw Bun **95,306 req/s**, zero failures; compare like-for-like run sets in the report. |
-| **3** | **V8 Stays in Fast Lane** | Stable context shape keeps the inline cache monomorphic. |
+| **3** | **Explicit Context Contracts** | `context.store` is for request-local data; `decorate()` is for typed services and capabilities. Benchmark hot paths on your deployment runtime. |
 | **4** | **Node.js and Bun, No Polyfills** | Native `node:http` and `Bun.serve` runtimes. |
 | **5** | **Multi-Core — No PM2 Needed** | `serveClustered()` uses every available CPU core. |
 | **6** | **Zod, Valibot, ArkType — Just Plug In** | Standard Schema v1 support without adapter overhead. |
@@ -194,7 +196,7 @@ import { health } from "@narudom96/nelysia/health"
 
 The CLI also provides `routes`, `doctor`, `create`, and `dev` in addition to
 `inspect`, `build`, `generate`, and `client`. These additive APIs are included
-in the v0.6.0 release; future work toward v0.7–v0.9 remains on the roadmap.
+in the v1.0.0 release; the API contract is now frozen and future work remains additive.
 
 Executable examples are available for [basic](./examples/hello/index.ts),
 [JWT](./examples/jwt/index.ts), [upload](./examples/upload/index.ts), and
@@ -224,7 +226,7 @@ npm run typecheck
 npm run example
 ```
 
-Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The current v0.5.1 workspace also includes runnable full-stack framework fixtures.
+Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The v1.0.0 release includes runnable full-stack framework fixtures.
 
 With Bun installed, run the Bun target:
 

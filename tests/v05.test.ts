@@ -4,7 +4,7 @@ import { Nelysia } from "../packages/core/src/index.ts"
 import { logger } from "../packages/logger/src/index.ts"
 import { timeout } from "../packages/timeout/src/index.ts"
 import { memoryStorage, upload } from "../packages/upload/src/index.ts"
-import { signJwt, verifyJwt } from "../packages/jwt/src/index.ts"
+import { importHmacKey, signJwt, verifyJwt } from "../packages/jwt/src/index.ts"
 import { createNodeServer } from "../packages/runtime-node/src/server.ts"
 
 test("JWT rejects non-HS256 algorithms and enforces optional issuer/audience", async () => {
@@ -18,6 +18,44 @@ test("JWT rejects non-HS256 algorithms and enforces optional issuer/audience", a
   assert.equal((await verifyJwt(token, "secret-key-1234567890", { issuer: "issuer-a", audience: "api" })).valid, true)
   assert.equal((await verifyJwt(token, "secret-key-1234567890", { issuer: "issuer-b" })).valid, false)
   assert.equal((await verifyJwt(token, "secret-key-1234567890", { audience: "mobile" })).valid, false)
+})
+
+test("JWT rejects non-object payloads and malformed registered claim types", async () => {
+  const secret = "strict-jwt-shape-secret"
+  const valid = await signJwt({ sub: "user-1" }, secret)
+  const [header] = valid.split(".")
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url")
+  const signPayload = async (payload: unknown) => {
+    const encodedPayload = encode(payload)
+    const key = await importHmacKey(secret)
+    const data = `${header}.${encodedPayload}`
+    const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data))
+    return `${data}.${Buffer.from(signature).toString("base64url")}`
+  }
+  const arrayPayload = await verifyJwt(await signPayload([]), secret)
+  assert.equal(arrayPayload.valid, false)
+  assert.equal(arrayPayload.reason, "malformed")
+  const invalidAudience = await verifyJwt(await signPayload({ aud: ["api", 1] }), secret)
+  assert.equal(invalidAudience.valid, false)
+  assert.equal(invalidAudience.reason, "invalid")
+  const invalidIssuedAt = await verifyJwt(await signPayload({ iat: "now" }), secret)
+  assert.equal(invalidIssuedAt.valid, false)
+  assert.equal(invalidIssuedAt.reason, "invalid")
+})
+
+test("JWT rejects non-canonical base64url aliases", async () => {
+  const secret = "canonical-jwt-shape-secret"
+  const token = await signJwt({ sub: "user-1" }, secret)
+  const [header, payload, signature] = token.split(".")
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+  const last = signature.at(-1)!
+  const index = alphabet.indexOf(last)
+  assert.notEqual(index, -1)
+  const alternate = alphabet[(index & 0b111100) | 1]
+  if (alternate === last) return
+  const result = await verifyJwt(`${header}.${payload}.${signature.slice(0, -1)}${alternate}`, secret)
+  assert.equal(result.valid, false)
+  assert.equal(result.reason, "malformed")
 })
 
 test("timeout plugin aborts the handler and returns 504 without an unhandled rejection", async () => {

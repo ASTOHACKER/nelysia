@@ -40,6 +40,8 @@ function base64UrlEncode(bytes: Uint8Array): string {
 }
 
 function base64UrlDecode(str: string): Uint8Array {
+  if (!/^[A-Za-z0-9_-]*$/.test(str)) throw new Error("invalid base64url characters")
+  if (str.length % 4 === 1) throw new Error("invalid base64url length")
   let base64 = str.replace(/-/g, "+").replace(/_/g, "/")
   while (base64.length % 4) {
     base64 += "="
@@ -49,6 +51,9 @@ function base64UrlDecode(str: string): Uint8Array {
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i)
   }
+  // Reject alternate encodings with non-zero unused padding bits. This keeps
+  // signed input canonical and avoids accepting malformed segment aliases.
+  if (base64UrlEncode(bytes) !== str) throw new Error("non-canonical base64url segment")
   return bytes
 }
 
@@ -100,6 +105,7 @@ function decodeBase64UrlJson<T>(value: string): T {
 }
 
 function audienceMatches(actual: JwtPayload["aud"], expected: string | string[]): boolean {
+  if (actual !== undefined && typeof actual !== "string" && !(Array.isArray(actual) && actual.every((value) => typeof value === "string"))) return false
   const values = Array.isArray(actual) ? actual : typeof actual === "string" ? [actual] : []
   const expectedValues = Array.isArray(expected) ? expected : [expected]
   return values.some((value) => expectedValues.includes(value))
@@ -129,26 +135,36 @@ export async function verifyJwt<T extends JwtPayload = JwtPayload>(
     if (!isValid) return { valid: false, reason: "invalid" }
 
     const payload = decodeBase64UrlJson<T>(encodedPayload)
+    if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return { valid: false, reason: "malformed" }
 
-    if (options.issuer !== undefined && payload.iss !== options.issuer) {
+    const claims = payload as JwtPayload
+    if (claims.iss !== undefined && typeof claims.iss !== "string") return { valid: false, payload, reason: "invalid" }
+    if (claims.aud !== undefined && typeof claims.aud !== "string" && !(Array.isArray(claims.aud) && claims.aud.every((value) => typeof value === "string"))) {
       return { valid: false, payload, reason: "invalid" }
     }
-    if (options.audience !== undefined && !audienceMatches(payload.aud, options.audience)) {
+    if (claims.iat !== undefined && (typeof claims.iat !== "number" || !Number.isFinite(claims.iat))) {
       return { valid: false, payload, reason: "invalid" }
     }
 
-    if (payload.exp !== undefined) {
-      if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) return { valid: false, payload, reason: "invalid" }
+    if (options.issuer !== undefined && claims.iss !== options.issuer) {
+      return { valid: false, payload, reason: "invalid" }
+    }
+    if (options.audience !== undefined && !audienceMatches(claims.aud, options.audience)) {
+      return { valid: false, payload, reason: "invalid" }
+    }
+
+    if (claims.exp !== undefined) {
+      if (typeof claims.exp !== "number" || !Number.isFinite(claims.exp)) return { valid: false, payload, reason: "invalid" }
       const now = Math.floor(Date.now() / 1000)
-      if (now >= payload.exp) {
+      if (now >= claims.exp) {
         return { valid: false, payload, reason: "expired" }
       }
     }
 
-    if (payload.nbf !== undefined) {
-      if (typeof payload.nbf !== "number" || !Number.isFinite(payload.nbf)) return { valid: false, payload, reason: "invalid" }
+    if (claims.nbf !== undefined) {
+      if (typeof claims.nbf !== "number" || !Number.isFinite(claims.nbf)) return { valid: false, payload, reason: "invalid" }
       const now = Math.floor(Date.now() / 1000)
-      if (now < payload.nbf) {
+      if (now < claims.nbf) {
         return { valid: false, payload, reason: "invalid" }
       }
     }
@@ -193,6 +209,7 @@ export function jwt<Claims extends JwtPayload = JwtPayload>(options: JwtOptions<
     const authHook = async (context: Context): Promise<ResponseData | void> => {
       const authHeader = context.headers.get(headerName)
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        if (isOptionalAuth(context)) return
         return context.response(401, {
           error: "Unauthorized",
           message: "Missing or invalid authorization header"
@@ -215,8 +232,13 @@ export function jwt<Claims extends JwtPayload = JwtPayload>(options: JwtOptions<
     }
 
     // Register a route-scoped guard instead of wrapping every protected handler.
-    app.registerRouteGuard(authHook, (authSetting) => authSetting === "jwt" || authSetting === true || (typeof authSetting === "object" && authSetting !== null && authSetting.strategy === "jwt"))
+    app.registerAuthStrategy("jwt", { guard: authHook })
 
     return app as Nelysia<any, any, any>
   }) as JwtPlugin<Claims>
+}
+
+function isOptionalAuth(context: Context): boolean {
+  const auth = context.route?.auth
+  return typeof auth === "object" && auth !== null && auth.optional === true
 }

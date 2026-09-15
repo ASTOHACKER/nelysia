@@ -4,6 +4,24 @@ All notable changes to Nelysia are documented here. Benchmark figures are
 release evidence for the stated host and workload, not universal performance
 claims.
 
+## [1.0.0] — 2026-09-15
+
+This release freezes the Nelysia public API after the v0.6–v0.9 workspace gates
+passed. It includes the typed context and route contracts, provider-based auth
+and metadata, conservative compiler lanes, production modules, CLI tooling,
+runtime adapters, and the complete v1.0 documentation set.
+
+### Verification status
+
+Node/Bun tests (181/181), typecheck, package build/imports (25/25 on
+Node/Bun/Deno), framework/deployment smoke, compiler/runtime evidence, fuzz and
+memory-burst checks, 1M/10M soak, documentation check, API-freeze checklist,
+security audit, and `git diff --check` passed on the recorded host.
+
+The 24-hour soak remains intentionally deferred and this release does not make
+a production-readiness claim based on that unrun gate. npm publication remains
+separate from this GitHub Release.
+
 ## [0.6.0] — 2026-09-15
 
 This release adds the post-v0.5.1 typed DX, lifecycle, compiler diagnostics,
@@ -20,6 +38,11 @@ CLI, and production-module foundations. The v0.5.1 tag remains immutable.
 - CLI commands `routes`, `doctor`, `create`, and `dev`.
 - Production subpaths for `session`, `roles`, `csrf`, `cache`, and `health`.
 - Fresh 1M/10M soak evidence with zero functional failures.
+- Executable CLI smoke coverage for `inspect`, `routes`, `doctor`, `generate`,
+  `create`, `build`, `client`, and `dev`.
+- Composition now preserves registered macro definitions and runtime hooks across
+  `use()`, `mount()`, `group()`, and `guard()`; conflicting mounted definitions
+  fail with an explicit diagnostic.
 
 ### Verification status
 
@@ -27,6 +50,18 @@ Node/Bun tests, typecheck, package build/imports, deployment smoke (5/5),
 framework smoke (5/5), documentation check (25 exports), and security audit
 pass. The 24-hour soak remains intentionally deferred; this release makes no
 production-readiness claim for that deferred gate.
+
+### Fixes after the initial workspace pass
+
+- Standalone generated servers now preserve body-first `response(body,
+  { status, headers })` semantics.
+- Static literal `Response` and `ReadableStream` values stay on the direct
+  specialized lane instead of being JSON-serialized accidentally.
+- Compiled Bun responses preserve the configured `x-request-id` policy.
+- `permissions.require()` now produces a typed HTTP `403` denial, and JWT
+  verification rejects non-object payloads and malformed registered claims.
+- Route-aware `injectTyped()` now accepts typed `params` for `:name` and `*`
+  patterns while preserving explicit-path injection.
 
 ## [0.5.1] — 2026-09-14
 

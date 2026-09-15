@@ -1,5 +1,5 @@
 import { HttpError, type Nelysia } from "../../core/src/app.ts"
-import { compileDispatcher, fastPathname, lookupCompiled, type CompiledDispatcher } from "../../compiler/src/dispatcher.ts"
+import { compileDispatcher, executeGeneratedGet, fastPathname, lookupCompiled, type CompiledDispatcher } from "../../compiler/src/dispatcher.ts"
 import { responseMarker } from "../../core/src/types.ts"
 
 export interface FetchRequestContext {
@@ -38,7 +38,7 @@ export function createFetchHandler(app: Nelysia<any, any, any>): (request: Reque
 /** Compiled GET fast path. Returns undefined when the generic flow owns it. */
 async function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledDispatcher, request: Request): Promise<Response | undefined> {
   const found = lookupCompiled(dispatcher, fastPathname(request.url))
-  if (found === undefined || found.kind === "generic") return undefined
+  if (found === undefined) return undefined
   if (dispatcher.hasContextValues && found.kind === "params") return undefined
   const requestId = dispatcher.needsRequestId
     ? (request.headers.get("x-request-id") ?? `req-GET-${request.url}`)
@@ -46,6 +46,15 @@ async function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledD
   const withId = (headers: Headers): Headers => {
     if (requestId !== undefined) headers.set("x-request-id", requestId)
     return headers
+  }
+  if (found.kind === "generic") {
+    if (found.entry.generated === undefined || dispatcher.hasContextValues) return undefined
+    try {
+      const result = await executeGeneratedGet(found.entry, found.params, request, requestId)
+      return responseData(result, withId)
+    } catch (error) {
+      return errorResponse(app, error, request)
+    }
   }
   if (found.kind === "static-prebuilt") {
     const serialized = found.entry.serialized!

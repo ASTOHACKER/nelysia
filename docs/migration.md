@@ -143,6 +143,13 @@ const app = new Nelysia()
 const response = await app.injectTyped({ method: 'GET', path: '/users/42' })
 const user = await response.json() // { id: string }
 
+// Or pass the route pattern and let inject expand its typed params:
+const expanded = await app.injectTyped({
+  method: 'GET',
+  path: '/users/:id',
+  params: { id: '42' }
+})
+
 // The app itself can provide the same route map to the client:
 const client = createClient<typeof app>('https://api.example.test')
 const result = await client.get('/users/42')

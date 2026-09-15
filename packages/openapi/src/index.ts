@@ -27,7 +27,9 @@ export function generateOpenAPI(app: Nelysia<any, any, any>, options: OpenAPIOpt
       if (schema !== undefined) response.content = { "application/json": { schema: definition(schema, model) } }
       return response
     }
-    const responses: Record<string, unknown> = { "200": responseFor("200", route.responseSchema, route.responseModel) }
+    const responses: Record<string, unknown> = route.responseSchema !== undefined || route.responseSchemas === undefined
+      ? { "200": responseFor("200", route.responseSchema, route.responseModel) }
+      : {}
     for (const [status, schema] of Object.entries(route.responseSchemas ?? {})) responses[status] = responseFor(status, schema, route.responseModels?.[status])
     const operation: Record<string, unknown> = { responses }
     if (route.summary) operation.summary = route.summary
@@ -49,7 +51,7 @@ export function generateOpenAPI(app: Nelysia<any, any, any>, options: OpenAPIOpt
    const schemas = Object.fromEntries([...app.modelDefinitions].map(([name, schema]) => [name, definition(normalizeModel(schema))]))
    return {
      openapi: "3.1.0",
-     info: { title: options.title ?? "Nelysia API", version: options.version ?? "0.4.0" },
+     info: { title: options.title ?? "Nelysia API", version: options.version ?? "1.0.0" },
      paths,
      ...(Object.keys(schemas).length > 0 ? { components: { schemas } } : {})
   }
@@ -87,12 +89,30 @@ export function generateClientTypes(app: Nelysia<any, any, any>): string {
   const modelNames = new Map([...app.modelDefinitions].map(([name]) => [name, safeTypeName(name)]))
   const models = [...app.modelDefinitions].map(([name, schema]) => `export type ${modelNames.get(name)} = ${schemaType(normalizeModel(schema).definition)}\n`).join("")
   const methods = app.graph.routes.map((route) => {
-    const response = route.responseModel ? modelNames.get(route.responseModel) ?? safeTypeName(route.responseModel) : (route.responseSchema ? schemaType(route.responseSchema.definition) : "unknown")
+    const responseEntries = Object.entries(route.responseSchemas ?? {})
+    const responseType = (schema: Schema, status: string) => route.responseModels?.[status]
+      ? modelNames.get(route.responseModels[status]) ?? safeTypeName(route.responseModels[status])
+      : schemaType(schema.definition)
+    const successResponses = responseEntries.filter(([status]) => status === "default" || /^2\d\d$/.test(status))
+    const errorResponses = responseEntries.filter(([status]) => !successResponses.some(([success]) => success === status))
+    const response = route.responseModel
+      ? modelNames.get(route.responseModel) ?? safeTypeName(route.responseModel)
+      : route.responseSchema
+        ? schemaType(route.responseSchema.definition)
+        : successResponses.length > 0
+          ? successResponses.map(([status, schema]) => responseType(schema, status)).join(" | ")
+          : responseEntries.length > 0 ? responseEntries.map(([status, schema]) => responseType(schema, status)).join(" | ") : "unknown"
     const body = route.bodyModel ? modelNames.get(route.bodyModel) ?? safeTypeName(route.bodyModel) : (route.bodySchema ? schemaType(route.bodySchema.definition) : undefined)
     const params = route.params.length > 0 ? `; params: { ${route.params.map((name) => `${JSON.stringify(name)}: string`).join("; ")} }` : ""
     const query = route.querySchema ? `; query: ${schemaType(route.querySchema.definition)}` : ""
     const headers = route.headersSchema ? `; headers: ${schemaType(route.headersSchema.definition)}` : ""
-    return `  ${JSON.stringify(`${route.method} ${route.path}`)}: { response: ${response}${body === undefined ? "" : `; body: ${body}`}${params}${query}${headers} }`
+    const statusMap = responseEntries.length > 0
+      ? `; responses: { ${responseEntries.map(([status, schema]) => `${JSON.stringify(status)}: ${responseType(schema, status)}`).join("; ")} }`
+      : ""
+    const errorMap = errorResponses.length > 0
+      ? `; errors: { ${errorResponses.map(([status, schema]) => `${JSON.stringify(status)}: ${responseType(schema, status)}`).join("; ")} }`
+      : ""
+    return `  ${JSON.stringify(`${route.method} ${route.path}`)}: { response: ${response}${body === undefined ? "" : `; body: ${body}`}${params}${query}${headers}${statusMap}${errorMap} }`
   }).join("\n")
   return `${models}\nexport interface NelysiaRoutes {\n${methods}\n}\n`
 }

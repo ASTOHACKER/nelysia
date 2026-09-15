@@ -4,7 +4,7 @@ import { WebSocketServer, type WebSocket } from "ws"
 import { HttpError, type Nelysia } from "../../core/src/app.ts"
 import type { RequestData, ResponseData } from "../../core/src/types.ts"
 import { responseMarker } from "../../core/src/types.ts"
-import { compileDispatcher, lookupCompiled, type CompiledDispatcher, type CompiledRoute } from "../../compiler/src/dispatcher.ts"
+import { compileDispatcher, executeGeneratedGet, lookupCompiled, matchSingleDynamicUrl, type CompiledDispatcher, type CompiledRoute } from "../../compiler/src/dispatcher.ts"
 
 interface PrebuiltStatic {
   contentType: string
@@ -69,12 +69,43 @@ export function createNodeServer(app: Nelysia<any, any, any>) {
  * the cold path without invoking the handler a second time. */
 async function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledDispatcher, prebuilt: Map<CompiledRoute, PrebuiltStatic>, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
   const url = request.url ?? "/"
-  const query = url.indexOf("?")
-  const pathname = (query === -1 ? url : url.slice(0, query)) || "/"
-  const found = lookupCompiled(dispatcher, pathname)
-  if (found === undefined || found.kind === "generic") return false
+  const clientRequestId = request.headers["x-request-id"]
+  const requestId = dispatcher.needsRequestId
+    ? (Array.isArray(clientRequestId) ? clientRequestId[0] : clientRequestId) ?? randomUUID()
+    : undefined
+  const found = dispatcher.singleDynamic !== undefined
+    ? (() => {
+        const params = matchSingleDynamicUrl(dispatcher.singleDynamic, url)
+        return params === undefined ? undefined : { kind: "params" as const, entry: dispatcher.singleDynamic, params }
+      })()
+    : (() => {
+        const query = url.indexOf("?")
+        const pathname = (query === -1 ? url : url.slice(0, query)) || "/"
+        return lookupCompiled(dispatcher, pathname)
+      })()
+  if (found === undefined) return false
   if (dispatcher.hasContextValues && found.kind === "params") return false
-  const requestId = dispatcher.needsRequestId ? randomUUID() : undefined
+  if (found.kind === "generic") {
+    if (found.entry.generated === undefined || dispatcher.hasContextValues) return false
+    try {
+      const generatedRequest = new Request(`http://nelysia.local${url.startsWith("/") ? url : `/${url}`}`, {
+        method: "GET",
+        headers: new Headers(request.headers as Record<string, string>)
+      })
+      const result = await executeGeneratedGet(found.entry, found.params, generatedRequest, requestId)
+      await writeResponse(response, result)
+      return true
+    } catch (error) {
+      const handled = await app.handleAdapterError(error, {
+        method: "GET",
+        url,
+        headers: new Headers(request.headers as Record<string, string>),
+        requestId
+      })
+      await writeResponse(response, handled)
+      return true
+    }
+  }
   if (found.kind === "static-prebuilt") {
     const staticResponse = prebuilt.get(found.entry)!
     const headers: Record<string, string | number> = {
@@ -96,12 +127,12 @@ async function tryCompiledGet(app: Nelysia<any, any, any>, dispatcher: CompiledD
       : found.entry.route.handler({ params: found.params } as never)
     result = await result
   } catch (error) {
-    const handled = await app.handleAdapterError(error, { method: "GET", url, headers: requestHeaders })
+    const handled = await app.handleAdapterError(error, { method: "GET", url, headers: requestHeaders, requestId })
     await writeResponse(response, handled)
     return true
   }
   if (result instanceof HttpError) {
-    const handled = await app.handleAdapterError(result, { method: "GET", url, headers: requestHeaders })
+    const handled = await app.handleAdapterError(result, { method: "GET", url, headers: requestHeaders, requestId })
     await writeResponse(response, handled)
     return true
   }

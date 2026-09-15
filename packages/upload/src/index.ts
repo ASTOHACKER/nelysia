@@ -79,7 +79,11 @@ export function upload(options: UploadOptions = {}): UploadPlugin {
       context.files = files
     } catch (error) {
       if (options.storage?.remove !== undefined) {
-        for (const item of stored.reverse()) await options.storage.remove(item.value, item.context)
+        for (const item of stored.reverse()) {
+          // Cleanup is best effort: preserve the original storage/validation
+          // failure and still attempt every already-created object.
+          try { await options.storage.remove(item.value, item.context) } catch { /* continue cleanup */ }
+        }
       }
       throw error
     }

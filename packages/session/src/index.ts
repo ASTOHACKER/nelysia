@@ -1,5 +1,11 @@
 import type { Context, NelysiaPlugin } from "../../core/src/index.ts"
 
+declare module "../../core/src/types.ts" {
+  interface AuthStrategyRegistry {
+    session: unknown
+  }
+}
+
 export interface SessionStore<Value = unknown> {
   get(id: string): Value | undefined | Promise<Value | undefined>
   set(id: string, value: Value, ttlMs?: number): void | Promise<void>
@@ -22,6 +28,7 @@ export interface SessionApi<Value = unknown> {
 
 export interface SessionContext<Value = unknown> {
   session: SessionApi<Value>
+  auth?: Value
 }
 
 export function memorySessionStore<Value = unknown>(): SessionStore<Value> {
@@ -54,9 +61,30 @@ export function session<Value = unknown>(options: SessionOptions<Value> = {}): S
   const store = options.store ?? memorySessionStore<Value>()
   const generateId = options.generateId ?? (() => crypto.randomUUID())
 
-  return ((app: import("../../core/src/app.ts").Nelysia<any, any, any, any>) => app.derive((context: Context) => ({
-    session: createSessionApi(context, store, cookieName, ttlSeconds, generateId)
-  })) as import("../../core/src/app.ts").Nelysia<any, any, any, any>) as SessionPlugin<Value>
+  return ((app: import("../../core/src/app.ts").Nelysia<any, any, any, any>) => {
+    const sessionGuard = async (context: Context) => {
+      const id = context.cookies[cookieName]
+      if (id === undefined) {
+        if (isOptionalAuth(context)) return
+        return context.response(401, { error: "Unauthorized" })
+      }
+      const value = await store.get(id)
+      if (value === undefined) {
+        if (isOptionalAuth(context)) return
+        return context.response(401, { error: "Unauthorized" })
+      }
+      context.auth = value
+    }
+    app.registerAuthStrategy("session", { guard: sessionGuard })
+    return app.derive((context: Context) => ({
+      session: createSessionApi(context, store, cookieName, ttlSeconds, generateId)
+    })) as import("../../core/src/app.ts").Nelysia<any, any, any, any>
+  }) as SessionPlugin<Value>
+}
+
+function isOptionalAuth(context: Context): boolean {
+  const auth = context.route?.auth
+  return typeof auth === "object" && auth !== null && auth.optional === true
 }
 
 function createSessionApi<Value>(context: Context, store: SessionStore<Value>, cookieName: string, ttlSeconds: number, generateId: () => string): SessionApi<Value> {

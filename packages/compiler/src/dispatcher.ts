@@ -1,5 +1,5 @@
 import type { Nelysia } from "../../core/src/app.ts"
-import type { Context, RouteRecord } from "../../core/src/types.ts"
+import { HttpError, responseMarker, type Context, type ResponseData, type RouteRecord } from "../../core/src/types.ts"
 import type { Schema } from "../../core/src/schema.ts"
 
 export const jsonContentType = "application/json; charset=utf-8"
@@ -31,11 +31,19 @@ export interface GeneratedValidator {
 }
 
 export interface GeneratedRouteSchema {
+  body?: GeneratedValidator
   params?: GeneratedValidator
   query?: GeneratedValidator
   headers?: GeneratedValidator
   response?: GeneratedValidator
+  responses?: Record<string, GeneratedValidator>
 }
+
+/** Stable, JSON-compatible intermediate representation used by code
+ * generation. Keeping this boundary separate from runtime Schema objects
+ * prevents user-defined validators and mutable definitions from leaking into
+ * generated artifacts. */
+export type SchemaIR = Readonly<Record<string, unknown>>
 
 export interface CompiledDispatcher {
   routes: CompiledRoute[]
@@ -50,6 +58,139 @@ export interface CompiledDispatcher {
   hasContextValues: boolean
 }
 
+/**
+ * Execute a deterministic GET route with the generated schema contract.
+ * Runtime adapters use this shared implementation so Bun, Node, and Fetch do
+ * not drift in query/context/response semantics. The caller owns error
+ * adaptation through `app.handleAdapterError`.
+ */
+export async function executeGeneratedGet(entry: CompiledRoute, params: Record<string, string>, request: Request, requestId?: string): Promise<ResponseData> {
+  const responseHeaders = new Headers()
+  if (requestId !== undefined) responseHeaders.set("x-request-id", requestId)
+  const context = createGeneratedContext(entry.route, params, request, responseHeaders)
+  const generated = entry.generated
+  if (generated?.params) context.params = generated.params.validate(context.params) as Record<string, string>
+  if (generated?.query) context.query = generated.query.validate(context.query) as Context["query"]
+  if (generated?.headers) context.headers = generated.headers.validate(Object.fromEntries(context.headers.entries())) as Headers
+  if (generated?.body) context.body = generated.body.validate(context.body)
+
+  const result = await entry.route.handler(context)
+  if (result instanceof HttpError) throw result
+  let response: ResponseData
+  if (isGeneratedResponseData(result)) {
+    response = {
+      ...result,
+      status: context.set.status !== undefined && result.status === 200 ? context.set.status : result.status,
+      headers: mergeGeneratedHeaders(responseHeaders, result.headers, context.set.headers)
+    }
+  } else if (result instanceof Response) {
+    response = {
+      status: context.set.status ?? result.status,
+      headers: mergeGeneratedHeaders(responseHeaders, result.headers, context.set.headers),
+      body: result,
+      [responseMarker]: true
+    }
+  } else if (result instanceof ReadableStream) {
+    response = { status: context.set.status ?? 200, headers: mergeGeneratedHeaders(responseHeaders, undefined, context.set.headers), body: result, [responseMarker]: true }
+  } else {
+    response = {
+      status: context.set.status ?? 200,
+      headers: mergeGeneratedHeaders(responseHeaders, undefined, context.set.headers),
+      body: result,
+      [responseMarker]: true
+    }
+  }
+
+  const validator = generated?.responses?.[String(response.status)] ?? (response.status === 200 ? generated?.response : undefined)
+  if (validator && !(response.body instanceof Response) && !(response.body instanceof ReadableStream)) {
+    response.body = validator.validate(response.body, "response")
+  }
+  return response
+}
+
+function createGeneratedContext(route: RouteRecord, params: Record<string, string>, request: Request, responseHeaders: Headers): Context {
+  const url = new URL(request.url)
+  const context = {} as Context
+  const set: Context["set"] = { status: undefined, headers: {} }
+  const headers = request.headers
+  Object.assign(context, {
+    request: { method: request.method, url: request.url, headers, body: undefined },
+    requestId: responseHeaders.get("x-request-id") ?? "",
+    params,
+    query: createGeneratedQuery(url.search),
+    set,
+    store: {},
+    body: undefined,
+    headers,
+    cookies: parseGeneratedCookies(headers.get("cookie")),
+    route: { method: route.method, path: route.path, features: route.features ?? {}, auth: route.auth },
+    signal: request.signal ?? new AbortController().signal,
+    setCookie(name: string, value: string) { responseHeaders.append("set-cookie", `${name}=${encodeURIComponent(value)}; Path=/`) },
+    deleteCookie(name: string) { responseHeaders.append("set-cookie", `${name}=; Max-Age=0; Path=/`) },
+    response(bodyOrStatus: unknown, optionsOrBody?: unknown, extraHeaders?: Record<string, string>): ResponseData {
+      if (typeof bodyOrStatus === "number" && !(extraHeaders === undefined && isGeneratedResponseOptions(optionsOrBody))) {
+        return { status: bodyOrStatus, body: optionsOrBody, headers: mergeGeneratedHeaders(responseHeaders, undefined, extraHeaders), [responseMarker]: true }
+      }
+      const options = isGeneratedResponseOptions(optionsOrBody) ? optionsOrBody : undefined
+      return { status: options?.status ?? 200, body: bodyOrStatus, headers: mergeGeneratedHeaders(responseHeaders, undefined, options?.headers), [responseMarker]: true }
+    },
+    html(body: string, status = 200) { return { status, body, headers: mergeGeneratedHeaders(responseHeaders, undefined, { "content-type": "text/html; charset=utf-8" }), [responseMarker]: true } },
+    text(body: string, status = 200) { return { status, body, headers: mergeGeneratedHeaders(responseHeaders, undefined, { "content-type": "text/plain; charset=utf-8" }), [responseMarker]: true } },
+    json(body: unknown, statusOrOptions: number | { status?: number; headers?: HeadersInit } = 200) {
+      const options = typeof statusOrOptions === "number" ? { status: statusOrOptions } : statusOrOptions
+      return { status: options.status ?? 200, body, headers: mergeGeneratedHeaders(responseHeaders, undefined, { "content-type": "application/json; charset=utf-8", ...Object.fromEntries(new Headers(options.headers).entries()) }), [responseMarker]: true }
+    },
+    redirect(url: string, status = 302) { return { status, body: undefined, headers: mergeGeneratedHeaders(responseHeaders, undefined, { location: url }), [responseMarker]: true } },
+    header(name: string, value: string) { set.headers[name.toLowerCase()] = value; return context }
+  })
+  return context
+}
+
+function createGeneratedQuery(search: string): Context["query"] {
+  const params = new URLSearchParams(search)
+  return new Proxy(params, {
+    get(target, property, receiver) {
+      if (typeof property === "symbol" || property in target) {
+        const value = Reflect.get(target, property, receiver)
+        return typeof value === "function" ? value.bind(target) : value
+      }
+      return target.get(String(property)) ?? undefined
+    },
+    has(target, property) { return typeof property === "symbol" ? Reflect.has(target, property) : target.has(String(property)) || property in target },
+    ownKeys(target) { return Array.from(new Set([...Reflect.ownKeys(target), ...target.keys()])) },
+    getOwnPropertyDescriptor(target, property) {
+      if (typeof property === "string" && target.has(property)) return { enumerable: true, configurable: true, writable: true, value: target.get(property) ?? undefined }
+      return Reflect.getOwnPropertyDescriptor(target, property)
+    }
+  }) as Context["query"]
+}
+
+function parseGeneratedCookies(value: string | null): Record<string, string> {
+  if (!value) return {}
+  return Object.fromEntries(value.split(";").map((part) => {
+    const index = part.indexOf("=")
+    if (index < 0) return [part.trim(), ""]
+    const name = part.slice(0, index).trim()
+    const raw = part.slice(index + 1).trim()
+    try { return [name, decodeURIComponent(raw)] } catch { return [name, raw] }
+  }))
+}
+
+function mergeGeneratedHeaders(base: Headers, extra?: HeadersInit, overrides?: HeadersInit): Headers {
+  const headers = new Headers(base)
+  for (const [key, value] of new Headers(extra).entries()) headers.set(key, value)
+  for (const [key, value] of new Headers(overrides).entries()) headers.set(key, value)
+  return headers
+}
+
+function isGeneratedResponseData(value: unknown): value is ResponseData {
+  return typeof value === "object" && value !== null && (value as ResponseData)[responseMarker] === true
+}
+
+function isGeneratedResponseOptions(value: unknown): value is { status?: number; headers?: HeadersInit } {
+  return typeof value === "object" && value !== null && ("status" in value || "headers" in value)
+}
+
 export type CompiledLookup =
   | { kind: "static-prebuilt"; entry: CompiledRoute }
   | { kind: "static-sync"; entry: CompiledRoute }
@@ -57,13 +198,18 @@ export type CompiledLookup =
   | { kind: "generic"; entry: CompiledRoute; params: Record<string, string> }
 
 /**
- * Routes eligible for the compiled fast path. Body schemas stay on the
- * adapter path because body parsing is runtime-specific. Other schemas may be
- * generated when their definition is a deterministic built-in subset.
+ * Routes eligible for the compiled fast path. Body parsing remains owned by
+ * the runtime adapter, but deterministic body definitions are still emitted
+ * into the route IR so standalone/runtime integrations can consume the same
+ * generated validator without invoking user code.
  */
 export function isCompilableRoute(route: RouteRecord): boolean {
   return route.method === "GET"
     && route.auth === undefined
+    && route.role === undefined
+    && route.permissions === undefined
+    && Object.keys(route.features ?? {}).length === 0
+    && (route.routeGuards?.length ?? 0) === 0
     && (route.requestHooks?.length ?? 0) === 0
     && (route.parseHooks?.length ?? 0) === 0
     && (route.mapResponseHooks?.length ?? 0) === 0
@@ -71,16 +217,32 @@ export function isCompilableRoute(route: RouteRecord): boolean {
     && route.hooks.length === 0
     && route.afterHooks.length === 0
     && route.errorHandlers.length === 0
-    && !route.bodySchema
+    && (!route.bodySchema || canGenerateSchema(route.bodySchema))
     && (!route.paramsSchema || canGenerateSchema(route.paramsSchema))
     && (!route.querySchema || canGenerateSchema(route.querySchema))
     && (!route.headersSchema || canGenerateSchema(route.headersSchema))
     && (!route.responseSchema || canGenerateSchema(route.responseSchema))
-    && !route.responseSchemas
+    && (!route.responseSchemas || Object.values(route.responseSchemas).every((schema) => canGenerateSchema(schema)))
+}
+
+/** A route may enter the minimal static dispatcher only when no request or
+ * response contract needs runtime validation. Schema-bearing routes remain on
+ * the generated-validation adapter path even when their URL is static. */
+export function isStaticFastPathRoute(route: RouteRecord): boolean {
+  return route.static
+    && route.paramsSchema === undefined
+    && route.querySchema === undefined
+    && route.headersSchema === undefined
+    && route.responseSchema === undefined
+    && route.responseSchemas === undefined
 }
 
 export function serializeStaticValue(value: unknown): SerializedBody | undefined {
   try {
+    // Native responses and streams carry status/headers or a live body. They
+    // must stay on the specialized function lane so adapters can forward them
+    // unchanged instead of accidentally serializing the Response object.
+    if (value instanceof Response || value instanceof ReadableStream) return undefined
     if (typeof value === "string") return { text: value, contentType: textContentType }
     if (value instanceof Uint8Array) return { bytes: value, contentType: textContentType }
     return { text: JSON.stringify(value), contentType: jsonContentType }
@@ -95,12 +257,18 @@ export function compileDispatcher(app: Nelysia<any, any, any>): CompiledDispatch
     .map((route) => {
       const entry: CompiledRoute = {
         route,
-        paramsOnly: isParamsOnlyHandler(route.handler) && route.paramsSchema === undefined && route.querySchema === undefined && route.headersSchema === undefined && route.responseSchema === undefined,
-        zeroArg: route.static && route.handler.length === 0,
+        paramsOnly: isParamsOnlyHandler(route.handler)
+          && route.bodySchema === undefined
+          && route.paramsSchema === undefined
+          && route.querySchema === undefined
+          && route.headersSchema === undefined
+          && route.responseSchema === undefined
+          && route.responseSchemas === undefined,
+        zeroArg: isStaticFastPathRoute(route) && route.handler.length === 0 && route.afterHooks.length === 0,
         match: createGeneratedMatcher(route),
         generated: createGeneratedRouteSchema(route)
       }
-      if (route.static && route.staticValue !== undefined) {
+      if (isStaticFastPathRoute(route) && route.staticValue !== undefined) {
         const serialized = serializeStaticValue(route.staticValue)
         if (serialized !== undefined) entry.serialized = serialized
       }
@@ -136,10 +304,22 @@ export function canGenerateSchema(schema: Schema | undefined): boolean {
 
 function createGeneratedRouteSchema(route: RouteRecord): GeneratedRouteSchema | undefined {
   const generated: GeneratedRouteSchema = {}
-  if (canGenerateSchema(route.paramsSchema)) generated.params = createGeneratedValidator(route.paramsSchema!.definition!)
-  if (canGenerateSchema(route.querySchema)) generated.query = createGeneratedValidator(route.querySchema!.definition!)
-  if (canGenerateSchema(route.headersSchema)) generated.headers = createGeneratedValidator(route.headersSchema!.definition!)
-  if (canGenerateSchema(route.responseSchema)) generated.response = createGeneratedValidator(route.responseSchema!.definition!)
+  const body = createSchemaIR(route.bodySchema)
+  const params = createSchemaIR(route.paramsSchema)
+  const query = createSchemaIR(route.querySchema)
+  const headers = createSchemaIR(route.headersSchema)
+  const response = createSchemaIR(route.responseSchema)
+  if (body !== undefined) generated.body = createGeneratedValidator(body)
+  if (params !== undefined) generated.params = createGeneratedValidator(params)
+  if (query !== undefined) generated.query = createGeneratedValidator(query)
+  if (headers !== undefined) generated.headers = createGeneratedValidator(headers)
+  if (response !== undefined) generated.response = createGeneratedValidator(response)
+  const responses: Record<string, GeneratedValidator> = {}
+  for (const [status, schema] of Object.entries(route.responseSchemas ?? {})) {
+    const definition = createSchemaIR(schema)
+    if (definition !== undefined) responses[status] = createGeneratedValidator(definition)
+  }
+  if (Object.keys(responses).length > 0) generated.responses = responses
   return Object.keys(generated).length === 0 ? undefined : generated
 }
 
@@ -150,6 +330,7 @@ function supportedDefinition(definition: Record<string, unknown>): boolean {
     "pattern", "format", "minItems", "maxItems", "description", "default", "examples"
   ])
   for (const key of Object.keys(definition)) if (!allowed.has(key)) return false
+  if (definition.format !== undefined && definition.format !== "date-time") return false
   for (const key of ["anyOf", "allOf", "prefixItems"]) {
     const value = definition[key]
     if (value !== undefined && (!Array.isArray(value) || !value.every((item) => isSupportedDefinition(item)))) return false
@@ -169,6 +350,22 @@ function isSupportedDefinition(value: unknown): value is Record<string, unknown>
 
 export function createGeneratedValidator(definition: Record<string, unknown>): GeneratedValidator {
   return { validate: (value, path = "body") => validateGeneratedValue(value, definition, path) }
+}
+
+export function createSchemaIR(schema: Schema | undefined): SchemaIR | undefined {
+  if (!canGenerateSchema(schema)) return undefined
+  return stableDefinition(schema!.definition!)
+}
+
+function stableDefinition(value: Record<string, unknown>): SchemaIR {
+  const output: Record<string, unknown> = {}
+  for (const key of Object.keys(value).sort()) {
+    const child = value[key]
+    if (Array.isArray(child)) output[key] = child.map((entry) => isSupportedDefinition(entry) ? stableDefinition(entry) : entry)
+    else if (isSupportedDefinition(child)) output[key] = stableDefinition(child)
+    else if (child !== undefined) output[key] = child
+  }
+  return output
 }
 
 function validateGeneratedValue(value: unknown, schema: Record<string, unknown>, path: string): unknown {

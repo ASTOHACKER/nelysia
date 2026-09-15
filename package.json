@@ -1,6 +1,6 @@
 {
   "name": "@narudom96/nelysia",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "private": false,
   "publishConfig": {
     "access": "public"
@@ -39,6 +39,8 @@
     "benchmark:oha:release": "BENCH_PORT=4370 BENCH_DURATION_SEC=30 BENCH_CONCURRENCY=50 BENCH_ROUNDS=7 node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:oha:route:release": "BENCH_SUITE=bun BENCH_DURATION_SEC=30 BENCH_CONCURRENCY=50 BENCH_ROUNDS=7 node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:jwt": "bun run benchmarks/run-jwt.ts",
+    "benchmark:short": "node --experimental-strip-types benchmarks/verify-short.ts",
+    "benchmark:runtime": "node --experimental-strip-types benchmarks/verify-runtime.ts",
     "benchmark:jwt:release": "BENCH_PORT=4385 BENCH_DURATION_SEC=30 BENCH_CONCURRENCY=50 BENCH_ROUNDS=7 bun run benchmarks/run-jwt.ts",
     "benchmark:teb": "bun run benchmarks/run-techempower.ts",
     "benchmark:teb:verify": "bun run benchmarks/verify-techempower.ts",
@@ -58,9 +60,15 @@
     "package:imports": "node spec/scripts/check-package-imports.mjs",
     "framework:check": "node spec/scripts/check-framework-fixtures.mjs",
     "docs:check": "node spec/scripts/check-docs.mjs",
+    "api:freeze:check": "node spec/scripts/check-api-freeze.mjs",
     "release:check": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run soak && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
     "release:check:v05": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run deployment:smoke && npm run framework:check && npm run soak:gate && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
-    "release:check:roadmap": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run deployment:smoke && npm run framework:check && npm run soak:gate && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
+    "release:check:v06": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:tarball && npm run package:imports && npm run deployment:smoke && npm run framework:check && npm run benchmark:short && npm run benchmark:runtime && npm run soak:gate && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
+    "release:check:v07": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run docs:check && npm audit --omit=dev && git diff --check",
+    "release:check:v08": "npm run typecheck && npm test && bun test && npm run package:build && npm run benchmark:short && npm run benchmark:runtime && npm run docs:check && npm audit --omit=dev && git diff --check",
+    "release:check:v09": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:tarball && npm run package:imports && npm run deployment:smoke && npm run framework:check && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
+    "release:check:v1": "npm run release:check:v09 && npm run benchmark:short && npm run benchmark:runtime && npm run soak:gate && npm run api:freeze:check",
+    "release:check:roadmap": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:tarball && npm run package:imports && npm run deployment:smoke && npm run framework:check && npm run benchmark:short && npm run benchmark:runtime && npm run soak:gate && npm run deno:check && npm run docs:check && npm audit --omit=dev && git diff --check",
     "inspect": "node --experimental-strip-types packages/cli/src/index.ts inspect",
     "routes": "node --experimental-strip-types packages/cli/src/index.ts routes",
     "doctor": "node --experimental-strip-types packages/cli/src/index.ts doctor",

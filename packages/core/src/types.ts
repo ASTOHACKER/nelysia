@@ -21,6 +21,8 @@ export interface NelysiaOptions {
   name?: string
   /** Optional configuration seed for a named module. */
   seed?: unknown
+  /** Route metadata inherited by every route registered on this instance. */
+  routeOptions?: RouteMetadataOptions
   bodyLimit?: number
   telemetry?: Telemetry
   trustedProxy?: boolean
@@ -85,12 +87,67 @@ export interface AuthStrategyRegistry {
 
 export type AuthStrategyName = Extract<keyof AuthStrategyRegistry, string>
 
+export type AuthStrategySetting = AuthStrategyName | "optional" | boolean | AuthStrategyDescriptor | LegacyAuthStrategy
+
 /** @deprecated Prefer a strategy name registered through AuthStrategyRegistry. */
 export type LegacyAuthStrategy = string
 
 export interface AuthStrategyDescriptor {
   strategy: AuthStrategyName
-  [key: string]: unknown
+  role?: string | readonly string[]
+  permissions?: string | readonly string[]
+  /** Optional mode for a provider-specific strategy. */
+  optional?: boolean
+}
+
+export interface AuthStrategyProvider<Claims = unknown> {
+  readonly claims?: Claims
+  readonly guard: RouteGuard
+}
+
+export interface RateLimitRouteOptions {
+  limit: number
+  windowMs: number
+  key?(context: Context): string
+}
+
+export interface CacheRouteOptions {
+  ttlMs?: number
+  maxEntries?: number
+  key?(context: Context): string
+  store?: {
+    get(key: string): ResponseData | undefined | Promise<ResponseData | undefined>
+    set(key: string, value: ResponseData, ttlMs: number): void | Promise<void>
+    delete?(key: string): void | Promise<void>
+  }
+}
+
+export interface TimeoutRouteOptions {
+  timeoutMs?: number
+  status?: number
+  message?: string
+}
+
+export interface RouteMetadataOptions {
+  auth?: AuthStrategySetting
+  role?: string | readonly string[]
+  permissions?: string | readonly string[]
+  /** Existing rate-limit configuration or a `<limit>/<s|m|h>` shorthand. */
+  rateLimit?: RateLimitRouteOptions | `${number}/${"s" | "m" | "h"}` | false
+  cache?: boolean | CacheRouteOptions
+  timeout?: number | TimeoutRouteOptions | false
+  /** Explicit custom provider values. Unknown keys are never auto-enabled. */
+  features?: Record<string, unknown>
+}
+
+export interface NormalizedRouteMetadata {
+  auth?: AuthStrategySetting
+  role?: string | readonly string[]
+  permissions?: string | readonly string[]
+  rateLimit?: RateLimitRouteOptions | `${number}/${"s" | "m" | "h"}` | false
+  cache?: boolean | CacheRouteOptions
+  timeout?: number | TimeoutRouteOptions | false
+  features: Readonly<Record<string, unknown>>
 }
 
 export interface DecorationOptions {
@@ -108,11 +165,11 @@ export type RouteOptions<Models extends Record<string, unknown> = {}, MacroNames
   params?: SchemaDefinitionInput | (keyof Models & string)
   query?: SchemaDefinitionInput | (keyof Models & string)
   headers?: SchemaDefinitionInput | (keyof Models & string)
-  response?: SchemaDefinitionInput | (keyof Models & string)
+  response?: SchemaDefinitionInput | (keyof Models & string) | Record<string | number, SchemaDefinitionInput | (keyof Models & string)>
   /** Additional response contracts keyed by HTTP status (for example 201 or 422). */
   responses?: Record<string | number, SchemaDefinitionInput | (keyof Models & string)>
-  auth?: AuthStrategyName | boolean | AuthStrategyDescriptor | LegacyAuthStrategy
-} & Partial<Record<MacroNames, boolean>>
+} & RouteMetadataOptions
+  & Partial<Record<MacroNames, boolean>>
 
 export type SchemaInput = import("./schema.ts").Schema | import("./schema.ts").StandardSchema | string
 type SchemaDefinitionInput = import("./schema.ts").Schema | import("./schema.ts").StandardSchema
@@ -140,9 +197,43 @@ export type RouteContract = {
   errors?: unknown
 }
 
-type ResponseContractValues<Value, Models extends Record<string, unknown>> = Value extends Record<string | number, infer Entry>
-  ? SchemaValue<Entry, Models>
-  : unknown
+type ResponseStatusKey<Key> = Key extends "default" ? Key : Key extends number ? `${Key}` | Key : Key extends `${number}` ? Key : never
+type Simplify<Value> = Value extends Record<string, unknown> ? { [Key in keyof Value]: Value[Key] } : Value
+type ResponseContractMap<Value, Models extends Record<string, unknown>> = Value extends object
+  ? {
+      [Key in Extract<keyof Value, string | number> as ResponseStatusKey<Key>]: Simplify<SchemaValue<Value[Key], Models>>
+    }
+  : {}
+type ResponseSuccessMap<Value, Models extends Record<string, unknown>> = {
+  [Key in keyof ResponseContractMap<Value, Models> as `${Key & (string | number)}` extends `2${number}${number}` | "default" ? Key : never]: ResponseContractMap<Value, Models>[Key]
+}
+type ResponseErrorMap<Value, Models extends Record<string, unknown>> = {
+  [Key in keyof ResponseContractMap<Value, Models> as `${Key & (string | number)}` extends `2${number}${number}` | "default" ? never : Key]: ResponseContractMap<Value, Models>[Key]
+}
+type ResponseContractUnion<Value, Models extends Record<string, unknown>> = ResponseContractMap<Value, Models>[keyof ResponseContractMap<Value, Models>]
+type ResponseSuccessUnion<Value, Models extends Record<string, unknown>> = ResponseSuccessMap<Value, Models>[keyof ResponseSuccessMap<Value, Models>]
+type ResponseErrorUnion<Value, Models extends Record<string, unknown>> = ResponseErrorMap<Value, Models>[keyof ResponseErrorMap<Value, Models>]
+type ResponseContractValues<Value, Models extends Record<string, unknown>> = [keyof ResponseContractMap<Value, Models>] extends [never]
+  ? SchemaValue<Value, Models>
+  : [keyof ResponseSuccessMap<Value, Models>] extends [never]
+    ? ResponseContractUnion<Value, Models>
+    : ResponseSuccessUnion<Value, Models>
+type ResponseErrorValues<Value, Models extends Record<string, unknown>> = [keyof ResponseErrorMap<Value, Models>] extends [never]
+  ? unknown
+  : ResponseErrorUnion<Value, Models>
+type RouteResponseMap<Options extends object, Models extends Record<string, unknown>> = Options extends { responses: infer Responses }
+  ? ResponseContractMap<Responses, Models>
+  : Options extends { response: infer Response }
+    ? ResponseContractMap<Response, Models>
+    : {}
+type JsonMethod<Body, StatusMap extends object> = [keyof StatusMap] extends [never]
+  ? {
+      <T = Body>(): Promise<T>
+    }
+  : {
+      <T = Body>(): Promise<T>
+      <Status extends keyof StatusMap>(status: Status): Promise<StatusMap[Status]>
+    }
 
 export type RouteMap = object
 
@@ -163,6 +254,7 @@ type ExpandInjectPath<Path extends string> = Path extends `${infer Prefix}:${str
 
 type InjectRouteOptions<Key extends string, Contract> = Key extends `${infer Method} ${infer Path}`
   ? { method: Method; path: Path | ExpandInjectPath<Path> }
+    & (Contract extends { params: infer Params } ? { params?: Params } : { params?: PathParams<Path> })
     & (Contract extends { body: infer Body } ? { body: Body } : { body?: unknown })
     & (Contract extends { query: infer Query } ? { query?: Query } : { query?: Record<string, string> })
     & (Contract extends { headers: infer Headers } ? { headers?: Headers | globalThis.Headers } : { headers?: Record<string, string> | globalThis.Headers })
@@ -188,13 +280,20 @@ export type InjectResponseBodyFor<Routes extends RouteMap, Options> = Options ex
     : unknown
   : unknown
 
+export type InjectResponseStatusesFor<Routes extends RouteMap, Options> = Options extends { method: infer Method extends string; path: infer Path extends string }
+  ? Routes[InjectRouteKey<Routes, Method, Path> & keyof Routes] extends infer Contract
+    ? Contract extends { responses: infer Responses } ? Responses : {}
+    : {}
+  : {}
+
 type OptionalContractField<Options extends object, Key extends string, Value> = Options extends Record<Key, infer Input>
   ? { [K in Key]: Value extends never ? unknown : Value }
   : {}
 
 export type RouteContractFor<Method extends string, Path extends string, Options extends object, Result, Models extends Record<string, unknown> = {}> = {
-  response: Options extends { response: infer Input } ? SchemaValue<Input, Models> : Awaited<Result>
-  errors: Options extends { responses: infer Responses } ? ResponseContractValues<Responses, Models> : unknown
+  response: Options extends { response: infer Input } ? ResponseContractValues<Input, Models> : Options extends { responses: infer Responses } ? ResponseContractValues<Responses, Models> : Awaited<Result>
+  errors: Options extends { responses: infer Responses } ? ResponseErrorValues<Responses, Models> : Options extends { response: infer Input } ? ResponseErrorValues<Input, Models> : unknown
+  responses: RouteResponseMap<Options, Models>
   params: Options extends { params: infer Input } ? SchemaValue<Input, Models> : PathParams<Path>
 } & OptionalContractField<Options, "body", SchemaValue<Options extends { body: infer Input } ? Input : never, Models>>
   & OptionalContractField<Options, "query", SchemaValue<Options extends { query: infer Input } ? Input : never, Models>>
@@ -209,19 +308,35 @@ export type ModelValues<Definitions extends Record<string, unknown>> = {
   [Key in keyof Definitions]: SchemaValue<Definitions[Key]>
 }
 
-export type RouteContext<Extensions extends Record<string, unknown>, Options extends object = RouteOptions, Models extends Record<string, unknown> = {}> = Context & Extensions & {
+type ExtensionAuth<Extensions extends Record<string, unknown>> = Extensions extends { auth?: infer Auth } ? Exclude<Auth, undefined> : never
+type RegisteredAuth<Strategy extends string> = Strategy extends keyof AuthStrategyRegistry ? AuthStrategyRegistry[Strategy] : unknown
+type AuthClaims<Extensions extends Record<string, unknown>, Strategy extends string> = [ExtensionAuth<Extensions>] extends [never]
+  ? RegisteredAuth<Strategy>
+  : ExtensionAuth<Extensions>
+type AuthSettingValue<Setting, Extensions extends Record<string, unknown>> = Setting extends { strategy: infer Strategy extends string; optional?: infer Optional }
+  ? Optional extends true ? AuthClaims<Extensions, Strategy> | undefined : AuthClaims<Extensions, Strategy>
+  : Setting extends "optional" ? ExtensionAuth<Extensions> | undefined
+    : Setting extends string | true ? AuthClaims<Extensions, Setting extends string ? Setting : string>
+      : ExtensionAuth<Extensions> | undefined
+type RouteAuthValue<Extensions extends Record<string, unknown>, Options extends object> = Options extends { auth: infer Setting }
+  ? AuthSettingValue<Setting, Extensions>
+  : ExtensionAuth<Extensions> | undefined
+
+export type RouteContext<Extensions extends Record<string, unknown>, Options extends object = RouteOptions, Models extends Record<string, unknown> = {}> = Omit<Context, "auth"> & Extensions & {
+  auth: RouteAuthValue<Extensions, Options>
   body: Options extends { body: infer Value } ? SchemaValue<Value, Models> : unknown
   params: Options extends { params: infer Value } ? SchemaValue<Value, Models> : Record<string, string>
   query: Options extends { query: infer Value } ? SchemaValue<Value, Models> : ParsedQuery
   headers: Options extends { headers: infer Value } ? SchemaValue<Value, Models> : Headers
 }
 
-export interface GuardOptions<Models extends Record<string, unknown> = {}> {
+export interface GuardOptions<Models extends Record<string, unknown> = {}> extends Omit<RouteOptions<Models>, "response"> {
   body?: SchemaDefinitionInput | (keyof Models & string)
   params?: SchemaDefinitionInput | (keyof Models & string)
   query?: SchemaDefinitionInput | (keyof Models & string)
   headers?: SchemaDefinitionInput | (keyof Models & string)
-  response?: SchemaDefinitionInput | (keyof Models & string)
+  response?: SchemaDefinitionInput | (keyof Models & string) | Record<string | number, SchemaDefinitionInput | (keyof Models & string)>
+  responses?: Record<string | number, SchemaDefinitionInput | (keyof Models & string)>
   beforeHandle?: Hook
 }
 
@@ -308,17 +423,19 @@ export interface InjectOptions {
   method?: string
   url?: string
   path?: string
+  /** Optional route parameters used to expand `:name` and `*` path tokens. */
+  params?: Record<string, string>
   headers?: Record<string, string> | Headers
   body?: unknown
   query?: Record<string, string>
 }
 
-export interface InjectResponse<Body = unknown> {
+export interface InjectResponse<Body = unknown, StatusMap extends object = {}> {
   readonly status: number
   readonly statusCode: number
   readonly headers: Headers
   readonly body: unknown
-  json<T = Body>(): Promise<T>
+  json: JsonMethod<Body, StatusMap>
   text(): Promise<string>
   bytes(): Promise<Uint8Array>
 }
@@ -337,6 +454,7 @@ export interface Context {
   headers: Headers
   cookies: Record<string, string>
   auth?: unknown
+  route?: RouteContextInfo
   signal: AbortSignal
   executionControl?: RouteExecutionControl
   logger?: Logger
@@ -363,6 +481,18 @@ export interface RouteExecutionControl {
   signal: AbortSignal
   invoke(handler: () => unknown | Promise<unknown>): unknown | Promise<unknown>
   cleanup(): void
+}
+
+export interface RouteContextInfo {
+  method: HttpMethod
+  path: string
+  features: Readonly<Record<string, unknown>>
+  auth?: AuthStrategySetting
+}
+
+export interface RouteFeatureProvider<Value = unknown> {
+  beforeHandle?(value: Value): Hook
+  afterHandle?(value: Value): AfterHook
 }
 
 export interface UploadedFile {
@@ -403,7 +533,11 @@ export interface RouteRecord {
   wildcard?: boolean
   contextFree?: boolean
   staticValue?: unknown
-  auth?: AuthStrategyName | boolean | AuthStrategyDescriptor | LegacyAuthStrategy
+  auth?: AuthStrategySetting
+  role?: string | readonly string[]
+  permissions?: string | readonly string[]
+  features?: Record<string, unknown>
+  metadata?: NormalizedRouteMetadata
   routeGuards?: RouteGuard[]
   summary?: string
   description?: string

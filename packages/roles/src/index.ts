@@ -1,4 +1,4 @@
-import type { Context, Hook, NelysiaPlugin } from "../../core/src/index.ts"
+import { HttpError, type Context, type Hook, type NelysiaPlugin } from "../../core/src/index.ts"
 
 export interface RolesOptions {
   resolveRoles?(context: Context): string[] | readonly string[] | Promise<string[] | readonly string[]>
@@ -32,7 +32,7 @@ export function roles(options: RolesOptions = {}): RolesPlugin {
         return allowed === undefined ? false : values.some((role) => allowed.has(role))
       },
       require: (...required) => {
-        if (!required.some((role) => set.has(role))) throw new Error("Forbidden")
+        if (required.length === 0 || !required.some((role) => set.has(role))) throw new HttpError(403, "Forbidden")
       }
     }
     return { permissions }

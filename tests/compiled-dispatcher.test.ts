@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { Nelysia, t } from "../packages/core/src/index.ts"
-import { compile, createCompiledBunHandler, generateBuildArtifact } from "../packages/compiler/src/index.ts"
+import { compile, createCompiledBunHandler, createSchemaIR, generateBuildArtifact } from "../packages/compiler/src/index.ts"
 import { compileDispatcher, createGeneratedValidator, lookupCompiled } from "../packages/compiler/src/dispatcher.ts"
 import { createBunHandler } from "../packages/runtime-bun/src/server.ts"
 import { createFetchHandler } from "../packages/runtime-fetch/src/server.ts"
@@ -42,6 +42,7 @@ test("compiled Bun handler matches generic execution (status + body)", async () 
     const [fast, slow] = await Promise.all([compiled(new Request(url, { method })), generic(new Request(url, { method }))])
     assert.equal(fast.status, slow.status, `${item} status`)
     assert.equal(await fast.text(), await slow.text(), `${item} body`)
+    for (const [name, value] of slow.headers) assert.equal(fast.headers.get(name), value, `${item} header ${name}`)
   }
 })
 
@@ -110,6 +111,37 @@ test("zero-arg static function fast path preserves async, native, stream, and er
   assert.equal(errorCalls, 1)
 })
 
+test("static literal native responses and streams remain direct specialized results", async () => {
+  const app = new Nelysia({ requestId: false })
+    .getStatic("/native", new Response("native", { status: 202, headers: { "x-native": "yes" } }))
+    .getStatic("/stream", new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("stream"))
+        controller.close()
+      }
+    }))
+  const dispatcher = compileDispatcher(app)
+  assert.equal(dispatcher.staticFunctionMap.get("/native")?.route.path, "/native")
+  assert.equal(dispatcher.staticFunctionMap.get("/stream")?.route.path, "/stream")
+  assert.equal(lookupCompiled(dispatcher, "/native")?.kind, "static-sync")
+
+  const handler = createCompiledBunHandler(app)
+  const native = await handler(new Request("http://localhost/native"))
+  assert.equal(native.status, 202)
+  assert.equal(native.headers.get("x-native"), "yes")
+  assert.equal(await native.text(), "native")
+  assert.equal(await (await handler(new Request("http://localhost/stream"))).text(), "stream")
+})
+
+test("compiled Bun fast responses preserve the request-id policy", async () => {
+  const app = new Nelysia().get("/json", () => new Response("ok", { headers: { "x-native": "yes" } }))
+  const handler = createCompiledBunHandler(app)
+  const supplied = await handler(new Request("http://localhost/json", { headers: { "x-request-id": "req-fixed" } }))
+  assert.equal(supplied.headers.get("x-request-id"), "req-fixed")
+  const generated = await handler(new Request("http://localhost/json"))
+  assert.ok(generated.headers.get("x-request-id"))
+})
+
 test("hooked routes fall back while deterministic schema routes use generated validation", async () => {
   const app = buildApp()
     .onBeforeHandle(() => {})
@@ -132,7 +164,7 @@ test("hooked routes fall back while deterministic schema routes use generated va
 
 test("generated query and response schemas preserve validation parity", async () => {
   const app = new Nelysia({ requestId: false })
-    .get("/search", ({ query }) => ({ term: query.term }), {
+    .get("/search", () => ({ term: "ok" }), {
       query: t.Object({ term: t.String() }),
       response: t.Object({ term: t.String() })
     })
@@ -153,6 +185,39 @@ test("generated query and response schemas preserve validation parity", async ()
   assert.ok(artifact.manifest.diagnostics.some((diagnostic) => diagnostic.code === "NELY002"))
 })
 
+test("generated status response maps and body schemas preserve adapter parity", async () => {
+  const app = new Nelysia({ requestId: false })
+    .get("/created", ({ response }) => response(201, { id: "order-1" }), {
+      response: {
+        201: t.Object({ id: t.String() }),
+        422: t.Object({ error: t.String() })
+      }
+    })
+    .get("/body", ({ body }) => body, { body: t.Object({ value: t.String() }) })
+  const dispatcher = compileDispatcher(app)
+  assert.ok(dispatcher.routes[0].generated?.responses?.["201"])
+  assert.ok(dispatcher.routes[0].generated?.responses?.["422"])
+  assert.ok(dispatcher.routes[1].generated?.body)
+
+  const compiled = createCompiledBunHandler(app)
+  const generic = createBunHandler(app)
+  const [compiledCreated, genericCreated] = await Promise.all([
+    compiled(new Request("http://localhost/created")),
+    generic(new Request("http://localhost/created"))
+  ])
+  assert.equal(compiledCreated.status, 201)
+  assert.equal(genericCreated.status, 201)
+  assert.deepEqual(await compiledCreated.json(), await genericCreated.json())
+
+  const [compiledBody, genericBody] = await Promise.all([
+    compiled(new Request("http://localhost/body")),
+    generic(new Request("http://localhost/body"))
+  ])
+  assert.equal(compiledBody.status, 400)
+  assert.equal(genericBody.status, 400)
+  assert.equal(await compiledBody.text(), await genericBody.text())
+})
+
 test("generated allOf validators preserve merged object output and safe keys", () => {
   const schema = t.Intersect([
     t.Object({ id: t.String() }),
@@ -160,6 +225,21 @@ test("generated allOf validators preserve merged object output and safe keys", (
   ])
   const generated = createGeneratedValidator(schema.definition!)
   assert.deepEqual(generated.validate({ id: "1", role: "admin" }), { id: "1", role: "admin" })
+})
+
+test("schema IR is deterministic and fallback diagnostics identify the field", () => {
+  const schema = t.Object({ role: t.String(), id: t.String() })
+  assert.deepEqual(createSchemaIR(schema), {
+    properties: {
+      id: { type: "string" },
+      role: { type: "string" }
+    },
+    required: ["role", "id"],
+    type: "object"
+  })
+  const app = new Nelysia({ requestId: false }).get("/custom", () => "ok", { response: { 200: t.Date() } })
+  const artifact = generateBuildArtifact({ entry: "./app.ts", target: "bun", compiled: compile(app) })
+  assert.equal(artifact.manifest.diagnostics.find((diagnostic) => diagnostic.route?.path === "/custom")?.field, "schema")
 })
 
 test("extended application lifecycle disables compiled fast paths", async () => {
@@ -221,6 +301,8 @@ test("compiled Node server matches generic execution over HTTP", async (t) => {
 
   const user = await fetch(`${url}/users/42`)
   assert.deepEqual(await user.json(), { id: "42" })
+  const userWithRequestId = await fetch(`${url}/users/43`, { headers: { "x-request-id": "node-dynamic-43" } })
+  assert.equal(userWithRequestId.headers.get("x-request-id"), "node-dynamic-43")
 
   // Generic fallbacks: hooks, POST body, 404/405/OPTIONS, HEAD.
   assert.equal((await fetch(`${url}/hooked`)).status, 200)
@@ -276,6 +358,33 @@ test("compiled Fetch handler matches generic execution", async () => {
   }))
   assert.deepEqual(await posted.json(), { name: "Ada" })
   assert.equal((await handler(new Request("http://localhost/nope"))).status, 404)
+})
+
+test("generated schema routes execute on Fetch and Node adapters", async (testContext) => {
+  const app = new Nelysia({ requestId: false }).get("/search/:id", ({ params, query }) => ({
+    id: params.id,
+    term: query.term
+  }), {
+    params: t.Object({ id: t.String() }),
+    query: t.Object({ term: t.String() }),
+    response: t.Object({ id: t.String(), term: t.String() })
+  })
+  const generic = createBunHandler(app)
+  const fetchResponse = await createFetchHandler(app)(new Request("http://localhost/search/42?term=ready"))
+  const genericResponse = await generic(new Request("http://localhost/search/42?term=ready"))
+  assert.equal(fetchResponse.status, genericResponse.status)
+  assert.deepEqual(await fetchResponse.json(), await genericResponse.json())
+
+  const server = createNodeServer(app)
+  await new Promise<void>((resolve) => server.listen(0, resolve))
+  testContext.after(() => server.close())
+  const address = server.address()
+  assert.ok(address && typeof address === "object")
+  const nodeResponse = await fetch(`http://127.0.0.1:${address.port}/search/42?term=ready`)
+  assert.equal(nodeResponse.status, 200)
+  assert.deepEqual(await nodeResponse.json(), { id: "42", term: "ready" })
+  const invalid = await fetch(`http://127.0.0.1:${address.port}/search/42`)
+  assert.equal(invalid.status, 400)
 })
 
 test("Node and Fetch static function paths do not execute native handlers twice", async (t) => {

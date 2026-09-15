@@ -1,6 +1,6 @@
 # Nelysia Documentation Map
 
-> Current package line: `v0.5.1` · Node.js 22+ · Bun 1.4+
+> Current package line: `v1.0.0` · Node.js 22+ · Bun 1.4+
 
 หน้านี้เป็นจุดเริ่มต้นของเอกสารทั้งหมด เอกสารแบ่งตามคำถามที่ต้องการตอบ
 เพื่อไม่ให้คู่มือใช้งานปะปนกับ roadmap หรือ benchmark evidence
@@ -36,12 +36,16 @@
 ## สถานะและแผนงาน
 
 - [Release Status](./release-status.md) — checklist และ gate ที่ผ่าน/ยังค้าง
-- [Roadmap หลัง v0.5.1](./roadmap-after-v051.md) — milestone v0.6–v0.9
+- [Final Roadmap สู่ v1.0](./roadmap-v1.md) — milestone v0.6–v0.9 และ API freeze
+- [API Freeze Checklist](./api-freeze-checklist.md) — contract ที่ต้องตรวจและ freeze ก่อน v1.0
+- [v1.0 Guide](./v1.0.md) — public contract, ตัวอย่าง, workflow, gates และสถานะ release ในไฟล์เดียว
+- [Roadmap หลัง v0.5.1](./roadmap-after-v051.md) — implementation history/summary
 - [Development Plan](./development-plan.md) — ขอบเขตงานและ compatibility policy
 - [P2 Roadmap](./p2-roadmap.md) — แผน compiler/optimization ที่เก็บไว้ต่อ
 
-หมายเหตุ: `v0.5.1` และ tag เดิมไม่ถูกแก้ไข งาน additive ใน worktree ยังไม่ใช่
-release ใหม่จนกว่า milestone gates จะผ่านครบ
+หมายเหตุ: `v0.5.1` และ `v0.6.0` เป็น historical immutable releases; `v1.0.0`
+เป็น release ปัจจุบันที่ freeze public API แล้ว งานใหม่หลังจากนี้ต้องเป็น additive
+ภายใน `1.x` หรือ breaking change ใน `2.0`
 
 ## Benchmark และ soak evidence
 
@@ -50,9 +54,12 @@ release ใหม่จนกว่า milestone gates จะผ่านคร�
 - [JWT Security Report](./benchmark-jwt-v05-2026-09-14.md) — public/protected matrix
 - [v0.5.1 Route Fast-Path Report](./benchmark-route-fast-path-v051-2026-09-14.md)
 - [Roadmap Benchmark Smoke](./benchmark-roadmap-smoke-2026-09-14.md)
+- [Short v1.0 Performance Evidence](./benchmark-short-v1-2026-09-15.md) — 4 route counts × 8 workloads × 3 samples
 - [Historical 10-round Snapshot](./benchmark-10-rounds.md)
 - [Historical 100-round Snapshot](./benchmark-100-rounds.md)
 - [1M/10M Soak Report](./soak-roadmap-rerun-2026-09-14.md)
+- [Current 1M/10M Soak Evidence](./soak-roadmap-rerun-2026-09-15.md) — fresh request-count gates after v0.6 changes
+- [Runtime Contract Evidence](./benchmark-runtime-contract-2026-09-15.md) — inject/network parity, fuzz and memory bursts
 - [Original Soak Report](./soak-v05-2026-09-14.md)
 - [Compatibility Snapshot](./benchmark-oha-2026-09-14.md)
 
@@ -62,7 +69,8 @@ speedup เดียวกัน
 
 ## Release, deployment และ operations
 
-- [v0.5 Release Gates](./v0.5-release-gates.md) — gate ของ package line ปัจจุบัน
+- [v1.0 Guide](./v1.0.md) — public contract และสถานะ release ปัจจุบัน
+- [v0.5 Release Gates](./v0.5-release-gates.md) — historical gate ของ v0.5 feature line
 - [Compatibility Matrix](./compatibility.md) — Node, Bun, Deno, Cloudflare, Vercel
 - [Production Modules](./index.html#production-modules) — upload, logger, timeout, session, roles, CSRF, cache, health
 - [Package Export Map](./index.html#exports) — public exports ทั้ง 25 รายการ
@@ -90,6 +98,15 @@ npm run package:build
 npm run package:imports
 npm run docs:check
 npm run framework:check
+npm run benchmark:short
+npm run benchmark:runtime
+npm run release:check:v06
+
+# Milestone gates (workspace API contract is frozen; release tags remain separate)
+npm run release:check:v07
+npm run release:check:v08
+npm run release:check:v09
+npm run release:check:v1
 ```
 
 ผลการตรวจสอบในรอบล่าสุดและข้อที่ยัง deferred ให้ดูที่

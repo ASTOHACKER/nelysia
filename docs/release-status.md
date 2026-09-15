@@ -2,6 +2,23 @@
 
 This file is the finite progress board for work after v0.1. A checkbox is marked complete only when code, tests, and a runnable example exist.
 
+> Current package: `1.0.0`. The `v0.5.1` and `v0.6.0` tags/releases are immutable. The
+> 24-hour soak remains deferred, so production readiness is not declared.
+
+## v1.0 Current Release
+
+- [x] v0.6–v0.9 implementation gates and API-freeze prerequisites passed
+- [x] Public v1.0 contract frozen for routing, context, options, schema, auth, plugins, lifecycle, errors, server, inject, and client
+- [x] Node/Bun tests 181/181, typecheck, package build, imports 25/25, deployment/framework smoke, benchmark/runtime evidence, and 1M/10M soak
+- [x] `npm run docs:check`, API-freeze checklist, security audit, and `git diff --check`
+- [x] Package version bumped to `1.0.0`
+- [x] Annotated Git tag `v1.0.0` and GitHub Release created
+- [ ] npm publication when the registry account is ready
+- [ ] 24-hour soak before any production-readiness announcement
+
+The v0.7–v0.9 work was delivered as part of the single `v1.0.0` release; separate
+milestone tags are not required. The 24-hour soak remains intentionally deferred.
+
 ## v0.2 Production Expansion
 
 - [x] WebSocket contract and Bun adapter
@@ -79,9 +96,43 @@ native route wiring, production builds, and live development-server smoke checks
 the command builds and requests `/api/nelysia` through Astro, Next.js, Nuxt/Nitro, SvelteKit,
 and TanStack Start.
 
-The aggregate core/package verification command is `npm run release:check`.
-Run `npm run framework:check` as the ecosystem gate after installing the five
-fixture dependencies.
+## v0.6 Historical Workspace Gate
+
+The historical package line was `0.6.0`. The following checks are retained as
+evidence for the v0.6 implementation slice; the current public release is
+`v1.0.0`.
+
+- [x] Strict public types, typed macros, auth registry, state/decorate storage, and lifecycle scope tests
+- [x] Unified route metadata, provider registration, auth/role/permission semantics, and compatibility tests
+- [x] Typed inject/client, response/error helpers, server controls, compiler diagnostics, CLI, and module contracts
+- [x] Node tests 181/181 and Bun tests 181/181
+- [x] `npm run typecheck`, `npm run package:build`, and `npm run package:tarball`
+- [x] `npm run package:imports` — Node/Bun/Deno 25/25 each
+- [x] Deployment smoke 5/5 and framework fixtures 5/5
+- [x] Short benchmark, runtime contract, 1M/10M soak, docs check, security audit, and `git diff --check`
+- [x] v0.7, v0.8, and v0.9 workspace release gates pass
+- [x] v0.7, v0.8, and v0.9 gates incorporated into the `v1.0.0` release; separate milestone tags are not required
+- [x] v1.0 workspace API freeze and final evidence review
+
+The individual checks above pass on the recorded host. The combined command is
+`npm run release:check:v06`; it intentionally excludes the deferred 24-hour soak.
+The latest combined run completed successfully on 2026-09-15 (Asia/Bangkok),
+including the fresh short matrix, runtime contract check, and 1M/10M request-count
+soaks.
+The milestone commands are `release:check:v07`, `release:check:v08`,
+`release:check:v09`, and `release:check:v1`; they validate the release evidence
+but do not create separate milestone tags.
+
+The current additive v0.6 workspace gate is `npm run release:check:v06`. It
+includes the type/test, package/tarball/import, deployment, framework,
+benchmark, 1M/10M soak, Deno, documentation, audit, and diff checks; it does
+not invoke the deferred 24-hour soak. The older `release:check` and
+`release:check:v05` commands remain available for historical compatibility.
+
+After the latest additive macro-composition, typed path-parameter, generated
+schema adapter, adapter coverage, and wildcard client changes, the full Node/Bun
+test suites were rerun at 181/181, with typecheck, package build, documentation check, and
+`git diff --check` passing again.
 
 ## v0.5 Performance, Compiler, and Production Readiness
 
@@ -136,7 +187,8 @@ The JWT evidence gate is recorded in [`benchmark-jwt-v05-2026-09-14.md`](./bench
 
 ## Roadmap after v0.5.1
 
-The next work is tracked in [`roadmap-after-v051.md`](./roadmap-after-v051.md)
+The next work is tracked in [`roadmap-v1.md`](./roadmap-v1.md) (with the
+implementation history in [`roadmap-after-v051.md`](./roadmap-after-v051.md))
 and remains additive. The current worktree includes the following foundations;
 they are not a new release claim until their milestone gates pass:
 
@@ -147,16 +199,25 @@ they are not a new release claim until their milestone gates pass:
 - [x] `session`, `roles`, `csrf`, `cache`, and `health` package subpaths
 - [x] CLI `routes`, `doctor`, `create`, and `dev` commands
 - [x] Compiler `COMPILED`/`SPECIALIZED`/`GENERIC` diagnostics and fallback reasons
-- [ ] New v0.6–v0.9 release gates and milestone tags
-- [ ] 30m/1h/6h evidence before the deferred 24-hour soak
+- [x] Unified route metadata with provider-first auth/rate-limit/cache/timeout registration
+- [x] Shallow group inheritance, explicit `false` overrides, and normalized route metadata
+- [x] Deterministic schema IR with route/field fallback diagnostics
+- [x] Short performance verification command with 1/10/100/500 route counts and memory samples
+- [x] Runtime contract gate: 1,000 fuzz cases, `app.inject()`, `listen(0) → fetch()`, and 10k/50k/100k memory bursts with zero failures
+- [x] Short performance matrix: 32 workload/configuration combinations, zero failures, with median/min/max, p95/p99, heap/RSS and environment evidence
+- [x] Fresh 1M/10M soak rerun after current changes: zero failures/runtime errors and successful process exit
+- [x] `release:check:v07`, `release:check:v08`, and `release:check:v09` pass for the current workspace slice (these do not create milestone tags or releases)
+- [x] v0.7–v0.9 gates incorporated into the `v1.0.0` release; separate milestone tags are not required
+- [ ] Future 30m/1h/6h/24-hour evidence, if production-evidence work is approved later (not a current v1.0 gate)
 
-The package is now `0.6.0` and the existing v0.5.1 tag remains immutable. No
-production-readiness announcement is made for the deferred 24-hour soak gate.
+The package is now `1.0.0` and the existing v0.5.1/v0.6.0 tags remain immutable.
+The v1.0.0 release contains the frozen API contract. No production-readiness
+announcement is made for the deferred 24-hour soak gate.
 
 ## Archived v0.4.0 verification record (2026-09-14)
 
 The following table is retained for historical traceability. It is superseded
-by the current v0.5.1 release evidence above.
+by the historical v0.5.1 release evidence above.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |

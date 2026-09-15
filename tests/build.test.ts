@@ -129,7 +129,8 @@ test("unsupported routes select adapter generation with an explicit diagnostic",
     code: "NELY107",
     severity: "warning",
     message: "Standalone generation unsupported: Mounted or authenticated route metadata requires the generic runtime",
-    route: { method: "GET", path: "/users" }
+    route: { method: "GET", path: "/users" },
+    field: "auth"
   })
   assert.match(artifact.source, /createNodeServer/)
 })
@@ -143,7 +144,10 @@ test("classifies standalone exclusions with stable diagnostic codes", () => {
 
   assert.equal(unsupportedRouteDiagnostic(requestHook).code, "NELY102")
   assert.equal(unsupportedRouteDiagnostic(responseHook).code, "NELY103")
-  assert.equal(unsupportedRouteDiagnostic(schema).code, "NELY104")
+  // Deterministic built-in schemas are standalone-capable; the direct helper
+  // therefore falls through to the handler diagnostic instead of labelling a
+  // supported schema as a generic-only exclusion.
+  assert.equal(unsupportedRouteDiagnostic(schema).code, "NELY105")
   assert.equal(unsupportedRouteDiagnostic(routeHook).code, "NELY106")
   assert.equal(unsupportedRouteDiagnostic(opaque).code, "NELY105")
 })
@@ -172,6 +176,7 @@ test("standalone generation embeds supported methods and schema validators", () 
   const app = new Nelysia()
     .post("/echo", ({ body }) => body, { body: t.String(), response: t.String() })
     .get("/users/:id", ({ params }) => ({ id: params.id }))
+    .get("/created", ({ response }) => response({ id: "order-1" }, { status: 201, headers: { "x-test": "yes" } }))
   const artifact = generateBuildArtifact({ entry: "./app.ts", target: "bun", compiled: compile(app) })
   assert.equal(artifact.manifest.generation, "standalone")
   assert.equal(artifact.manifest.sourceToSource, true)
@@ -179,6 +184,16 @@ test("standalone generation embeds supported methods and schema validators", () 
   assert.match(artifact.source, /bodySchema/)
   assert.match(artifact.source, /Malformed JSON body/)
   assert.doesNotMatch(artifact.source, /createCompiledBunHandler|createNodeServer/)
+})
+
+test("standalone generation emits status-specific response validators", () => {
+  const app = new Nelysia().get("/created", ({ response }) => response(201, { id: "order-1" }), {
+    response: { 201: t.Object({ id: t.String() }) }
+  })
+  const artifact = generateBuildArtifact({ entry: "./app.ts", target: "bun", compiled: compile(app) })
+  assert.match(artifact.source, /responseSchemas/)
+  assert.match(artifact.source, /201/)
+  assert.ok(artifact.manifest.diagnostics.some((diagnostic) => diagnostic.code === "NELY002"))
 })
 
 test("compiler keeps application-level runtime features on the adapter path", () => {
@@ -211,6 +226,8 @@ test("generated Node standalone artifacts preserve HTTP request bodies", async (
   const app = new Nelysia()
     .post("/echo", ({ body }) => body, { body: t.String(), response: t.String() })
     .get("/users/:id", ({ params }) => ({ id: params.id }))
+    .get("/created", ({ response }) => response({ id: "order-1" }, { status: 201, headers: { "x-test": "yes" } }))
+    .options("/created", () => new Response("custom-options", { status: 202, headers: { allow: "custom" } }))
   const artifact = generateBuildArtifact({ entry: "./generated-entry.ts", target: "node", compiled: compile(app) })
   const directory = await mkdtemp(join(tmpdir(), "nelysia-generated-"))
   const file = join(directory, "server.ts")
@@ -230,6 +247,14 @@ test("generated Node standalone artifacts preserve HTTP request bodies", async (
     assert.deepEqual(await get.json(), { id: "ada" })
     const post = await fetch(`http://127.0.0.1:${port}/echo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify("hello") })
     assert.equal(await post.text(), "hello")
+    const created = await fetch(`http://127.0.0.1:${port}/created`)
+    assert.equal(created.status, 201)
+    assert.equal(created.headers.get("x-test"), "yes")
+    assert.deepEqual(await created.json(), { id: "order-1" })
+    const explicitOptions = await fetch(`http://127.0.0.1:${port}/created`, { method: "OPTIONS" })
+    assert.equal(explicitOptions.status, 202)
+    assert.equal(explicitOptions.headers.get("allow"), "custom")
+    assert.equal(await explicitOptions.text(), "custom-options")
   } finally {
     child.kill("SIGTERM")
     await new Promise<void>((resolve) => child.once("exit", () => resolve()))

@@ -44,26 +44,40 @@ export function cache(options: CacheOptions = {}): CachePlugin {
   if (!Number.isInteger(maxEntries) || maxEntries < 1) throw new Error("cache maxEntries must be a positive integer")
   const store = options.store ?? memoryCacheStore(maxEntries)
   const key = options.key ?? ((context) => `${context.request.method}:${context.request.url}`)
+  const before = (config: CacheOptions) => async (context: Context) => {
+    if (context.request.method.toUpperCase() !== "GET") return
+    const activeStore = config.store ?? store
+    const hit = await activeStore.get((config.key ?? key)(context))
+    if (hit === undefined) return
+    if (context.headers.get("if-none-match") !== null && context.headers.get("if-none-match") === hit.headers.get("etag")) {
+      return context.response(undefined, { status: 304, headers: hit.headers })
+    }
+    return context.response(hit.body, { status: hit.status, headers: hit.headers })
+  }
+  const after = (config: CacheOptions) => async (context: Context, result: ResponseData) => {
+    if (context.request.method.toUpperCase() !== "GET" || result.status !== 200 || result.body instanceof Response || result.body instanceof ReadableStream) return
+    const etag = result.headers.get("etag") ?? makeEtag(result.body)
+    result.headers.set("etag", etag)
+    if (context.headers.get("if-none-match") === etag) {
+      result.status = 304
+      result.body = undefined
+      return
+    }
+    const activeStore = config.store ?? store
+    await activeStore.set((config.key ?? key)(context), cloneResponse(result), config.ttlMs ?? ttlMs)
+  }
   return ((app: import("../../core/src/app.ts").Nelysia<any, any, any, any>) => {
+    app.registerRouteFeature("cache", {
+      beforeHandle(value) { return before(value === true ? {} : value as CacheOptions) },
+      afterHandle(value) { return after(value === true ? {} : value as CacheOptions) }
+    })
     app.onBeforeHandle(async (context) => {
-      if (context.request.method.toUpperCase() !== "GET") return
-      const hit = await store.get(key(context))
-      if (hit === undefined) return
-      if (context.headers.get("if-none-match") !== null && context.headers.get("if-none-match") === hit.headers.get("etag")) {
-        return context.response(undefined, { status: 304, headers: hit.headers })
-      }
-      return context.response(hit.body, { status: hit.status, headers: hit.headers })
+      if (context.route?.features.cache !== undefined) return
+      return before(options)(context)
     })
     app.onAfterHandle(async (context, result) => {
-      if (context.request.method.toUpperCase() !== "GET" || result.status !== 200 || result.body instanceof Response || result.body instanceof ReadableStream) return
-      const etag = result.headers.get("etag") ?? makeEtag(result.body)
-      result.headers.set("etag", etag)
-      if (context.headers.get("if-none-match") === etag) {
-        result.status = 304
-        result.body = undefined
-        return
-      }
-      await store.set(key(context), cloneResponse(result), ttlMs)
+      if (context.route?.features.cache !== undefined) return
+      return after(options)(context, result)
     })
     return app
   }) as CachePlugin

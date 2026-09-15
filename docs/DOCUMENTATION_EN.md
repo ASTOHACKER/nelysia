@@ -1,19 +1,24 @@
 # Nelysia: Comprehensive Technical Documentation
 
-> **Version:** 0.6.0 (Current package and GitHub Release)
+> **Version:** 1.0.0 (Current package and GitHub Release)
 > **Target Runtimes:** Bun 1.4+, Node.js 22+, and Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **Language:** TypeScript / JavaScript (ESM)
 
 Use the [Documentation Map](./README.md) to choose the right guide, status
 page, or benchmark report.
 
-The post-v0.5.1 additive work is included in the v0.6.0 release. Remaining
-future work is documented in
-[`roadmap-after-v051.md`](./roadmap-after-v051.md). The current worktree also
+For the complete version path and frozen public contract, see the
+[Nelysia v1.0 Guide](./v1.0.md). It explains what is verified in the workspace
+versus what has or has not been published as a package release.
+
+The post-v0.5.1 additive work is included in the v1.0.0 release. The public API
+contract is frozen; future capabilities must be additive within 1.x. Historical
+milestones are documented in
+[`roadmap-after-v051.md`](./roadmap-after-v051.md). The current package also
 exports production contracts from `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache`, and `@narudom96/nelysia/health`; these remain on the
-v0.6.0 package line.
+v1.0.0 package line.
 
 Runnable examples: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts), and
@@ -118,7 +123,7 @@ short-run variance; the older TechEmpower plaintext snapshot uses a different
 harness.
 
 #### 3. V8 Stays in Fast Lane
-Frameworks that use `.decorate('db', db)` continuously mutate the object's hidden class, which forces V8 to exit its fast Inline Cache (IC) mode and de-optimize. Nelysia fixes this: context shape never changes. Use `context.store` for shared state and the JIT stays monomorphic at peak speed — forever.
+Use `context.store` for request-local data shared between hooks and handlers, and `decorate()` for typed services or capabilities. These are explicit contracts; benchmark hot paths on the runtime and hardware you plan to deploy.
 
 #### 4. Node.js + Bun, No Polyfills
 Both runtimes are first-class — not an afterthought:
@@ -216,7 +221,7 @@ Always export the `app` instance so the compiler and CLI can inspect and build y
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v0.5.1!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.0.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "default",
@@ -245,7 +250,7 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# Output: <h1>Hello from Nelysia v0.5.1!</h1>
+# Output: <h1>Hello from Nelysia v1.0.0!</h1>
 
 curl "http://localhost:3000/users/42?filter=active"
 # Output: {"id":"42","filter":"active","timestamp":1726180000000}
@@ -279,6 +284,12 @@ const app = new Nelysia({
   // for benchmarks and ID-less services).
   requestId: false,
 
+  // Metadata inherited by every route on this application (optional)
+  routeOptions: {
+    timeout: 5_000,
+    cache: false
+  },
+
   // Global telemetry callbacks
   telemetry: {
     onRequest(context) { console.log(`Incoming: ${context.request.method} ${context.request.url}`) },
@@ -287,6 +298,13 @@ const app = new Nelysia({
   }
 })
 ```
+
+`routeOptions` is the application-level source for route metadata. Group and
+route options are applied afterward, so the inheritance order is application →
+parent group → child group → route. The closest value wins; feature objects
+merge shallowly, arrays replace, and `false` disables an inherited feature.
+Providers still have to be registered explicitly with `.use(...)` before a
+route can activate a named feature.
 
 ### HTTP Routing Methods
 
@@ -492,6 +510,18 @@ const response = await typed.injectTyped({ method: "GET", path: "/users/42" })
 const user = await response.json() // { id: string }
 ```
 
+Dynamic route patterns can also be expanded by passing typed `params`. The
+expanded URL is used for matching, while the existing explicit-path form stays
+fully compatible:
+
+```ts
+const response = await typed.injectTyped({
+  method: "GET",
+  path: "/users/:id",
+  params: { id: "42" }
+})
+```
+
 Use `injectUntyped()` only as an explicit escape hatch for dynamic tests that
 intentionally do not use route-map inference.
 
@@ -568,7 +598,7 @@ app.post("/users", ({ body, set }) => {
 
 ### Request State Sharing with `context.store`
 
-In v0.1.3+, `context.store` provides a per-request dictionary for sharing state across lifecycle hooks (`onBeforeHandle`, handler, `onAfterHandle`):
+In v0.1.3+, `context.store` provides a per-request dictionary for sharing state across lifecycle hooks (`onBeforeHandle`, handler, `onAfterHandle`). Values registered with `state(name, value)` are copied into that request store; mutations to a request's store do not mutate the next request. Use an external store when data must persist across requests or processes:
 
 ```ts
 // Verify bearer token and attach user to store
@@ -597,7 +627,7 @@ In v0.1.4+, Nelysia provides dedicated shorthands to return strongly typed respo
 
 ```ts
 app
-  .get("/landing", ({ html }) => html("<h1>Welcome to Nelysia v0.5.1</h1>"))
+  .get("/landing", ({ html }) => html("<h1>Welcome to Nelysia v1.0.0</h1>"))
   .get("/robots.txt", ({ text }) => text("User-agent: *\nDisallow: /private"))
   .get("/old-path", ({ redirect }) => redirect("/new-path", 301))
   .get("/api/ping", (ctx) => {
@@ -1077,6 +1107,36 @@ Contracts and limitations:
   to `504`. It clears timers on every completion path and cannot interrupt
   synchronous JavaScript that is already running.
 
+### Unified route metadata and providers
+
+Route and group options share one normalized metadata contract. Register the
+provider before declaring a route feature; there is no implicit activation:
+
+```ts
+const Order = t.Object({ id: t.String() })
+const Unauthorized = t.Object({ error: t.String() })
+const app = new Nelysia()
+  .use(jwt<{ sub: string }>({ secret: process.env.JWT_SECRET! }))
+  .use(rateLimit({ limit: 100, windowMs: 60_000 }))
+  .use(cache())
+  .use(timeout({ timeoutMs: 5_000 }))
+  .post("/orders/:id", ({ auth }) => ({ id: auth.sub }), {
+    auth: { strategy: "jwt", role: "user", permissions: ["orders:write"] },
+    response: { 201: Order, 401: Unauthorized },
+    rateLimit: "20/min",
+    timeout: 5_000,
+    cache: false
+  })
+```
+
+Inheritance is application → parent group → child group → route. The closest
+value wins; object options merge shallowly, arrays/permissions replace the
+previous value, and `false` disables an inherited feature. If a named auth or
+feature provider is missing, registration fails with the method, path, and
+feature name. A route without metadata does not allocate that provider's
+guard, timer, parser, or store. Authentication failures return `401`, while
+role/permission failures return `403`.
+
 ---
 
 ## 10. OpenAPI 3.1 & Redoc / Swagger UI
@@ -1425,16 +1485,20 @@ nelysia inspect ./src/app.ts
 Example Output:
 ```text
 GET /health
-  Execution: static-prebuilt
-  Reason: Explicit static response
+  Execution: COMPILED
+  Lane: COMPILED
+  Reason: Explicit static response; adapter uses static-prebuilt dispatch
 GET /json
-  Execution: static-sync
-  Reason: Zero-argument handler; static function map
+  Execution: SPECIALIZED
+  Lane: COMPILED
+  Reason: Static zero-arg handler; adapter uses static-sync dispatch
 GET /users/:id
   Execution: SPECIALIZED
-  Reason: Static route metadata; context retained
+  Lane: SPECIALIZED
+  Reason: Handler and schema source can be embedded
 POST /submit
   Execution: GENERIC
+  Lane: GENERIC
   Reason: Hooks, parameters, or opaque handler retained
 ```
 
@@ -1701,6 +1765,12 @@ npm run benchmark:oha
 npm run benchmark:oha:bun
 npm run benchmark:oha:node
 npm run benchmark:oha:release
+
+# Short v1.0 regression matrix (route counts 1/10/100/500)
+npm run benchmark:short
+
+# Current v0.6 workspace gate (does not run the deferred 24-hour soak)
+npm run release:check:v06
 # If the default base port 4321 is occupied:
 BENCH_PORT=4341 npm run benchmark:oha
 
@@ -1819,7 +1889,7 @@ Nelysia was designed with a familiar chainable DX inspired by Elysia, but introd
 
 | Feature / Pattern | ElysiaJS | Nelysia | Architectural Rationale |
 | :--- | :--- | :--- | :--- |
-| **State Injection** | `app.state('k', v)`<br>`app.decorate('db', db)`<br>→ `({ db, store }) => ...` | `context.store`<br>→ `({ store }) => { store.db = ... }` | Elysia mutates context object shapes, causing V8 Inline Cache de-optimizations. Nelysia preserves stable object shapes for peak V8 monomorphic execution. |
+| **State Injection** | `app.state('k', v)`<br>`app.decorate('db', db)`<br>→ `({ db, store }) => ...` | `context.store`<br>→ `({ store }) => { store.db = ... }` | `state()` provides initial request-store values; `decorate()` provides typed context extensions. Use the store for request data and measure hot paths on your target runtime. |
 | **Sub-Apps** | `app.use(subApp)` | `app.mount('/prefix', subApp)` | Recommended separation: use `mount()` for prefixed routing trees and `use()` for plugins; legacy `use(subApp)` remains supported for compatibility. |
 | **Route Grouping** | `app.group('/v1', (app) => ...)` | `app.group('/v1', (group) => ...)` | Identical DX. Nested groups inherit parent lifecycle hooks (`onBeforeHandle`, etc.). |
 | **Guards / Macros** | `.guard({ ... })`<br>`.macro({ ... })` | `app.group(prefix, (g) => { g.onBeforeHandle(...) })` | Explicit group hooks maintain predictable AOT dispatch compiler analysis. |
@@ -1917,7 +1987,7 @@ Per-request cost ranking (most to least expensive): JSON body parsing → schema
 
 ## 22. Production Deployment Checklist
 
-- [x] `npm run release:check:v05` passes for the non-24-hour release gates (typecheck + Node/Bun tests + package/import/deployment checks + 1M/10M soak + Deno check + audit).
+- [x] The current non-24-hour v0.6 workspace-gate constituents are recorded as passing (typecheck + Node/Bun tests + package/tarball/import/deployment checks + benchmark/runtime gates + 1M/10M soak + Deno check + audit); run `npm run release:check:v06` to execute them together.
 - [x] `npm run framework:check` passes after installing the five framework fixtures.
 - [ ] Check dispatcher coverage: build and read `NELY003` in `dist/manifest.json` — hot routes should be on the fast path.
 - [ ] Set `bodyLimit` for your largest payload; keep `trustedProxy: false` unless you control the proxy.

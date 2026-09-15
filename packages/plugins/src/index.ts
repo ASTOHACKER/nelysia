@@ -44,20 +44,48 @@ export function rateLimit(options: RateLimitOptions): (app: Nelysia<any, any, an
   if (!Number.isFinite(options.windowMs) || options.windowMs <= 0) throw new Error("rateLimit windowMs must be positive")
   const buckets = new Map<string, { count: number; expiresAt: number }>()
   const key = options.key ?? ((context) => context.clientIp ?? "anonymous")
-  return (app) => app.onBeforeHandle((context) => {
+  const guard = (config: RateLimitOptions, bucketStore = buckets) => (context: Context) => {
     const now = Date.now()
-    const bucketKey = key(context)
-    const current = buckets.get(bucketKey)
+    const bucketKey = (config.key ?? key)(context)
+    const current = bucketStore.get(bucketKey)
     const bucket = !current || current.expiresAt <= now
-      ? { count: 0, expiresAt: now + options.windowMs }
+      ? { count: 0, expiresAt: now + config.windowMs }
       : current
     bucket.count++
-    buckets.set(bucketKey, bucket)
-    if (bucket.count > options.limit) {
+    bucketStore.set(bucketKey, bucket)
+    if (bucket.count > config.limit) {
       const retryAfter = Math.max(1, Math.ceil((bucket.expiresAt - now) / 1000))
       return context.response(429, { error: "Too Many Requests" }, { "retry-after": String(retryAfter) })
     }
-  })
+  }
+  return (app) => {
+    app.registerRouteFeature("rateLimit", {
+      beforeHandle(value) { return guard(parseRateLimit(value, options), new Map()) }
+    })
+    return app.onBeforeHandle((context) => {
+      // A route value, including `false`, is an explicit override of the
+      // application-level limiter. This keeps inheritance predictable.
+      if (context.route?.features.rateLimit !== undefined) return
+      return guard(options)(context)
+    })
+  }
+}
+
+function parseRateLimit(value: unknown, fallback: RateLimitOptions): RateLimitOptions {
+  if (typeof value === "object" && value !== null) {
+    const candidate = value as Partial<RateLimitOptions>
+    const limit = candidate.limit ?? fallback.limit
+    const windowMs = candidate.windowMs ?? fallback.windowMs
+    if (!Number.isInteger(limit) || limit < 1 || !Number.isFinite(windowMs) || windowMs <= 0) throw new Error("invalid route rateLimit options")
+    return { limit, windowMs, key: candidate.key ?? fallback.key }
+  }
+  if (typeof value === "string") {
+    const match = /^(\d+)\/(s|m|h)$/.exec(value)
+    if (!match) throw new Error(`invalid route rateLimit shorthand: ${value}`)
+    const units = match[2] === "s" ? 1000 : match[2] === "m" ? 60_000 : 3_600_000
+    return { limit: Number(match[1]), windowMs: units, key: fallback.key }
+  }
+  return fallback
 }
 
 export function staticFile(path: string, file: string | URL): (app: Nelysia<any, any, any>) => Nelysia<any, any, any> {

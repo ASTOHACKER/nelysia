@@ -11,6 +11,8 @@ interface Routes {
   "PUT /users/:id": { response: { id: string }; params: { id: string }; body: { name: string } }
   "PATCH /users/:id": { response: { id: string }; params: { id: string }; body: { name?: string }; headers: { "x-request-token": string } }
   "DELETE /users/:id": { response: { deleted: true }; params: { id: string } }
+  "GET /assets/*": { response: { asset: string }; params: { "*": string } }
+  "POST /status": { response: { created: true }; responses: { 201: { created: true }; 422: { error: string } } }
   "HEAD /users": { response: undefined }
   "OPTIONS /users": { response: undefined }
 }
@@ -66,6 +68,19 @@ function compileTimeChecks() {
 }
 void compileTimeChecks
 
+async function statusResponseCompileTimeChecks() {
+  const result = await typeClient.post("/status")
+  const created = await result.json(201)
+  type _CreatedResponse = Expect<Equal<typeof created, { created: true }>>
+  void (null as unknown as _CreatedResponse)
+  const invalid = await result.json(422)
+  type _ErrorResponse = Expect<Equal<typeof invalid, { error: string }>>
+  void (null as unknown as _ErrorResponse)
+  // @ts-expect-error only documented response statuses are accepted
+  await result.json(500)
+}
+void statusResponseCompileTimeChecks
+
 test("typed client maps generated route keys to response types", async () => {
   const originalFetch = globalThis.fetch
   let requestedUrl = ""
@@ -99,11 +114,13 @@ test("typed client supports custom fetch, headers, all methods, and array query 
   })
   await client.patch("/users/:id", { name: "Ada" }, { params: { id: "a/b" }, headers: { "x-request-token": "token" } })
   await client.delete("/users/123", { query: undefined })
+  await client.get("/assets/*", { params: { "*": "docs/readme.md" } })
   assert.equal(calls[0]?.url, "https://api.example.test/users/a%2Fb")
   assert.equal(new Headers(calls[0]?.init.headers).get("x-client"), "test")
   assert.equal(new Headers(calls[0]?.init.headers).get("x-request-token"), "token")
   assert.equal(calls[0]?.init.method, "PATCH")
   assert.equal(calls[1]?.init.method, "DELETE")
+  assert.equal(calls[2]?.url, "https://api.example.test/assets/docs/readme.md")
 })
 
 test("typed client preserves non-JSON error bodies and response metadata", async () => {

@@ -1,5 +1,7 @@
 # Nelysia Roadmap หลัง v0.5.1
 
+> แผนฉบับเต็มที่เป็น source of truth อยู่ที่ [Final Roadmap สู่ v1.0](./roadmap-v1.md)
+
 เอกสารนี้เป็นแผนงานถัดจาก `v0.5.1` และไม่แก้ไขหรือย้าย tag เดิม โดยแบ่งงานเป็น
 milestone แบบ additive จนถึง v1.0
 
@@ -71,9 +73,10 @@ Hot-path change ต้องมี before/after ใน runner เดียวก
 warmup แยก, 30 วินาที × 7 samples, concurrency 50 และรายงาน median/min/max,
 p95/p99, failures, CPU, RSS, heap และ environment
 
-soak gate เริ่มจาก 1M และ 10M requests; evidence ระหว่างทางคือ 30m, 1h และ 6h
-ก่อนพิจารณา 24h. **24-hour soak ยังไม่ทำในรอบนี้ตามที่ผู้ใช้อนุมัติ** และยังไม่
-ประกาศ production readiness จากการมี implementation เพียงอย่างเดียว
+soak gate ของ roadmap ปัจจุบันเริ่มจาก 1M และ 10M requests. หลักฐาน 30m, 1h,
+6h และ 24h เป็น future production evidence แบบเลือกใช้ ไม่ใช่ gate ที่บังคับใน
+v1.0 รอบนี้. **24-hour soak ยังไม่ทำในรอบนี้ตามที่ผู้ใช้อนุมัติ** และยังไม่ประกาศ
+production readiness จากการมี implementation เพียงอย่างเดียว
 
 ## Compatibility policy
 
