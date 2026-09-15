@@ -38,6 +38,7 @@
     "benchmark:oha:bun:listen": "BENCH_SUITE=bun BENCH_ENTRYPOINT=listen node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:oha:bun:listen:short": "BENCH_PORT=4371 BENCH_SUITE=bun BENCH_ENTRYPOINT=listen BENCH_DURATION_SEC=5 BENCH_WARMUP_SEC=2 BENCH_CONCURRENCY=50 BENCH_ROUNDS=3 BENCH_ORDER_SEED=20260916 node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:verify:bun:stabilization": "node spec/scripts/check-bun-parity.mjs docs/benchmark-bun-stabilization-2026-09-16.json docs/benchmark-bun-stabilization-20260917.json docs/benchmark-bun-stabilization-20260918.json",
+    "benchmark:verify:bun:preflight": "node spec/scripts/check-bun-preflight.mjs docs/benchmark-bun-v111-preflight-20260916.json docs/benchmark-bun-v111-preflight-20260917.json docs/benchmark-bun-v111-preflight-20260918.json --generic docs/benchmark-bun-v111-generic-20260916.json",
     "benchmark:oha:node": "BENCH_SUITE=node node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:oha:short": "BENCH_DURATION_SEC=5 BENCH_CONCURRENCY=50 BENCH_ROUNDS=3 node --experimental-strip-types benchmarks/run-oha.ts",
     "benchmark:oha:release": "BENCH_PORT=4370 BENCH_DURATION_SEC=30 BENCH_CONCURRENCY=50 BENCH_ROUNDS=7 node --experimental-strip-types benchmarks/run-oha.ts",

@@ -46,6 +46,35 @@ test("compiled Bun handler matches generic execution (status + body)", async () 
   }
 })
 
+test("generic Bun execution reuses a matching preflight route and context", async () => {
+  let requestHookCalls = 0
+  let handlerCalls = 0
+  const app = new Nelysia({ requestId: false })
+    .onRequest(() => { requestHookCalls++ })
+    .get("/users/:id", ({ params, body }) => {
+      handlerCalls++
+      return { id: params.id, body }
+    })
+  const request = { method: "GET", url: "http://localhost/users/42" }
+  const preflight = await app.preflight(request)
+  assert.equal(preflight.kind, "route")
+  if (preflight.kind !== "route") throw new Error("expected route preflight")
+  assert.equal(preflight.pathname, "/users/42")
+  assert.equal(preflight.method, "GET")
+  const response = await app.handle({ ...request, headers: new Headers(), preflight })
+  assert.deepEqual(response.body, { id: "42", body: undefined })
+  assert.equal(requestHookCalls, 1)
+  assert.equal(handlerCalls, 1)
+
+  const queryApp = new Nelysia({ requestId: false })
+    .get("/search", ({ query }) => ({ value: query.value }))
+  const queryPreflight = await queryApp.preflight({ method: "GET", url: "http://localhost/search?value=first" })
+  assert.equal(queryPreflight.kind, "route")
+  if (queryPreflight.kind !== "route") throw new Error("expected query route preflight")
+  const queryResponse = await queryApp.handle({ method: "GET", url: "http://localhost/search?value=second", headers: new Headers(), preflight: queryPreflight })
+  assert.deepEqual(queryResponse.body, { value: "second" })
+})
+
 test("dispatcher groups dynamics per method and keeps statics O(1)", async () => {
   const own = buildApp()
   const d = compileDispatcher(own)

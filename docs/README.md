@@ -85,6 +85,7 @@
 - [Bun parity JSON](./benchmark-bun-parity-2026-09-16.json) — raw machine-readable output
 - [Bun public `app.listen()` JSON](./benchmark-bun-listen-parity-shuffled-2026-09-16.json) — warmup 2s และ deterministic shuffle
 - [Bun stabilization evidence](./benchmark-bun-stabilization-2026-09-16.md) — pinned baseline, probe และ `no-performance-claim`
+- [Bun preflight-reuse evidence](./benchmark-bun-v111-preflight-2026-09-16.md) — public listener และ generic handler แยก entrypoint
 - [Node regression JSON](./benchmark-node-regression-2026-09-16.json) — Node adapter comparison หลัง Bun-only change
 - [v1.1.x request-count soak](./soak-v11-2026-09-16.md) — 1M/10M evidence; 24h deferred
 - [v0.5 Core oha Report](./benchmark-oha-v05-2026-09-14.md) — release benchmark

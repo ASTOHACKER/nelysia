@@ -91,6 +91,12 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   private readonly fetchMounts: { prefix: string; handler: FetchHandler }[] = []
   private readonly staticRoutes = new Map<string, RouteRecord>()
   private readonly dynamicRoutes = new Map<string, RouteRecord[]>()
+  /**
+   * Minimal-lane decision per route. Route records are composition-time
+   * snapshots (same staleness contract as the compiler dispatcher built at
+   * listen()), so caching avoids ~20 checks + Object.keys/regex per request.
+   */
+  private readonly minimalLaneCache = new WeakMap<RouteRecord, boolean>()
   private readonly mountedRoutes = new Set<RouteRecord>()
   private readonly routeGuardRegistrations: Array<{ guard: RouteGuard; applies: (auth: RouteRecord["auth"]) => boolean }> = []
   private readonly authStrategyProviders = new Map<string, AuthStrategyProvider>()
@@ -932,6 +938,70 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return this.graph.routes
   }
 
+  /**
+   * True when a route can be served without building a full request context.
+   * The handler must be zero-arg or params-only (same shape the compiler's
+   * static-sync/params lanes accept), and nothing else may observe the
+   * request: no hooks, guards, schemas, auth, telemetry, or app-level state.
+   * The visible response is then identical to the generic lane.
+   */
+  private canUseMinimalContext(route: RouteRecord): boolean {
+    const cached = this.minimalLaneCache.get(route)
+    if (cached !== undefined) return cached
+    const eligible = this.checkMinimalContext(route)
+    this.minimalLaneCache.set(route, eligible)
+    return eligible
+  }
+
+  private checkMinimalContext(route: RouteRecord): boolean {
+    if (this.telemetry !== undefined) return false
+    if (this.modulePromises.length > 0 || this.fetchMounts.length > 0) return false
+    if (this.hasGlobalLifecycle || this.hasContextValues || this.hasFetchMounts) return false
+    if (this.hooks.length > 0 || this.requestHooks.length > 0 || this.parseHooks.length > 0) return false
+    if (this.transformHooks.length > 0 || this.mapResponseHooks.length > 0 || this.afterResponseHooks.length > 0) return false
+    if (this.afterHooks.length > 0 || this.errorHandlers.length > 0 || this.contextExtensionHooks.length > 0) return false
+    if (route.auth !== undefined || route.role !== undefined || route.permissions !== undefined) return false
+    if (route.features !== undefined && Object.keys(route.features).length > 0) return false
+    if ((route.routeGuards?.length ?? 0) > 0) return false
+    if ((route.requestHooks?.length ?? 0) > 0 || (route.parseHooks?.length ?? 0) > 0) return false
+    if ((route.mapResponseHooks?.length ?? 0) > 0 || (route.afterResponseHooks?.length ?? 0) > 0) return false
+    if (route.hooks.length > 0 || route.afterHooks.length > 0 || route.errorHandlers.length > 0) return false
+    if (route.bodySchema !== undefined || route.paramsSchema !== undefined || route.querySchema !== undefined) return false
+    if (route.headersSchema !== undefined || route.responseSchema !== undefined) return false
+    if (route.responseSchemas !== undefined && Object.keys(route.responseSchemas).length > 0) return false
+    const handler = route.handler as (...args: never[]) => unknown
+    if (handler.length === 0) return true
+    return /^(?:async\s*)?\(\s*\{\s*params\s*\}\s*\)\s*=>/.test(Function.prototype.toString.call(handler))
+  }
+
+  /**
+   * Serve a minimal-context route: invoke the handler with nothing (zero-arg)
+   * or a bare `{ params }` object and wrap the result exactly like the
+   * generic lane does for hook-free routes (no set.status/headers to merge,
+   * no schemas to validate, no hooks to run). The x-request-id response
+   * contract matches createContext: echoed/generated when enabled.
+   */
+  private async handleMinimalContext(route: RouteRecord, params: Record<string, string>, request: RequestData, method: string): Promise<ResponseData> {
+    const handler = route.handler as (context: { params: Record<string, string> }) => unknown
+    const headers = new Headers()
+    if (this.requestIdEnabled) {
+      headers.set("x-request-id", request.requestId ?? asHeaders(request.headers).get("x-request-id") ?? `req-${method}-${request.url}`)
+    }
+    let result: unknown
+    try {
+      const invoked = handler.length === 0 ? (handler as () => unknown)() : handler({ params })
+      result = invoked instanceof Promise ? await invoked : invoked
+    } catch (error) {
+      if (error instanceof HttpError) return this.response(errorStatusOf(error), error.body ?? { error: error.message })
+      throw error
+    }
+    if (result instanceof HttpError) return this.response(errorStatusOf(result), result.body ?? { error: result.message })
+    if (isResponse(result)) return result
+    if (result instanceof Response) return { status: result.status, headers: mergeHeaders(headers, Object.fromEntries(result.headers.entries())), body: result.body, [responseMarker]: true as const }
+    if (result instanceof ReadableStream) return { status: 200, headers, body: result, [responseMarker]: true as const }
+    return { status: 200, headers, body: result, [responseMarker]: true as const }
+  }
+
   private createContext(request: RequestData, params: Record<string, string>, search: string, method: string): { context: Context; responseHeaders: Headers } {
     const headers = asHeaders(request.headers)
     let requestId = ""
@@ -1052,7 +1122,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
    * handle(), which preserves auth data set by a guard.
    */
   async preflight(request: RequestData): Promise<import("./types.ts").RequestPreflight> {
-    await this.waitForModules()
+    if (this.modulePromises.length > 0) await this.waitForModules()
     const { pathname, search } = splitUrl(request.url)
     const method = fastNormalizeMethod(request.method)
     if (method === undefined) return { kind: "response", response: this.response(400, { error: "Unsupported HTTP method" }) }
@@ -1077,6 +1147,13 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       return { kind: "response", response: await this.handle({ ...request, body: undefined, preflight: undefined }) }
     }
     const params = match?.params ?? {}
+    if (this.canUseMinimalContext(route)) {
+      // No request hooks/guards to run and handle() serves this route without
+      // a full context — skip createContext (URLSearchParams+Proxy, cookie
+      // parse, store). handle() detects the same condition and runs the
+      // minimal lane, so the placeholder context is never observed.
+      return { kind: "route", route, params, context: undefined as unknown as Context, responseHeaders: new Headers(), method, pathname: normalized, search, url: request.url }
+    }
     const { context, responseHeaders } = this.createContext(request, params, search, method)
     context.route = { method: route.method, path: route.path, features: route.features ?? {}, auth: route.auth }
     try {
@@ -1090,7 +1167,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
         if (isResponse(result)) return { kind: "response", response: result }
         if (result instanceof Response) return { kind: "response", response: responseFromNative(result, context.set, responseHeaders) }
       }
-      return { kind: "route", route, params, context, responseHeaders }
+      return { kind: "route", route, params, context, responseHeaders, method, pathname: normalized, search, url: request.url }
     } catch (error) {
       return { kind: "response", response: await this.handleAdapterError(error, { ...request, preflight: undefined }) }
     }
@@ -1158,83 +1235,145 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   }
 
   async handle(request: RequestData): Promise<ResponseData> {
-    await this.waitForModules()
-    const { pathname, search } = splitUrl(request.url)
+    if (this.modulePromises.length > 0) await this.waitForModules()
     const method = fastNormalizeMethod(request.method)
     if (method === undefined) return this.response(400, { error: "Unsupported HTTP method" })
-    const mounted = this.fetchMounts.find((entry) => matchesMount(entry.prefix, pathname))
-    if (mounted !== undefined) {
-      const target = request.rawRequest ?? new Request(toAbsoluteUrl(request.url), {
-        method: request.method,
-        headers: request.headers,
-        body: request.body === undefined || request.body instanceof ReadableStream || request.body instanceof Uint8Array || typeof request.body === "string"
-          ? request.body as BodyInit | null | undefined
-          : JSON.stringify(request.body)
-      })
-      const mountedResponse = await mounted.handler(target)
-      return { status: mountedResponse.status, headers: new Headers(mountedResponse.headers), body: mountedResponse, [responseMarker]: true }
+    // Q1: identical URL string parses identically. When the preflight was made
+    // for this exact URL and method, reuse its normalized triple and skip the
+    // second splitUrl/normalize entirely. Method is still compared because the
+    // same URL can be requested with different methods.
+    const candidate = request.preflight
+    let fastPreflight: Extract<import("./types.ts").RequestPreflight, { kind: "route" }> | undefined
+    let normalized: string
+    let search: string
+    let rawPathname: string
+    if (
+      candidate?.kind === "route" &&
+      candidate.url === request.url &&
+      candidate.method === method &&
+      typeof candidate.pathname === "string" &&
+      typeof candidate.search === "string"
+    ) {
+      fastPreflight = candidate
+      normalized = candidate.pathname
+      search = candidate.search
+      // Mount precedence was already checked by preflight for this exact URL,
+      // so the fallback branch below is unreachable on this path. Parse the
+      // raw pathname lazily only if a future edit needs it.
+      rawPathname = ""
+    } else {
+      fastPreflight = undefined
+      const split = splitUrl(request.url)
+      rawPathname = split.pathname
+      normalized = normalizePathname(split.pathname)
+      search = split.search
     }
-    const lookupMethod = method === "HEAD" ? "GET" : method
-    const normalized = normalizePathname(pathname)
-    // Hot path: O(1) static hit, single-split dynamic lookup within one method.
-    const directRoute = this.staticRoutes.get(`${lookupMethod} ${normalized}`)
+    const pathname = rawPathname
     let route: RouteRecord | undefined
     let params: Record<string, string>
-    if (directRoute !== undefined) {
-      route = directRoute
-      params = {}
+    const reusablePreflight = fastPreflight ?? (request.preflight?.kind === "route"
+      && request.preflight.method === method
+      && request.preflight.pathname === normalized
+      && request.preflight.search === search
+      ? request.preflight
+      : undefined)
+    if (reusablePreflight !== undefined) {
+      // preflight already checked mount precedence, matched this route, and
+      // ran request hooks/guards. Reuse its result instead of matching twice.
+      route = reusablePreflight.route
+      params = reusablePreflight.params
+      // Context-free handlers never touch query/cookies/store/state, so skip
+      // createContext, telemetry, and the lifecycle stages entirely. The
+      // condition mirrors preflight: no hooks, guards, schemas, auth, or
+      // app-level state that could change the visible response.
+      if (this.canUseMinimalContext(route)) return this.handleMinimalContext(route, params, request, method)
     } else {
-      const actual = splitSegments(normalized)
-      const match = lookupDynamicRoute(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, actual)
-      if (match === undefined) {
-        // Cold paths only: 404 / 405. Never scanned on a matched request.
-        const allow = allowedMethodsFor(this.graph.routes, actual)
-        if (method === "OPTIONS") {
-          if (this.hooks.length > 0) {
-            const { context } = this.createContext(request, {}, search, method)
-            for (const hook of this.hooks) {
-              const result = await hook(context)
-              if (isResponse(result)) return result
-              if (result instanceof Response) return responseFromNative(result, context.set)
-            }
-          }
-          return allow !== "OPTIONS"
-            ? this.response(204, undefined, { allow })
-            : this.response(404, { error: "Not Found" })
-        }
-        if (allow !== "OPTIONS") {
-          return this.response(405, { error: "Method Not Allowed" }, { allow })
-        }
-        if (this.notFoundHandler !== undefined) {
-          const { context, responseHeaders } = this.createContext(request, {}, search, method)
-          const result = await this.notFoundHandler(context)
-          if (isResponse(result)) return result
-          if (result instanceof Response) {
-            return {
-              status: context.set.status ?? result.status,
-              headers: mergeHeaders(mergeHeaders(responseHeaders, Object.fromEntries(result.headers.entries())), context.set.headers),
-              body: result.body,
-              [responseMarker]: true as const
-            }
-          }
-          const effectiveStatus = context.set.status ?? 404
-          const effectiveHeaders = Object.keys(context.set.headers).length > 0 ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
-          return { status: effectiveStatus, body: result, headers: effectiveHeaders, [responseMarker]: true as const }
-        }
-        return this.response(404, { error: "Not Found" })
+      const mounted = this.fetchMounts.find((entry) => matchesMount(entry.prefix, pathname))
+      if (mounted !== undefined) {
+        const target = request.rawRequest ?? new Request(toAbsoluteUrl(request.url), {
+          method: request.method,
+          headers: request.headers,
+          body: request.body === undefined || request.body instanceof ReadableStream || request.body instanceof Uint8Array || typeof request.body === "string"
+            ? request.body as BodyInit | null | undefined
+            : JSON.stringify(request.body)
+        })
+        const mountedResponse = await mounted.handler(target)
+        return { status: mountedResponse.status, headers: new Headers(mountedResponse.headers), body: mountedResponse, [responseMarker]: true }
       }
-      route = match.route
-      params = match.params
+      const lookupMethod = method === "HEAD" ? "GET" : method
+      // Hot path: O(1) static hit, single-split dynamic lookup within one method.
+      const directRoute = this.staticRoutes.get(`${lookupMethod} ${normalized}`)
+      if (directRoute !== undefined) {
+        route = directRoute
+        params = {}
+      } else {
+        const actual = splitSegments(normalized)
+        const match = lookupDynamicRoute(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, actual)
+        if (match === undefined) {
+          // Cold paths only: 404 / 405. Never scanned on a matched request.
+          const allow = allowedMethodsFor(this.graph.routes, actual)
+          if (method === "OPTIONS") {
+            if (this.hooks.length > 0) {
+              const { context } = this.createContext(request, {}, search, method)
+              for (const hook of this.hooks) {
+                const result = await hook(context)
+                if (isResponse(result)) return result
+                if (result instanceof Response) return responseFromNative(result, context.set)
+              }
+            }
+            return allow !== "OPTIONS"
+              ? this.response(204, undefined, { allow })
+              : this.response(404, { error: "Not Found" })
+          }
+          if (allow !== "OPTIONS") {
+            return this.response(405, { error: "Method Not Allowed" }, { allow })
+          }
+          if (this.notFoundHandler !== undefined) {
+            const { context, responseHeaders } = this.createContext(request, {}, search, method)
+            const result = await this.notFoundHandler(context)
+            if (isResponse(result)) return result
+            if (result instanceof Response) {
+              return {
+                status: context.set.status ?? result.status,
+                headers: mergeHeaders(mergeHeaders(responseHeaders, Object.fromEntries(result.headers.entries())), context.set.headers),
+                body: result.body,
+                [responseMarker]: true as const
+              }
+            }
+            const effectiveStatus = context.set.status ?? 404
+            const effectiveHeaders = Object.keys(context.set.headers).length > 0 ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
+            return { status: effectiveStatus, body: result, headers: effectiveHeaders, [responseMarker]: true as const }
+          }
+          return this.response(404, { error: "Not Found" })
+        }
+        route = match.route
+        params = match.params
+      }
+    }
+    // Direct handle() calls (app.inject, tests) carry no preflight. Same
+    // minimal lane as above when the route needs no request context.
+    if (reusablePreflight === undefined && route !== undefined && this.canUseMinimalContext(route)) {
+      return this.handleMinimalContext(route, params, request, method)
     }
     const hasTelemetry = this.telemetry !== undefined
     const startedAt = hasTelemetry ? performance.now() : 0
-    const preflight = request.preflight?.kind === "route" && request.preflight.route === route ? request.preflight : undefined
+    const preflight = reusablePreflight ?? (
+      request.preflight?.kind === "route"
+        && request.preflight.route === route
+        && request.preflight.method === undefined
+        && request.preflight.pathname === undefined
+        && request.preflight.search === undefined
+        ? request.preflight
+        : undefined
+    )
     const { context, responseHeaders } = preflight === undefined
       ? this.createContext(request, params, search, method)
       : { context: preflight.context, responseHeaders: preflight.responseHeaders }
     if (preflight !== undefined) {
       context.body = request.body
-      context.request = { ...context.request, ...request, headers: asHeaders(request.headers), body: request.body }
+      // Same visible fields as the previous spread; mutating avoids one object
+      // allocation per reused-preflight request.
+      Object.assign(context.request, request, { headers: asHeaders(request.headers), body: request.body })
     }
     context.route = { method: route.method, path: route.path, features: route.features ?? {}, auth: route.auth }
     const requestId = context.requestId
@@ -1277,24 +1416,32 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
         ? await route.handler(context)
         : await context.executionControl.invoke(() => route.handler(context))
       if (result instanceof HttpError) throw result
-      const effectiveHeaders = Object.keys(context.set.headers).length > 0 ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
+      const hasSetHeaders = Object.keys(context.set.headers).length > 0
+      const effectiveHeaders = hasSetHeaders ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
        let response = isResponse(result)
-        ? (context.set.status !== undefined && result.status === 200 ? { ...result, status: context.set.status, headers: mergeHeaders(result.headers, context.set.headers) } : (Object.keys(context.set.headers).length > 0 ? { ...result, headers: mergeHeaders(result.headers, context.set.headers) } : result))
+        ? (context.set.status !== undefined && result.status === 200 ? { ...result, status: context.set.status, headers: mergeHeaders(result.headers, context.set.headers) } : (hasSetHeaders ? { ...result, headers: mergeHeaders(result.headers, context.set.headers) } : result))
         : result instanceof Response
         ? { status: context.set.status ?? result.status, headers: mergeHeaders(effectiveHeaders, Object.fromEntries(result.headers.entries())), body: result.body, [responseMarker]: true as const }
         : { status: context.set.status ?? 200, body: result, headers: effectiveHeaders, [responseMarker]: true as const }
        const responseSchema = route.responseSchemas?.[String(response.status)] ?? route.responseSchemas?.default ?? (response.status === 200 ? route.responseSchema : undefined)
        if (responseSchema) response.body = await responseSchema.validate(response.body, "response")
-        for (const hook of uniqueIdentity([...(route.mapResponseHooks ?? []), ...this.mapResponseHooks.filter((hook) => !this.localMapResponseHooks.includes(hook))])) {
-         const mapped = await hook(context, response)
-         if (isResponse(mapped)) response = mapped
-         else if (mapped !== undefined) response.body = mapped
-       }
+        // Hot path: benchmark/plain routes register no mapResponse hooks, so skip
+        // the spread/filter/Set allocation entirely. Non-empty case keeps the
+        // exact deduplicated order below.
+        if ((route.mapResponseHooks?.length ?? 0) > 0 || this.mapResponseHooks.length > 0) {
+          for (const hook of uniqueIdentity([...(route.mapResponseHooks ?? []), ...this.mapResponseHooks.filter((hook) => !this.localMapResponseHooks.includes(hook))])) {
+            const mapped = await hook(context, response)
+            if (isResponse(mapped)) response = mapped
+            else if (mapped !== undefined) response.body = mapped
+          }
+        }
        for (const hook of route.afterHooks) await hook(context, response)
        await this.telemetry?.onResponse?.(context, response)
        await this.emitTelemetryEvent({ phase: "response", requestId, method, route: route.path, status: response.status, durationMs: this.telemetryDuration(startedAt) })
        await this.exportTelemetrySpan({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: response.status, durationMs: hasTelemetry ? performance.now() - startedAt : 0 })
-        for (const hook of uniqueIdentity([...(route.afterResponseHooks ?? []), ...this.afterResponseHooks.filter((hook) => !this.localAfterResponseHooks.includes(hook))])) await hook(context, response)
+        if ((route.afterResponseHooks?.length ?? 0) > 0 || this.afterResponseHooks.length > 0) {
+          for (const hook of uniqueIdentity([...(route.afterResponseHooks ?? []), ...this.afterResponseHooks.filter((hook) => !this.localAfterResponseHooks.includes(hook))])) await hook(context, response)
+        }
        await this.emitTelemetryEvent({ phase: "after.response", requestId, method, route: route.path, status: response.status, durationMs: this.telemetryDuration(startedAt) })
       return response
     } catch (error) {

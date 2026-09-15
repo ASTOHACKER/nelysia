@@ -1,0 +1,150 @@
+{
+  "schema": "nelysia.benchmark.v11",
+  "generatedAt": "2026-09-15T20:35:08.242Z",
+  "environment": {
+    "cpu": "AMD Ryzen 5 5600 6-Core Processor",
+    "cores": 12,
+    "node": "v26.8.2",
+    "bun": "1.4.0",
+    "oha": "oha 1.16.0",
+    "os": "linux",
+    "concurrency": 50,
+    "durationSec": 5,
+    "rounds": 5,
+    "warmupSec": 2,
+    "routeSet": "multi",
+    "routeCount": 2,
+    "orderSeed": 20260916,
+    "entrypoint": "handler",
+    "target": "nelysia-bun-standard",
+    "workload": "all"
+  },
+  "results": [
+    {
+      "framework": "Nelysia (Standard Bun Handler)",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 16033.708429228715,
+      "rpsMin": 14700.357276869827,
+      "rpsMax": 16632.759178663324,
+      "avgLatencyMs": 3.1105503764811164,
+      "p50Ms": 2.461717,
+      "p90Ms": 5.7312270000000005,
+      "p95Ms": 7.297943,
+      "p99Ms": 12.251743000000001,
+      "maxLatencyMs": 49.96302,
+      "successRate": 100,
+      "totalRequests": 5.00564173,
+      "failureCount": 0,
+      "throughputMBs": 0.16820029518272003,
+      "serverRssBeforeKb": 70160,
+      "serverRssAfterKb": 81532,
+      "runnerHeapDeltaKb": 4880,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 14700.357276869827,
+          "p95Ms": 8.035703,
+          "p99Ms": 13.532001,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 15827.872517647014,
+          "p95Ms": 7.391922,
+          "p99Ms": 12.498835999999999,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 16632.759178663324,
+          "p95Ms": 6.8784,
+          "p99Ms": 11.015058,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 16144.446026148069,
+          "p95Ms": 7.115684,
+          "p99Ms": 10.727188,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 16033.708429228715,
+          "p95Ms": 7.297943,
+          "p99Ms": 12.251743000000001,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Nelysia (Standard Bun Handler)",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 17192.818153225566,
+      "rpsMin": 16141.71797952842,
+      "rpsMax": 18601.835388736486,
+      "avgLatencyMs": 2.878500112988998,
+      "p50Ms": 2.312151,
+      "p90Ms": 5.4146410000000005,
+      "p95Ms": 6.812283,
+      "p99Ms": 10.650632,
+      "maxLatencyMs": 32.917362,
+      "successRate": 100,
+      "totalRequests": 5.005581334,
+      "failureCount": 0,
+      "throughputMBs": 0.4918904729812307,
+      "serverRssBeforeKb": 69816,
+      "serverRssAfterKb": 80996,
+      "runnerHeapDeltaKb": 747,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 18601.835388736486,
+          "p95Ms": 6.190395,
+          "p99Ms": 9.457271,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 16141.71797952842,
+          "p95Ms": 7.524686,
+          "p99Ms": 12.514696,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 17156.53929430884,
+          "p95Ms": 6.694719,
+          "p99Ms": 10.188198,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 17192.818153225566,
+          "p95Ms": 6.812283,
+          "p99Ms": 10.650632,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 17320.17711108261,
+          "p95Ms": 6.899621,
+          "p99Ms": 10.679928,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "handler"
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-09-15T22:48:14.553Z",
+  "node": "v26.8.2",
+  "platform": "linux 6.18.50-2-cachyos-lts",
+  "cpu": "AMD Ryzen 5 5600 6-Core Processor",
+  "cpuCount": 12,
+  "memoryGb": 23.39,
+  "requestIdPolicy": "disabled for deterministic response comparison",
+  "fuzzCases": 1000,
+  "burstTargets": [
+    10000,
+    50000,
+    100000
+  ],
+  "fuzz": {
+    "failures": 0,
+    "statusMismatches": 0,
+    "injectMs": 0.73,
+    "networkMs": 323.07,
+    "routeMix": {
+      "404": 332,
+      "static": 334,
+      "dynamic": 334
+    }
+  },
+  "bursts": [
+    {
+      "requests": 10000,
+      "failures": 0,
+      "elapsedMs": 22.54,
+      "requestsPerSecond": 443679,
+      "heapBeforeKb": 33002,
+      "heapAfterKb": 44107,
+      "rssBeforeKb": 173228,
+      "rssAfterKb": 182956
+    },
+    {
+      "requests": 50000,
+      "failures": 0,
+      "elapsedMs": 70.33,
+      "requestsPerSecond": 710936,
+      "heapBeforeKb": 44110,
+      "heapAfterKb": 32095,
+      "rssBeforeKb": 182956,
+      "rssAfterKb": 216748
+    },
+    {
+      "requests": 100000,
+      "failures": 0,
+      "elapsedMs": 105.61,
+      "requestsPerSecond": 946857,
+      "heapBeforeKb": 32095,
+      "heapAfterKb": 63533,
+      "rssBeforeKb": 216748,
+      "rssAfterKb": 218668
+    }
+  ],
+  "runtimeErrors": 0,
+  "processExit": "success"
+}

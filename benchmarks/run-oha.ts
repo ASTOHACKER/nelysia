@@ -385,6 +385,14 @@ function tierForTarget(target: TargetConfig): "prebuilt" | "object" | "dynamic" 
   return target.framework.includes("static") ? "prebuilt" : "object"
 }
 
+function entrypointForTarget(target: TargetConfig): "handler" | "listen" {
+  // The standard target intentionally exercises createBunHandler(), even
+  // when the surrounding suite is a public app.listen() run. Keep it out of
+  // the public listener table instead of labelling the generic path as listen.
+  if (target.framework === "nelysia-bun-standard") return "handler"
+  return process.env.BENCH_ENTRYPOINT === "listen" ? "listen" : "handler"
+}
+
 async function main() {
   console.log(`========================================================================`)
   console.log(`  OHA HTTP BENCHMARK SUITE - NELYSIA`)
@@ -414,6 +422,7 @@ async function main() {
 
     const roundResults: Array<{ data: RawOhaJson; before: ProcessMemory; after: ProcessMemory }> = []
     const heapBefore = process.memoryUsage().heapUsed
+    const entrypoint = entrypointForTarget(target)
 
     for (let round = 1; round <= ROUNDS; round++) {
       const isBun = target.command.bin === "bun"
@@ -428,7 +437,8 @@ async function main() {
           PORT: String(PORT),
           BENCH_ROUTE_SET: ROUTE_SET,
           BENCH_ROUTE_COUNT: String(ROUTE_COUNT),
-          BENCH_CASE: target.path.startsWith("/users/") ? "dynamic" : "json"
+          BENCH_CASE: target.path.startsWith("/users/") ? "dynamic" : "json",
+          BENCH_ENTRYPOINT: entrypoint
         },
         stdio: ["ignore", "pipe", "inherit"]
       })
@@ -499,7 +509,7 @@ async function main() {
         failureCount: Math.max(0, Math.round(round.data.summary.total * (1 - round.data.summary.successRate)))
       })),
       tier,
-      entrypoint: process.env.BENCH_ENTRYPOINT === "listen" ? "listen" : "handler"
+      entrypoint
     })
 
     console.log(`✓ ${Math.round(rpsMed).toLocaleString()} req/s (p95: ${p95Med.toFixed(2)}ms)`)
@@ -552,6 +562,7 @@ async function main() {
         routeSet: ROUTE_SET,
         routeCount: ROUTE_COUNT,
         orderSeed: ORDER_SEED,
+        entrypoint: process.env.BENCH_ENTRYPOINT === "listen" ? "listen" : "handler",
         target: TARGET_FILTER ?? "all",
         workload: WORKLOAD_FILTER ?? "all"
       },

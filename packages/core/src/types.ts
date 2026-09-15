@@ -17,7 +17,7 @@ export interface RequestData {
 }
 
 export type RequestPreflight =
-  | { kind: "route"; route: RouteRecord; params: Record<string, string>; context: Context; responseHeaders: Headers }
+  | { kind: "route"; route: RouteRecord; params: Record<string, string>; context: Context; responseHeaders: Headers; method?: string; pathname?: string; search?: string; url?: string }
   | { kind: "response"; response: ResponseData }
 
 export type FetchHandler = (request: Request) => Response | Promise<Response>

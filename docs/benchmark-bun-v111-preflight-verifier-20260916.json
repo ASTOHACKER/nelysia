@@ -1,0 +1,30 @@
+{
+  "schema": "nelysia.bun.preflight-verifier.v1",
+  "status": "no-performance-claim",
+  "requiredPublicSeeds": 3,
+  "observedPublicSeeds": 3,
+  "genericSamples": 1,
+  "correctness": {
+    "failures": 0,
+    "statusMismatch": 0,
+    "bodyMismatch": 0
+  },
+  "parity": [
+    {
+      "seed": 20260916,
+      "zeroArgVsElysia": 0.0386070658,
+      "dynamicVsElysia": 0.0828685544
+    },
+    {
+      "seed": 20260917,
+      "zeroArgVsElysia": -0.2041274064,
+      "dynamicVsElysia": -0.0399587515
+    },
+    {
+      "seed": 20260918,
+      "zeroArgVsElysia": 0.0036853076,
+      "dynamicVsElysia": 0.000758199
+    }
+  ],
+  "policy": "Correctness evidence is valid, but parity is not within +/-2% for all three seeds; do not claim speedup."
+}
