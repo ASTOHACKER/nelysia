@@ -1,6 +1,6 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 1.1.0 (package และ GitHub Release ปัจจุบัน)
+> **เวอร์ชัน:** 1.2.0 (package และ GitHub Release ปัจจุบัน)
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
 
@@ -12,20 +12,21 @@ Reference แบบแยกหมวดที่เปิดอ่าน offlin
 [ภาพรวม authentication](./auth/overview.md), [JWT](./auth/jwt.md),
 [Better Auth](./auth/better-auth.md), [session](./auth/session.md),
 [roles และ permissions](./auth/roles-permissions.md) และ [การเขียน plugin](./plugins/authoring-plugins.md)
-โดยแต่ละหน้ารวมภาษาอังกฤษและไทยของ contract v1.0 ที่ freeze แล้ว และการแก้ไขแบบ additive ใน v1.1.0
+โดยแต่ละหน้ารวมภาษาอังกฤษและไทยของ contract v1.0 ที่ freeze แล้ว การแก้ไขแบบ additive ใน v1.1.x และการ reuse route-preflight ของ generic Bun ใน v1.2.0
 
 สำหรับเส้นทาง version ตั้งแต่ v0.6 ถึง v1.0 และ public contract ที่เตรียม freeze
 ให้ดู [Nelysia v1.0 Guide](./v1.0.md) ซึ่งแยกสถานะ workspace ที่ตรวจผ่านออกจาก
 สถานะ package/release ที่ publish แล้วอย่างชัดเจน
 
 ฟีเจอร์ additive หลัง v0.5.1 รวมอยู่ใน release v1.0.0 แล้ว และ v1.1.0 เพิ่มการแก้
-runtime correctness/stabilization แบบไม่ทำลาย compatibility โดย public API ยังคง
+runtime correctness/stabilization แบบไม่ทำลาย compatibility ส่วน v1.2.0 เพิ่ม
+การ reuse route-preflight ของ generic Bun โดย public API ยังคง
 freeze แล้ว ส่วนประวัติแผนงานอยู่ที่
 [`roadmap-after-v051.md`](./roadmap-after-v051.md) โดย worktree ปัจจุบันมี
 subpath สำหรับ production contract ได้แก่ `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache` และ `@narudom96/nelysia/health` แล้ว แต่ยังคง
-package line เป็น v1.1.0
+package line เป็น v1.2.0
 
 ตัวอย่างที่รันได้: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts) และ

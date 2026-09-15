@@ -4,6 +4,23 @@ All notable changes to Nelysia are documented here. Benchmark figures are
 release evidence for the stated host and workload, not universal performance
 claims.
 
+## [1.2.0] — 2026-09-16
+
+The generic Bun path (`app.handle()` / `createBunHandler()`) reuses a matching
+route preflight result instead of matching the same request a second time. A
+mismatch falls back to the normal matcher. Auth, request hooks, body parsing,
+schema validation, lifecycle hooks, and error handling are unchanged.
+
+### Verification status
+
+Node/Bun tests (191/191), typecheck, short regression matrix (32/32 workloads,
+0 failures), runtime contract gate (1,000 fuzz cases, 0 mismatches, bursts to
+100k with 0 failures), and fresh oha-short evidence (Bun public `app.listen()`
+inside the ±2% single-run parity window; Node adapter −5 to −9% vs Raw Node,
+kept as regression baseline) passed on the recorded host. The strict
+three-seed stability gate is still required to lift `no-performance-claim`.
+The 24-hour soak remains deferred.
+
 ## [1.1.0] — 2026-09-16
 
 This release contains the additive runtime-correctness, adapter-parity,

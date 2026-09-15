@@ -1,6 +1,6 @@
 # Nelysia Documentation Map
 
-> Current package line: `v1.1.0` · Node.js 22+ · Bun 1.4+
+> Current package line: `v1.2.0` · Node.js 22+ · Bun 1.4+
 
 หน้านี้เป็นจุดเริ่มต้นของเอกสารทั้งหมด เอกสารแบ่งตามคำถามที่ต้องการตอบ
 เพื่อไม่ให้คู่มือใช้งานปะปนกับ roadmap หรือ benchmark evidence

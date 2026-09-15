@@ -1,6 +1,6 @@
 # Nelysia: Comprehensive Technical Documentation
 
-> **Version:** 1.1.0 (Current package and GitHub Release)
+> **Version:** 1.2.0 (Current package and GitHub Release)
 > **Target Runtimes:** Bun 1.4+, Node.js 22+, and Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **Language:** TypeScript / JavaScript (ESM)
 
@@ -12,21 +12,22 @@ options](./core/route-options.md), [errors](./core/errors.md), [authentication
 overview](./auth/overview.md), [JWT](./auth/jwt.md), [Better Auth](./auth/better-auth.md),
 [sessions](./auth/session.md), [roles and permissions](./auth/roles-permissions.md),
 and [plugin authoring](./plugins/authoring-plugins.md). Each page contains
-English and Thai guidance for the frozen v1.0 contract plus additive v1.1.0 runtime fixes.
+English and Thai guidance for the frozen v1.0 contract plus additive v1.1.x runtime fixes and the v1.2.0 generic-Bun preflight-reuse optimization.
 
 For the complete version path and frozen public contract, see the
 [Nelysia v1.0 Guide](./v1.0.md). It explains what is verified in the workspace
 versus what has or has not been published as a package release.
 
 The post-v0.5.1 additive work was included in the v1.0.0 release. The v1.1.0
-runtime correctness and stabilization work is additive; the public API contract
+runtime correctness and stabilization work is additive, and v1.2.0 adds
+generic-Bun route-preflight reuse; the public API contract
 remains frozen and future capabilities must be additive within 1.x. Historical
 milestones are documented in
 [`roadmap-after-v051.md`](./roadmap-after-v051.md). The current package also
 exports production contracts from `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache`, and `@narudom96/nelysia/health`; these remain on the
-v1.1.0 package line.
+v1.2.0 package line.
 
 Runnable examples: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts), and

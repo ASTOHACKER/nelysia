@@ -10,14 +10,14 @@
 
 ## Install
 
-> **Current release:** `@narudom96/nelysia@1.1.0` is available as a GitHub Release
+> **Current release:** `@narudom96/nelysia@1.2.0` is available as a GitHub Release
 > tarball. The v1.0 API contract and v0.6–v0.9 verification gates are recorded; the separate
 > 24-hour production-readiness soak is intentionally deferred, and npm publication is pending.
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.1.0/narudom96-nelysia-1.1.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.0/narudom96-nelysia-1.2.0.tgz
 or
-curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v1.1.0/narudom96-nelysia-1.1.0.tgz'
+curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.0/narudom96-nelysia-1.2.0.tgz'
 
 npm install ./nelysia.tgz
 ```
@@ -26,7 +26,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (when the v1.1.0 package is published)
+# registry install (when the v1.2.0 package is published)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -43,7 +43,7 @@ Use this while the package is not yet (or whenever it is not) on the npm registr
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.1.0/narudom96-nelysia-1.1.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.0/narudom96-nelysia-1.2.0.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -52,10 +52,10 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v1.1.0/narudom96-nelysia-1.1.0.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.0/narudom96-nelysia-1.2.0.tgz
 ```
 
-Replace `v1.1.0` / the filename with the latest release you see on the releases page.
+Replace `v1.2.0` / the filename with the latest release you see on the releases page.
 
 ```ts
 // app.ts
@@ -64,7 +64,7 @@ import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
   .use(cors())
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.1.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.2.0!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "all"
