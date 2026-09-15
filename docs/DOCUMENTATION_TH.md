@@ -7,6 +7,13 @@
 เริ่มจาก [แผนผังเอกสาร](./README.md) เพื่อเลือกคู่มือ, สถานะ release หรือ
 รายงาน benchmark ที่ต้องการได้เร็วขึ้น
 
+Reference แบบแยกหมวดที่เปิดอ่าน offline ได้: [versioning](./reference/versioning.md),
+[route options](./core/route-options.md), [errors](./core/errors.md),
+[ภาพรวม authentication](./auth/overview.md), [JWT](./auth/jwt.md),
+[Better Auth](./auth/better-auth.md), [session](./auth/session.md),
+[roles และ permissions](./auth/roles-permissions.md) และ [การเขียน plugin](./plugins/authoring-plugins.md)
+โดยแต่ละหน้ารวมภาษาอังกฤษและไทยของ contract v1.0.0 เดียวกัน
+
 สำหรับเส้นทาง version ตั้งแต่ v0.6 ถึง v1.0 และ public contract ที่เตรียม freeze
 ให้ดู [Nelysia v1.0 Guide](./v1.0.md) ซึ่งแยกสถานะ workspace ที่ตรวจผ่านออกจาก
 สถานะ package/release ที่ publish แล้วอย่างชัดเจน

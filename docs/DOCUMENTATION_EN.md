@@ -7,6 +7,13 @@
 Use the [Documentation Map](./README.md) to choose the right guide, status
 page, or benchmark report.
 
+Focused offline references: [versioning](./reference/versioning.md), [route
+options](./core/route-options.md), [errors](./core/errors.md), [authentication
+overview](./auth/overview.md), [JWT](./auth/jwt.md), [Better Auth](./auth/better-auth.md),
+[sessions](./auth/session.md), [roles and permissions](./auth/roles-permissions.md),
+and [plugin authoring](./plugins/authoring-plugins.md). Each page contains
+English and Thai guidance for the same v1.0.0 contract.
+
 For the complete version path and frozen public contract, see the
 [Nelysia v1.0 Guide](./v1.0.md). It explains what is verified in the workspace
 versus what has or has not been published as a package release.
@@ -1769,8 +1776,8 @@ npm run benchmark:oha:release
 # Short v1.0 regression matrix (route counts 1/10/100/500)
 npm run benchmark:short
 
-# Current v0.6 workspace gate (does not run the deferred 24-hour soak)
-npm run release:check:v06
+# Current v1.0 release-line verification gate (does not run the deferred 24-hour soak)
+npm run release:check:v1
 # If the default base port 4321 is occupied:
 BENCH_PORT=4341 npm run benchmark:oha
 
@@ -1987,7 +1994,7 @@ Per-request cost ranking (most to least expensive): JSON body parsing → schema
 
 ## 22. Production Deployment Checklist
 
-- [x] The current non-24-hour v0.6 workspace-gate constituents are recorded as passing (typecheck + Node/Bun tests + package/tarball/import/deployment checks + benchmark/runtime gates + 1M/10M soak + Deno check + audit); run `npm run release:check:v06` to execute them together.
+- [x] The current non-24-hour v1.0 release-line constituents are recorded as passing (typecheck + Node/Bun tests + package/tarball/import/deployment checks + benchmark/runtime gates + 1M/10M soak + Deno check + audit); run `npm run release:check:v1` to execute them together. The v0.6 command is retained as historical compatibility.
 - [x] `npm run framework:check` passes after installing the five framework fixtures.
 - [ ] Check dispatcher coverage: build and read `NELY003` in `dist/manifest.json` — hot routes should be on the fast path.
 - [ ] Set `bodyLimit` for your largest payload; keep `trustedProxy: false` unless you control the proxy.

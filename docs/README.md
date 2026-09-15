@@ -33,6 +33,32 @@
 - [Platform Examples](./platform-examples.md) — Next.js, Nuxt, SvelteKit, Astro, TanStack Start
 - [Elysia Parity](./elysia-parity.md) — parity ที่ตั้งใจรองรับและสิ่งที่ไม่ copy
 
+## Modular Reference / Reference แบบแยกหมวด
+
+เอกสารกลุ่มนี้เป็น bilingual reference ที่เปิดจาก `file://` ได้ และเป็น source
+สำหรับรายละเอียดที่ต้องค้นบ่อย โดยไม่ทำซ้ำเนื้อหายาวในหน้า portal
+
+### Core
+
+- [Route Options](./core/route-options.md) — schema, metadata, inheritance และ fallback
+- [Errors](./core/errors.md) — `HttpError`, status, `onError` และ typed errors
+
+### Authentication / การยืนยันตัวตน
+
+- [Authentication Overview](./auth/overview.md) — เลือก JWT, session หรือ Better Auth
+- [JWT](./auth/jwt.md) — strict HS256 และ typed claims
+- [Better Auth](./auth/better-auth.md) — catch-all handler และ session resolver
+- [Session](./auth/session.md) — cookie/store/session API
+- [Roles & Permissions](./auth/roles-permissions.md) — authorization และ `403`
+
+### Plugins
+
+- [Authoring Plugins](./plugins/authoring-plugins.md) — สร้าง plugin ที่ typed, scoped และปลอดภัย
+
+### Release
+
+- [Versioning](./reference/versioning.md) — current release, historical releases และ policy หลัง v1.0
+
 ## สถานะและแผนงาน
 
 - [Release Status](./release-status.md) — checklist และ gate ที่ผ่าน/ยังค้าง
@@ -58,7 +84,7 @@
 - [Historical 10-round Snapshot](./benchmark-10-rounds.md)
 - [Historical 100-round Snapshot](./benchmark-100-rounds.md)
 - [1M/10M Soak Report](./soak-roadmap-rerun-2026-09-14.md)
-- [Current 1M/10M Soak Evidence](./soak-roadmap-rerun-2026-09-15.md) — fresh request-count gates after v0.6 changes
+- [Current 1M/10M Soak Evidence](./soak-roadmap-rerun-2026-09-15.md) — request-count gates recorded for the v1.0 release line
 - [Runtime Contract Evidence](./benchmark-runtime-contract-2026-09-15.md) — inject/network parity, fuzz and memory bursts
 - [Original Soak Report](./soak-v05-2026-09-14.md)
 - [Compatibility Snapshot](./benchmark-oha-2026-09-14.md)
@@ -100,9 +126,9 @@ npm run docs:check
 npm run framework:check
 npm run benchmark:short
 npm run benchmark:runtime
-npm run release:check:v06
+npm run release:check:v06 # historical v0.6 gate
 
-# Milestone gates (workspace API contract is frozen; release tags remain separate)
+# Current v1.0 release-line checks
 npm run release:check:v07
 npm run release:check:v08
 npm run release:check:v09

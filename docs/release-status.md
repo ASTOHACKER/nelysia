@@ -123,10 +123,11 @@ The milestone commands are `release:check:v07`, `release:check:v08`,
 `release:check:v09`, and `release:check:v1`; they validate the release evidence
 but do not create separate milestone tags.
 
-The current additive v0.6 workspace gate is `npm run release:check:v06`. It
-includes the type/test, package/tarball/import, deployment, framework,
+The current v1.0 release-line verification gate is `npm run release:check:v1`.
+It includes the type/test, package/tarball/import, deployment, framework,
 benchmark, 1M/10M soak, Deno, documentation, audit, and diff checks; it does
-not invoke the deferred 24-hour soak. The older `release:check` and
+not invoke the deferred 24-hour soak. The v0.6 command remains available as
+historical compatibility. The older `release:check` and
 `release:check:v05` commands remain available for historical compatibility.
 
 After the latest additive macro-composition, typed path-parameter, generated

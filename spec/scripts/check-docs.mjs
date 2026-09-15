@@ -1,27 +1,51 @@
-import { readFile } from "node:fs/promises"
+import { readFile, stat } from "node:fs/promises"
 import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const packageJson = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 const root = fileURLToPath(new URL("../..", import.meta.url))
 const indexPath = resolve(root, "docs/index.html")
-const docs = await Promise.all([
-  readFile(new URL("../../README.md", import.meta.url), "utf8"),
-  readFile(new URL("../../docs/DOCUMENTATION_EN.md", import.meta.url), "utf8"),
-  readFile(new URL("../../docs/DOCUMENTATION_TH.md", import.meta.url), "utf8"),
-  readFile(new URL("../../docs/ARCHITECTURE.md", import.meta.url), "utf8"),
-  readFile(new URL("../../docs/release-status.md", import.meta.url), "utf8"),
-  readFile(new URL("../../docs/index.html", import.meta.url), "utf8")
-])
+const documentationFiles = [
+  "README.md",
+  "docs/README.md",
+  "docs/DOCUMENTATION_EN.md",
+  "docs/DOCUMENTATION_TH.md",
+  "docs/ARCHITECTURE.md",
+  "docs/release-status.md",
+  "docs/index.html",
+  "docs/reference/versioning.md",
+  "docs/core/route-options.md",
+  "docs/core/errors.md",
+  "docs/auth/overview.md",
+  "docs/auth/jwt.md",
+  "docs/auth/better-auth.md",
+  "docs/auth/session.md",
+  "docs/auth/roles-permissions.md",
+  "docs/plugins/authoring-plugins.md"
+]
+const docs = await Promise.all(documentationFiles.map((file) => readFile(resolve(root, file), "utf8")))
 const text = docs.join("\n")
 const failures = []
 const html = await readFile(indexPath, "utf8")
+const currentVersion = `v${packageJson.version}`
+
+for (const file of ["README.md", "docs/README.md", "docs/DOCUMENTATION_EN.md", "docs/DOCUMENTATION_TH.md", "docs/index.html", "docs/reference/versioning.md"]) {
+  if (!textFor(file).includes(currentVersion)) failures.push(`current version is missing from ${file}: ${currentVersion}`)
+}
 
 for (const exportPath of Object.keys(packageJson.exports)) {
   const specifier = exportPath === "." ? packageJson.name : `${packageJson.name}${exportPath.slice(1)}`
   if (!text.includes(specifier)) failures.push(`missing documented export: ${specifier}`)
 }
-for (const stale of ["sourceToSource: false", "arbitrary source-to-source route generation remains deferred", "supported static and params-only GET routes produce a standalone artifact"]) {
+for (const stale of [
+  "sourceToSource: false",
+  "arbitrary source-to-source route generation remains deferred",
+  "supported static and params-only GET routes produce a standalone artifact",
+  "Contract frozen; release pending",
+  "Current v0.6 workspace gate",
+  "current non-24-hour v0.6 workspace-gate",
+  "current additive v0.6 workspace gate"
+]) {
   if (text.includes(stale)) failures.push(`stale documentation claim: ${stale}`)
 }
 if (!text.includes("NELY101") || !text.includes("NELY111")) failures.push("compiler reason-code range is not documented")
@@ -56,6 +80,33 @@ for (const [, href] of localLinks) {
   if (!hasMarkdownAnchor(target, fragment)) failures.push(`missing documentation anchor: ${href}`)
 }
 
+// Validate local Markdown links in the modular reference pages as well. These
+// pages are intentionally usable from file:// without a network connection.
+for (const file of documentationFiles.filter((value) => value.startsWith("docs/") && value.endsWith(".md"))) {
+  const source = textFor(file)
+  for (const [, href] of source.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
+    if (href.startsWith("http:") || href.startsWith("https:") || href.startsWith("mailto:") || href.startsWith("#")) continue
+    const [rawTarget, rawFragment] = href.split("#", 2)
+    const targetPath = resolve(root, file.substring(0, file.lastIndexOf("/")), rawTarget)
+    let target
+    try {
+      const metadata = await stat(targetPath)
+      if (metadata.isDirectory()) continue
+      target = await readFile(targetPath, "utf8")
+    } catch {
+      failures.push(`broken modular documentation link: ${file} -> ${href}`)
+      continue
+    }
+    if (rawFragment) {
+      const fragment = decodeURIComponent(rawFragment)
+      const anchorExists = targetPath.endsWith(".html")
+        ? new RegExp(`\\b(?:id|name)=["']${escapeRegExp(fragment)}["']`).test(target)
+        : hasMarkdownAnchor(target, fragment)
+      if (!anchorExists) failures.push(`missing modular documentation anchor: ${file} -> ${href}`)
+    }
+  }
+}
+
 const copyBars = (html.match(/class="code-bar"/g) ?? []).length
 const copyButtons = (html.match(/navigator\.clipboard\?\.writeText|navigator\.clipboard\.writeText/g) ?? []).length
 if (copyBars === 0 || copyButtons === 0) failures.push("code-copy controls are not wired")
@@ -69,6 +120,10 @@ if (failures.length > 0) {
   process.exitCode = 1
 } else {
   console.log(`documentation check passed for ${Object.keys(packageJson.exports).length} package exports, ${localLinks.length} local portal links, ${copyBars} copy controls, and EN/TH content`)
+}
+
+function textFor(file) {
+  return docs[documentationFiles.indexOf(file)] ?? ""
 }
 
 function hasMarkdownAnchor(source, fragment) {
@@ -86,4 +141,8 @@ function markdownSlug(value) {
     .replace(/[^\p{L}\p{N}\s_-]/gu, "")
     .trim()
     .replace(/\s+/g, "-")
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }

@@ -2403,6 +2403,8 @@
           <a href="#responses"><span data-lang="en">Responses & Streaming</span><span data-lang="th">Response และ Streaming</span></a>
           <a href="#validation"><span data-lang="en">Schema Validation</span><span data-lang="th">การตรวจสอบ Schema</span></a>
           <a href="#lifecycle"><span data-lang="en">Lifecycle Hooks</span><span data-lang="th">Lifecycle & Hooks</span></a>
+          <a href="core/route-options.md"><span data-lang="en">Route Options Reference ↗</span><span data-lang="th">Reference Route Options ↗</span></a>
+          <a href="core/errors.md"><span data-lang="en">Errors Reference ↗</span><span data-lang="th">Reference Errors ↗</span></a>
         </div>
 
         <div class="nav-group">
@@ -2427,6 +2429,11 @@
           <a href="#database"><span data-lang="en">Databases (Drizzle & Prisma)</span><span data-lang="th">ฐานข้อมูล (Drizzle & Prisma)</span></a>
           <a href="#jwt"><span data-lang="en">JWT Auth</span><span data-lang="th">ยืนยันตัวตน JWT</span></a>
           <a href="#auth"><span data-lang="en">Better Auth</span><span data-lang="th">ยืนยันตัวตน Better Auth</span></a>
+          <a href="auth/overview.md"><span data-lang="en">Auth Decision Guide ↗</span><span data-lang="th">คู่มือเลือก Auth ↗</span></a>
+          <a href="auth/jwt.md"><span data-lang="en">JWT Reference ↗</span><span data-lang="th">Reference JWT ↗</span></a>
+          <a href="auth/better-auth.md"><span data-lang="en">Better Auth Reference ↗</span><span data-lang="th">Reference Better Auth ↗</span></a>
+          <a href="auth/session.md"><span data-lang="en">Session Reference ↗</span><span data-lang="th">Reference Session ↗</span></a>
+          <a href="auth/roles-permissions.md"><span data-lang="en">Roles & Permissions ↗</span><span data-lang="th">Roles และ Permissions ↗</span></a>
         </div>
 
         <div class="nav-group">
@@ -2447,6 +2454,7 @@
           <a href="#client"><span data-lang="en">Client SDK</span><span data-lang="th">Client SDK</span></a>
           <a href="#compiler"><span data-lang="en">Compiler Platform & CLI</span><span data-lang="th">คอมไพเลอร์ & CLI</span></a>
           <a href="#exports"><span data-lang="en">Package Exports</span><span data-lang="th">Package Exports</span></a>
+          <a href="plugins/authoring-plugins.md"><span data-lang="en">Authoring Plugins ↗</span><span data-lang="th">เขียน Plugin ↗</span></a>
         </div>
 
         <div class="nav-group">
@@ -2478,6 +2486,7 @@
           <a href="#migration"><span data-lang="en">Migration Guides</span><span data-lang="th">คู่มือการย้ายโค้ด</span></a>
           <a href="#v1-roadmap"><span data-lang="en">v1.0 Contract & Status</span><span data-lang="th">Contract และสถานะ v1.0</span></a>
           <a href="#api-reference"><span data-lang="en">Complete API Reference</span><span data-lang="th">API Reference ฉบับครบ</span></a>
+          <a href="reference/versioning.md"><span data-lang="en">Versioning & Release Truth ↗</span><span data-lang="th">Versioning และสถานะ Release ↗</span></a>
         </div>
       </nav>
 
@@ -6088,11 +6097,11 @@ ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --ex
                 </tr>
               </thead>
               <tbody>
-                <tr><td><code>v0.6</code></td><td>Strict types, context storage, lifecycle, metadata, typed DX</td><td class="status">Current package</td></tr>
+                <tr><td><code>v0.6</code></td><td>Strict types, context storage, lifecycle, metadata, typed DX</td><td class="status">Historical release</td></tr>
                 <tr><td><code>v0.7</code></td><td>Providers, auth semantics, typed inject/client, response/server DX</td><td class="status">Workspace gate passed</td></tr>
                 <tr><td><code>v0.8</code></td><td>Schema IR, generated validation/serialization, compiler lanes</td><td class="status">Workspace gate passed</td></tr>
                 <tr><td><code>v0.9</code></td><td>Production modules, CLI, package/runtime/deployment evidence</td><td class="status">Workspace gate passed</td></tr>
-                <tr><td><code>v1.0</code></td><td>Routing, Context, Options, Schema, Auth, Plugins, Lifecycle, Errors, Server, Inject, Client</td><td class="status">Contract frozen; release pending</td></tr>
+                <tr><td><code>v1.0</code></td><td>Routing, Context, Options, Schema, Auth, Plugins, Lifecycle, Errors, Server, Inject, Client</td><td class="status">Public release v1.0.0</td></tr>
               </tbody>
             </table>
           </div>
@@ -6107,6 +6116,12 @@ ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --ex
           </ul>
           <p data-lang="th">ดู contract, code examples, CLI workflow, compatibility policy และ release gates แบบเต็มได้ใน <a href="v1.0.md">Nelysia v1.0 Guide</a> และตรวจรายการ freeze ได้ที่ <a href="api-freeze-checklist.md">API Freeze Checklist</a></p>
           <p data-lang="en">For the complete offline guide, open <a href="v1.0.md">Nelysia v1.0 Guide</a>. The milestone source of truth remains <a href="roadmap-v1.md">roadmap-v1.md</a>.</p>
+          <div class="callout info">
+            <b data-lang="en">Focused offline references</b>
+            <b data-lang="th">Reference แบบแยกหมวดสำหรับอ่าน offline</b>
+            <span data-lang="en"><a href="core/route-options.md">Route options</a> · <a href="core/errors.md">Errors</a> · <a href="auth/overview.md">Auth overview</a> · <a href="auth/jwt.md">JWT</a> · <a href="auth/better-auth.md">Better Auth</a> · <a href="auth/session.md">Session</a> · <a href="auth/roles-permissions.md">Roles & permissions</a> · <a href="plugins/authoring-plugins.md">Plugin authoring</a> · <a href="reference/versioning.md">Versioning</a></span>
+            <span data-lang="th"><a href="core/route-options.md">Route options</a> · <a href="core/errors.md">Errors</a> · <a href="auth/overview.md">ภาพรวม Auth</a> · <a href="auth/jwt.md">JWT</a> · <a href="auth/better-auth.md">Better Auth</a> · <a href="auth/session.md">Session</a> · <a href="auth/roles-permissions.md">Roles และ permissions</a> · <a href="plugins/authoring-plugins.md">การเขียน plugin</a> · <a href="reference/versioning.md">Versioning</a></span>
+          </div>
         </section>
 
         <!-- 30. Production Checklist -->
@@ -6125,7 +6140,7 @@ ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --ex
                 </tr>
               </thead>
               <tbody>
-                <tr><td>☑</td><td><code>npm run release:check:v06</code> <span data-lang="en">is the current non-24-hour v0.6 workspace gate; its constituent checks are recorded below.</span><span data-lang="th">เป็นคำสั่ง v0.6 workspace gate ปัจจุบันที่ไม่รวม 24 ชั่วโมง และมีผล constituent checks บันทึกไว้ด้านล่าง</span></td></tr>
+                <tr><td>☑</td><td><code>npm run release:check:v1</code> <span data-lang="en">is the current v1.0 release-line verification gate; its constituent checks are recorded below.</span><span data-lang="th">เป็นคำสั่งตรวจสอบ release line v1.0 ปัจจุบัน และมีผล constituent checks บันทึกไว้ด้านล่าง</span></td></tr>
                 <tr><td>☑</td><td><code>npm run framework:check</code> <span data-lang="en">passes for all five framework fixtures after their dependencies are installed.</span><span data-lang="th">ผ่านสำหรับ framework fixture ทั้ง 5 ตัวหลังติดตั้ง dependency แล้ว</span></td></tr>
                 <tr><td>☐</td><td><span data-lang="en">Hot routes on fast path — check <code>NELY003</code> in <code>dist/manifest.json</code>.</span><span data-lang="th">route ร้อนอยู่บน fast path — ดู <code>NELY003</code> ใน <code>dist/manifest.json</code></span></td></tr>
                 <tr><td>☐</td><td><code>bodyLimit</code> <span data-lang="en">fits largest payload;</span> <code>trustedProxy</code> <span data-lang="en">only behind your proxy.</span><span data-lang="th">พอดี payload ใหญ่สุด; เปิด <code>trustedProxy</code> เฉพาะหลัง proxy ตัวเอง</span></td></tr>
@@ -6351,8 +6366,8 @@ npm run soak:6h
 npm run build -- ./examples/hello/app.ts --target bun
 npm run build -- ./examples/hello/app.ts --target node
 
-<span class="com"># Current v0.6 verification gate (does not run 24h soak):</span>
-npm run release:check:v06
+<span class="com"># Current v1.0 release-line verification gate (does not run 24h soak):</span>
+npm run release:check:v1
 npm run framework:check</code></pre>
           </div>
 
