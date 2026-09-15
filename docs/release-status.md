@@ -34,7 +34,7 @@ one set exceeded the ±2% threshold.
 The v0.7–v0.9 work was delivered as part of the single `v1.0.0` release; separate
 milestone tags are not required. The 24-hour soak remains intentionally deferred.
 
-## v1.1.x Worktree (not released)
+## v1.1.x Historical Worktree Notes
 
 - [x] v1.1.0 request preflight: route/mount match and auth/guards run before body parsing
 - [x] Shared bounded Web body parser with case-insensitive JSON and `application/*+json`
@@ -45,7 +45,7 @@ milestone tags are not required. The 24-hour soak remains intentionally deferred
 - [x] Package build/imports, packed consumer, deployment smoke `5/5`, framework fixtures `5/5`, docs check and audit
 - [x] Short all-framework evidence with the same `oha 1.16.0` runner; Bun/Node machine-readable JSON recorded
 - [ ] Bun zero-arg/object stability gate: the prior 5s × 3 canonical run was within `±2%`, but the pinned 5s × 5 follow-up baseline was `-2.57%`; three consecutive passing sets are not established and the stabilization report records `no-performance-claim`
-- [ ] v1.1.0/v1.1.1 package version bump, commit, tag, GitHub Release and npm publication (separate release action)
+- [x] v1.1.0 package version bump, commit, tag, and GitHub Release completed; npm publication remains separate
 - [x] 1M/10M soak evidence for v1.1.1 ([soak-v11-2026-09-16.md](./soak-v11-2026-09-16.md)); 24-hour soak remains deferred
 
 Current source is package version `1.1.0`; the latest short benchmark

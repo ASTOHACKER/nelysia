@@ -51,4 +51,7 @@ an idle, thermally stable runner before attributing the gap to Nelysia.
 - Next action: rerun the three-seed matrix on an isolated/idle runner, or use a
   direct server-process profiler before changing `fastJson`, lookup, or the
   Bun server boundary.
-- Release: do not bump version, publish, tag, or announce performance parity.
+- Release decision at benchmark capture time: do not announce performance parity.
+  The later `v1.1.0` release contains this evidence and keeps the
+  `no-performance-claim` status; it does not treat the failed stability gate as
+  a speedup claim.
