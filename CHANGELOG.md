@@ -6,8 +6,13 @@ claims.
 
 ## [Unreleased] — Next Workspace
 
-This workspace contains the documentation-truth pass and the Win Matrix
-release gate for the v1.2.0 package line. It adds the shared Bun/Node/Fetch
+Future work remains reserved for completing the Win Matrix and 24-hour soak.
+No performance or production-readiness claim is implied.
+
+## [1.2.1] — 2026-09-17
+
+This GitHub-only release contains the documentation-truth pass and the Win
+Matrix release gate for the v1.2.1 package line. It adds the shared Bun/Node/Fetch
 evidence contract, verifier wiring, and Hybrid AOT execution-plan tracking.
 
 No release, production-readiness, or universal performance claim is made by

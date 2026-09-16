@@ -41,7 +41,7 @@ for (const file of ["README.md", "docs/README.md", "docs/DOCUMENTATION_EN.md", "
 }
 
 const releaseStatus = textFor("docs/release-status.md")
-if (!releaseStatus.includes("Current package: `1.2.0`")) failures.push("release status does not identify v1.2.0 as current")
+if (!releaseStatus.includes(`Current package: \`${packageJson.version}\``)) failures.push(`release status does not identify v${packageJson.version} as current`)
 if (!releaseStatus.includes("Next Workspace") || !releaseStatus.includes("BLOCKED") || !releaseStatus.includes("NO PERFORMANCE CLAIM")) {
   failures.push("release status is missing the unreleased Win Matrix blocker state")
 }

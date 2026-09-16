@@ -10,14 +10,14 @@
 
 ## Install
 
-> **Current release:** `@narudom96/nelysia@1.2.0` is available as a GitHub Release
+> **Current release:** `@narudom96/nelysia@1.2.1` is available as a GitHub Release
 > tarball. The v1.0 API contract and v0.6–v0.9 verification gates are recorded; the separate
 > 24-hour production-readiness soak is intentionally deferred, and npm publication is pending.
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.0/narudom96-nelysia-1.2.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.1/narudom96-nelysia-1.2.1.tgz
 or
-curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.0/narudom96-nelysia-1.2.0.tgz'
+curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.1/narudom96-nelysia-1.2.1.tgz'
 
 npm install ./nelysia.tgz
 ```
@@ -26,7 +26,7 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (when the v1.2.0 package is published)
+# registry install (when the v1.2.1 package is published)
 npm install @narudom96/nelysia
 # optional integrations — install only what you use
 npm install graphql          # for @narudom96/nelysia/graphql
@@ -43,7 +43,7 @@ Use this while the package is not yet (or whenever it is not) on the npm registr
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.0/narudom96-nelysia-1.2.0.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.1/narudom96-nelysia-1.2.1.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -52,10 +52,10 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.0/narudom96-nelysia-1.2.0.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.1/narudom96-nelysia-1.2.1.tgz
 ```
 
-Replace `v1.2.0` / the filename with the latest release you see on the releases page.
+Replace `v1.2.1` / the filename with the latest release you see on the releases page.
 
 ```ts
 // app.ts
@@ -64,7 +64,7 @@ import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
   .use(cors())
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.2.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.2.1!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "all"
@@ -197,7 +197,7 @@ import { health } from "@narudom96/nelysia/health"
 The CLI also provides `routes`, `doctor`, `create`, and `dev` in addition to
 `inspect`, `build`, `generate`, and `client`. These additive APIs were included
 in the historical v1.0.0 release; the public API contract is now frozen and
-future work remains additive on the current v1.2.0 package line.
+future work remains additive on the current v1.2.1 package line.
 
 Executable examples are available for [basic](./examples/hello/index.ts),
 [JWT](./examples/jwt/index.ts), [upload](./examples/upload/index.ts), and
@@ -215,7 +215,7 @@ Latest verified test and benchmark results: [`docs/benchmark-results.html`](./do
 
 Historical v1.1.x runtime evidence: [`docs/benchmark-runtime-v11-2026-09-16.md`](./docs/benchmark-runtime-v11-2026-09-16.md),
 with [`docs/soak-v11-2026-09-16.md`](./docs/soak-v11-2026-09-16.md) for the 1M/10M request-count gates.
-The current v1.2.0 runtime workspace is tracked in the
+The current v1.2.1 runtime workspace is tracked in the
 [`Win Matrix evidence`](./docs/benchmark-latest-readable-2026-09-16.md);
 it is currently `BLOCKED`/`NO PERFORMANCE CLAIM` until Node, Fetch/Edge,
 memory, ecosystem, and 24-hour soak gates are recorded.
@@ -234,7 +234,7 @@ npm run typecheck
 npm run example
 ```
 
-Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The historical v1.0.0 release introduced the runnable full-stack framework fixtures; the current fixture gate is part of the v1.2.0 Win Matrix.
+Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The historical v1.0.0 release introduced the runnable full-stack framework fixtures; the current fixture gate is part of the v1.2.1 Win Matrix.
 
 With Bun installed, run the Bun target:
 
@@ -360,7 +360,7 @@ npm run benchmark:oha:release
 BENCH_ENTRYPOINT=listen npm run benchmark:oha:bun:listen
 npm run benchmark:oha:node
 
-# Current v1.2.0 Win Matrix verifier (fails while release blockers are pending)
+# Current v1.2.1 Win Matrix verifier (fails while release blockers are pending)
 npm run benchmark:verify:win-matrix
 npm run release:check:win-matrix
 

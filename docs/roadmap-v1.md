@@ -159,5 +159,5 @@ v0.x ใช้ deprecation ก่อน breaking change, ไม่มี automat
 provider ที่ขาดต้อง fail ตอน registration และ compiler ที่พิสูจน์ไม่ได้ต้อง fallback
 generic เสมอ
 
-งานต่อจาก roadmap นี้อยู่ใน [Next Workspace Runtime Win Matrix](./release-status.md#next-workspace-runtime-win-matrix-unreleased)
+งานต่อจาก roadmap นี้อยู่ใน [Next Workspace Win Matrix Completion](./release-status.md#next-workspace-win-matrix-completion-unreleased)
 และยังไม่เป็น release claim จนกว่าจะผ่านทุก gate ที่ระบุไว้

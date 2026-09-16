@@ -1,6 +1,6 @@
 # Compatibility Matrix
 
-This matrix records the v1.2.0 compatibility contract and the workspace checks
+This matrix records the v1.2.1 compatibility contract and the workspace checks
 currently available. It is intentionally narrower than a promise of support
 for every version of a runtime.
 
@@ -94,6 +94,6 @@ this matrix does not make a production-readiness claim.
 
 The v1.0.0 release historically introduced the post-v0.5.1 typed context, JWT
 DX, compiler specialization, and production subpaths `session`, `roles`,
-`csrf`, `cache`, and `health`. The current v1.2.0 line preserves that contract;
+`csrf`, `cache`, and `health`. The current v1.2.1 line preserves that contract;
 the unreleased runtime win-matrix work remains documented in
 [`release-status.md`](./release-status.md); the v0.5.1 tag remains immutable.

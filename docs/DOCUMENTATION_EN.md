@@ -1,11 +1,11 @@
 # Nelysia: Comprehensive Technical Documentation
 
-> **Version:** 1.2.0 (Current package and GitHub Release)
+> **Version:** 1.2.1 (Current package and GitHub Release)
 > **Target Runtimes:** Bun 1.4+, Node.js 22+, and Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **Language:** TypeScript / JavaScript (ESM)
 
 Use the [Documentation Map](./README.md) to choose the right guide, status
-page, or benchmark report. The current package is `v1.2.0`; the next runtime
+page, or benchmark report. The current package is `v1.2.1`; the next runtime
 parity workspace is tracked in the [Win Matrix evidence](./benchmark-latest-readable-2026-09-16.md)
 and remains `BLOCKED` / `NO PERFORMANCE CLAIM` until every release blocker is
 recorded.
@@ -15,14 +15,14 @@ options](./core/route-options.md), [errors](./core/errors.md), [authentication
 overview](./auth/overview.md), [JWT](./auth/jwt.md), [Better Auth](./auth/better-auth.md),
 [sessions](./auth/session.md), [roles and permissions](./auth/roles-permissions.md),
 and [plugin authoring](./plugins/authoring-plugins.md). Each page contains
-English and Thai guidance for the frozen v1.0 contract plus additive v1.1.x runtime fixes and the v1.2.0 generic-Bun preflight-reuse optimization.
+English and Thai guidance for the frozen v1.0 contract plus additive v1.1.x runtime fixes and the v1.2.1 generic-Bun preflight-reuse and runtime-parity work.
 
 For the complete version path and frozen public contract, see the
 [Nelysia v1.0 Guide](./v1.0.md). It explains what is verified in the workspace
 versus what has or has not been published as a package release.
 
 The post-v0.5.1 additive work was included in the v1.0.0 release. The v1.1.0
-runtime correctness and stabilization work is additive, and v1.2.0 adds
+runtime correctness and stabilization work is additive, and v1.2.1 adds
 generic-Bun route-preflight reuse; the public API contract
 remains frozen and future capabilities must be additive within 1.x. Historical
 milestones are documented in
@@ -30,7 +30,7 @@ milestones are documented in
 exports production contracts from `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache`, and `@narudom96/nelysia/health`; these remain on the
-v1.2.0 package line.
+v1.2.1 package line.
 
 Runnable examples: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts), and
@@ -1792,7 +1792,7 @@ npm run benchmark:short
 # Historical v1.0 release-line verification gate (does not run the deferred 24-hour soak)
 npm run release:check:v1
 
-# Current v1.2.0 Win Matrix release gate (fails while blockers are pending)
+# Current v1.2.1 Win Matrix release gate (fails while blockers are pending)
 npm run benchmark:verify:win-matrix
 npm run release:check:win-matrix
 # If the default base port 4321 is occupied:
