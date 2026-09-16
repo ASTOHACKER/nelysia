@@ -12,6 +12,7 @@ The Thai section follows the same contract so both languages stay aligned.
 - The v1.0 API contract remains frozen. v1.1.0 and v1.2.0 are additive; bug fixes and security fixes may ship in `1.2.x`; breaking changes belong in `2.0`.
 - npm publication is a separate registry operation. A GitHub release does not imply that `npm install @narudom96/nelysia` is available from npm.
 - The Bun stabilization gate is `no-performance-claim`. The 24-hour soak is deferred, and production readiness is not declared solely because the package reached `1.2.0`.
+- Next Workspace / Unreleased is the runtime Win Matrix work. It is currently `BLOCKED` / `NO PERFORMANCE CLAIM`; see [`release-status.md`](../release-status.md) and the [machine-readable manifest](../benchmark-win-matrix-2026-09-16.json).
 
 ### Source-of-truth table
 
@@ -58,6 +59,7 @@ an existing tag.
 - API contract ของ v1.0 freeze แล้ว; v1.1.0 และ v1.2.0 เพิ่มความสามารถแบบ additive, `1.2.x` แก้ bug/security และ breaking change ไป `2.0`
 - npm publish เป็นงานแยกต่างหาก การมี GitHub release ไม่ได้แปลว่า `npm install @narudom96/nelysia` ใช้จาก npm ได้แล้ว
 - Bun stabilization gate เป็น no-performance-claim, soak 24 ชั่วโมงถูกเลื่อนไว้ และยังไม่ประกาศ production readiness จากการออก v1.2.0 เพียงอย่างเดียว
+- Next Workspace / Unreleased คือชุดงาน runtime Win Matrix ซึ่งปัจจุบันเป็น `BLOCKED` / `NO PERFORMANCE CLAIM` ดู [`release-status.md`](../release-status.md) และ [manifest](../benchmark-win-matrix-2026-09-16.json)
 
 ### ตาราง source of truth
 

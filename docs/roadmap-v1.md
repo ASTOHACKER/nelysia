@@ -1,17 +1,19 @@
-# Nelysia — Final Roadmap สู่ v1.0
+# Nelysia — Historical Roadmap สู่ v1.0
 
-เอกสารนี้เป็น source of truth ของงานหลัง `v0.5.1` จนถึง API freeze ที่ `v1.0` และ
-การ release `v1.0.0`.
+เอกสารนี้เป็น historical record ของงานหลัง `v0.5.1` จนถึง API freeze ที่ `v1.0`
+และการ release `v1.0.0`; source of truth สำหรับสถานะปัจจุบันอยู่ที่
+[`docs/release-status.md`](./release-status.md) และ
+[`docs/reference/versioning.md`](./reference/versioning.md).
 การเปลี่ยนแปลงก่อน v1 เป็น additive เท่านั้น และ tag เดิมเป็น immutable
 
-## สถานะปัจจุบัน
+## สถานะ ณ release v1.0.0
 
-- package ปัจจุบัน: `1.0.0`
+- package ใน milestone นี้: `1.0.0`
 - `v0.6.0`, `v0.5.1` และ `v1.0.0` เป็น tag ที่ immutable
 - execution lanes ที่สื่อสารกับผู้ใช้มีเพียง `COMPILED`, `SPECIALIZED`, `GENERIC`
 - `static-prebuilt`, `static-sync`, generated validator และ params fast path เป็น
   internal diagnostics/subtiers ไม่ใช่ public tier เพิ่มเติม
-- 24-hour soak ยัง deferred และไม่ใช่ gate ที่รันในรอบนี้
+- 24-hour soak ยัง deferred ใน milestone นี้ และไม่ใช่ claim ของ release
 
 ## v0.6 — Strict Types, Context และ Lifecycle
 
@@ -148,7 +150,7 @@ Milestone commands:
   validates the frozen contract before the `v1.0.0` release tag
 
 24-hour soak ไม่บังคับใน v1.0 รอบนี้; 30m, 1h, 6h และ 24h เป็น future evidence gate
-เมื่อผู้ใช้อนุมัติภายหลัง และยังห้ามประกาศ production readiness ก่อน evidence ที่
+ของ milestone นี้ และยังห้ามประกาศ production readiness ก่อน evidence ที่
 เกี่ยวข้องครบ
 
 ## Compatibility policy
@@ -156,3 +158,6 @@ Milestone commands:
 v0.x ใช้ deprecation ก่อน breaking change, ไม่มี automatic query/body coercion ใหม่,
 provider ที่ขาดต้อง fail ตอน registration และ compiler ที่พิสูจน์ไม่ได้ต้อง fallback
 generic เสมอ
+
+งานต่อจาก roadmap นี้อยู่ใน [Next Workspace Runtime Win Matrix](./release-status.md#next-workspace-runtime-win-matrix-unreleased)
+และยังไม่เป็น release claim จนกว่าจะผ่านทุก gate ที่ระบุไว้

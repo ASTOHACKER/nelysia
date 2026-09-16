@@ -2803,8 +2803,8 @@ app.<span class="fn">listen</span>(<span class="num">3000</span>)</code></pre>
             <div class="tile">
               <b data-lang="en">1. 3-Lane AOT Execution</b>
               <b data-lang="th">1. การทำงาน AOT แบบ 3 Lane</b>
-              <p data-lang="en">Public lanes are <code>COMPILED</code>, <code>SPECIALIZED</code>, and <code>GENERIC</code>. Compiled routes use internal subtiers such as <code>static-prebuilt</code> and <code>static-sync</code>; complex behavior falls back to the generic pipeline.</p>
-              <p data-lang="th">Public lane มี <code>COMPILED</code>, <code>SPECIALIZED</code> และ <code>GENERIC</code> โดย compiled route ใช้ subtier ภายใน เช่น <code>static-prebuilt</code> และ <code>static-sync</code>; behavior ซับซ้อนจะ fallback ไป generic pipeline</p>
+              <p data-lang="en">Public lanes are <code>COMPILED</code>, <code>SPECIALIZED</code>, and <code>GENERIC</code>. A proven compiled route uses the compiler IR/function table; specialized routes use an immutable per-route data plan; dynamic behavior falls back to the reference pipeline. Runtime <code>eval()</code> and <code>new Function()</code> never evaluate user source.</p>
+              <p data-lang="th">Public lane มี <code>COMPILED</code>, <code>SPECIALIZED</code> และ <code>GENERIC</code> โดย route ที่พิสูจน์ได้ใช้ compiler IR/function table, specialized ใช้ immutable data plan ต่อ route และ behavior แบบ dynamic จะ fallback ไป reference pipeline เสมอ ไม่มี runtime <code>eval()</code> หรือ <code>new Function()</code> เพื่อประเมิน source ของผู้ใช้</p>
             </div>
             <div class="tile">
                   <b data-lang="en">2. 95,173 req/s — Raw Bun parity snapshot</b>
@@ -6088,8 +6088,8 @@ ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --ex
           <div class="callout info">
             <b data-lang="en">Current truth</b>
             <b data-lang="th">สถานะจริงปัจจุบัน</b>
-            <span data-lang="en"><code>v1.2.0</code> is the current package and GitHub Release. The v1.0 contract remains frozen; this release adds runtime correctness and stabilization work. Bun parity is <code>no-performance-claim</code>; npm publication and the deferred 24-hour soak remain separate operations.</span>
-            <span data-lang="th">package และ GitHub release ปัจจุบันคือ <code>v1.2.0</code> โดย contract v1.0 ยังคง freeze และ release นี้เพิ่มงาน runtime correctness/stabilization ส่วน Bun parity เป็น <code>no-performance-claim</code> และ npm publish กับ soak 24 ชั่วโมงยังเป็นงานแยก</span>
+            <span data-lang="en"><code>v1.2.0</code> is the current package and GitHub Release. The v1.0 contract remains frozen; this release adds runtime correctness and stabilization work. The next Win Matrix workspace is <code>BLOCKED</code> / <code>NO PERFORMANCE CLAIM</code> until Bun generic throughput, Node, Fetch/Edge, memory, ecosystem, and the 24-hour soak are verified. npm publication remains separate.</span>
+            <span data-lang="th">package และ GitHub release ปัจจุบันคือ <code>v1.2.0</code> โดย contract v1.0 ยังคง freeze และ release นี้เพิ่มงาน runtime correctness/stabilization ส่วน Win Matrix workspace ถัดไปยังเป็น <code>BLOCKED</code> / <code>NO PERFORMANCE CLAIM</code> จนกว่าจะตรวจ Bun generic throughput, Node, Fetch/Edge, memory, ecosystem และ soak 24 ชั่วโมงครบ โดย npm publish ยังเป็นงานแยก</span>
           </div>
           <div class="table-box">
             <table>
@@ -6144,7 +6144,8 @@ ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --ex
                 </tr>
               </thead>
               <tbody>
-                <tr><td>☑</td><td><code>npm run release:check:v1</code> <span data-lang="en">is the current v1.0 release-line verification gate; its constituent checks are recorded below.</span><span data-lang="th">เป็นคำสั่งตรวจสอบ release line v1.0 ปัจจุบัน และมีผล constituent checks บันทึกไว้ด้านล่าง</span></td></tr>
+                <tr><td>☑</td><td><code>npm run release:check:v1</code> <span data-lang="en">is the historical v1.0 release-line verification gate; its constituent checks are retained below.</span><span data-lang="th">เป็นคำสั่งตรวจสอบ release line v1.0 แบบ historical และยังเก็บ constituent checks ไว้ด้านล่าง</span></td></tr>
+                <tr><td>☐</td><td><code>npm run release:check:win-matrix</code> <span data-lang="en">is the current v1.2.0 release gate; it remains blocked until every Win Matrix axis and the 24-hour soak pass.</span><span data-lang="th">เป็น release gate ปัจจุบันของ v1.2.0 และยัง blocked จนกว่า Win Matrix ทุกแกนกับ soak 24 ชั่วโมงจะผ่าน</span></td></tr>
                 <tr><td>☑</td><td><code>npm run framework:check</code> <span data-lang="en">passes for all five framework fixtures after their dependencies are installed.</span><span data-lang="th">ผ่านสำหรับ framework fixture ทั้ง 5 ตัวหลังติดตั้ง dependency แล้ว</span></td></tr>
                 <tr><td>☐</td><td><span data-lang="en">Hot routes on fast path — check <code>NELY003</code> in <code>dist/manifest.json</code>.</span><span data-lang="th">route ร้อนอยู่บน fast path — ดู <code>NELY003</code> ใน <code>dist/manifest.json</code></span></td></tr>
                 <tr><td>☐</td><td><code>bodyLimit</code> <span data-lang="en">fits largest payload;</span> <code>trustedProxy</code> <span data-lang="en">only behind your proxy.</span><span data-lang="th">พอดี payload ใหญ่สุด; เปิด <code>trustedProxy</code> เฉพาะหลัง proxy ตัวเอง</span></td></tr>
@@ -6295,8 +6296,8 @@ ROUTES=<span class="num">1000</span> N=<span class="num">100000</span> node --ex
                 </div>
                 <div class="callout info">
                   <b data-lang="en">Terminology note</b><b data-lang="th">หมายเหตุคำศัพท์</b>
-                  <span data-lang="en"><code>COMPILED</code>, <code>SPECIALIZED</code>, and <code>GENERIC</code> are the public execution model. Labels such as <code>static-prebuilt</code>, <code>static-sync</code>, generated validator, and params fast path are internal diagnostics/subtiers.</span>
-                  <span data-lang="th"><code>COMPILED</code>, <code>SPECIALIZED</code> และ <code>GENERIC</code> คือ execution model ที่สื่อสารกับผู้ใช้ ส่วน <code>static-prebuilt</code>, <code>static-sync</code>, generated validator และ params fast path เป็น diagnostics/subtier ภายใน</span>
+                  <span data-lang="en"><code>COMPILED</code>, <code>SPECIALIZED</code>, and <code>GENERIC</code> are the public execution model. The compiled dispatcher is selected only for compiler-proven behavior; otherwise the immutable plan or generic reference path is used. Labels such as <code>static-prebuilt</code>, <code>static-sync</code>, generated validator, and params fast path are internal diagnostics/subtiers.</span>
+                  <span data-lang="th"><code>COMPILED</code>, <code>SPECIALIZED</code> และ <code>GENERIC</code> คือ execution model ที่สื่อสารกับผู้ใช้ โดย compiled dispatcher จะถูกเลือกเฉพาะ behavior ที่ compiler พิสูจน์ได้ ไม่เช่นนั้นจะใช้ immutable plan หรือ generic reference path ส่วน <code>static-prebuilt</code>, <code>static-sync</code>, generated validator และ params fast path เป็น diagnostics/subtier ภายใน</span>
                 </div>
               </div>
             </details>
@@ -6361,7 +6362,7 @@ BENCH_ROUTE_SET=multi npm run benchmark:oha:route:release
 npm run soak:1m
 npm run soak:10m
 
-<span class="com"># Optional future production evidence (not a current v1.0 gate)</span>
+<span class="com"># Historical v1.0 optional production evidence</span>
 npm run soak:30m
 npm run soak:1h
 npm run soak:6h
@@ -6370,7 +6371,7 @@ npm run soak:6h
 npm run build -- ./examples/hello/app.ts --target bun
 npm run build -- ./examples/hello/app.ts --target node
 
-<span class="com"># Current v1.0 release-line verification gate (does not run 24h soak):</span>
+<span class="com"># Historical v1.0 release-line verification gate (does not run 24h soak):</span>
 npm run release:check:v1
 npm run framework:check</code></pre>
           </div>
@@ -6410,7 +6411,7 @@ npm run framework:check</code></pre>
                 </tr>
                 <tr>
                   <td><code>npm run soak:30m / soak:1h / soak:6h</code></td>
-                  <td><span data-lang="en">Optional future production evidence; 30m/1h/6h/24h are not required for the current v1.0 roadmap gate.</span><span data-lang="th">evidence ด้าน production ในอนาคตแบบเลือกใช้; 30m/1h/6h/24h ยังไม่ใช่ gate ที่บังคับสำหรับ roadmap v1.0 รอบปัจจุบัน</span></td>
+                  <td><span data-lang="en">Optional future production evidence; 30m/1h/6h/24h were not required for the historical v1.0 roadmap gate.</span><span data-lang="th">evidence ด้าน production ในอนาคตแบบเลือกใช้; 30m/1h/6h/24h ไม่ใช่ gate ที่บังคับสำหรับ roadmap v1.0 แบบ historical</span></td>
                 </tr>
               </tbody>
             </table>

@@ -2,6 +2,7 @@ import { HttpError, type Nelysia } from "../../core/src/app.ts"
 import { parseWebRequestBody } from "../../core/src/body.ts"
 import { compileDispatcher, executeGeneratedGet, fastPathname, lookupCompiled, type CompiledDispatcher } from "../../compiler/src/dispatcher.ts"
 import { responseMarker } from "../../core/src/types.ts"
+import { getRuntimeExecutor, type RuntimeExecutor } from "../../core/src/execution.ts"
 
 export interface FetchRequestContext {
   env?: unknown
@@ -12,6 +13,7 @@ export function createFetchHandler(app: Nelysia<any, any, any>): (request: Reque
   // Auto-use the compiled dispatcher for hook-free GET routes; everything else
   // flows through the generic adapter below (same contract, same fallbacks).
   let dispatcher: CompiledDispatcher | undefined
+  const executor: RuntimeExecutor = getRuntimeExecutor(app) ?? { preflight: (data) => app.preflight(data), handle: (data) => app.handle(data) }
   let dispatcherReady: Promise<void> | undefined
   const getDispatcher = async (): Promise<CompiledDispatcher | undefined> => {
     if (dispatcherReady === undefined) dispatcherReady = app.modules.then(() => {
@@ -21,19 +23,19 @@ export function createFetchHandler(app: Nelysia<any, any, any>): (request: Reque
     return dispatcher
   }
   return async (request, context) => {
-    if (app.hasFetchMounts) return genericFetch(app, request, context)
+    if (app.hasFetchMounts) return genericFetch(app, executor, request, context)
     if (dispatcher !== undefined && context === undefined && request.method === "GET") {
       const fast = await tryCompiledGet(app, dispatcher, request)
       if (fast !== undefined) return fast
     } else if (context === undefined && request.method === "GET") {
       let ready: CompiledDispatcher | undefined
-      try { ready = await getDispatcher() } catch { return genericFetch(app, request, context) }
+      try { ready = await getDispatcher() } catch { return genericFetch(app, executor, request, context) }
       if (ready !== undefined) {
         const fast = await tryCompiledGet(app, ready, request)
         if (fast !== undefined) return fast
       }
     }
-    return genericFetch(app, request, context)
+    return genericFetch(app, executor, request, context)
   }
 }
 
@@ -121,13 +123,13 @@ async function errorResponse(app: Nelysia<any, any, any>, error: unknown, reques
   return responseFromData(result)
 }
 
-async function genericFetch(app: Nelysia<any, any, any>, request: Request, context?: FetchRequestContext): Promise<Response> {
+async function genericFetch(app: Nelysia<any, any, any>, executor: RuntimeExecutor, request: Request, context?: FetchRequestContext): Promise<Response> {
   const data = { method: request.method, url: request.url, headers: request.headers, rawRequest: request, ...context }
   try {
-    const preflight = await app.preflight(data)
+    const preflight = await executor.preflight(data)
     if (preflight.kind === "response") return responseFromData(preflight.response)
     const body = await parseWebRequestBody(request, app.bodyLimit)
-    const result = await app.handle({ ...data, body, preflight })
+    const result = await executor.handle({ ...data, body, preflight })
     return responseFromData(result)
   } catch (error) {
     return responseFromData(await app.handleAdapterError(error, data))

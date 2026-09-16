@@ -63,16 +63,17 @@
 ## สถานะและแผนงาน
 
 - [Release Status](./release-status.md) — checklist และ gate ที่ผ่าน/ยังค้าง
-- [Final Roadmap สู่ v1.0](./roadmap-v1.md) — milestone v0.6–v0.9 และ API freeze
+- [Historical Roadmap สู่ v1.0](./roadmap-v1.md) — milestone v0.6–v0.9 และ API freeze
 - [API Freeze Checklist](./api-freeze-checklist.md) — contract ที่ต้องตรวจและ freeze ก่อน v1.0
 - [v1.0 Guide](./v1.0.md) — public contract, ตัวอย่าง, workflow, gates และสถานะ release ในไฟล์เดียว
 - [Roadmap หลัง v0.5.1](./roadmap-after-v051.md) — implementation history/summary
 - [Development Plan](./development-plan.md) — ขอบเขตงานและ compatibility policy
 - [P2 Roadmap](./p2-roadmap.md) — แผน compiler/optimization ที่เก็บไว้ต่อ
 
-หมายเหตุ: `v0.5.1` และ `v0.6.0` เป็น historical immutable releases; `v1.0.0`
-เป็น release ปัจจุบันที่ freeze public API แล้ว งานใหม่หลังจากนี้ต้องเป็น additive
-ภายใน `1.x` หรือ breaking change ใน `2.0`
+หมายเหตุ: `v0.5.1`, `v0.6.0`, `v1.0.0` และ `v1.1.0` เป็น historical immutable
+releases; `v1.2.0` เป็น release ปัจจุบันที่ freeze public API แล้ว งาน runtime
+win-matrix ใน workspace ยังเป็น unreleased และต้องผ่าน release-status gates ก่อน
+จะเป็น release claim
 
 ## Benchmark และ soak evidence
 
@@ -86,6 +87,8 @@
 - [Bun public `app.listen()` JSON](./benchmark-bun-listen-parity-shuffled-2026-09-16.json) — warmup 2s และ deterministic shuffle
 - [Bun stabilization evidence](./benchmark-bun-stabilization-2026-09-16.md) — pinned baseline, probe และ `no-performance-claim`
 - [Bun preflight-reuse evidence](./benchmark-bun-v111-preflight-2026-09-16.md) — public listener และ generic handler แยก entrypoint
+- [Current Runtime Win Matrix](./benchmark-latest-readable-2026-09-16.md) — current workspace evidence; Bun parity ผ่านบางแกนและแกนที่เหลือยังเป็น blocker
+- [Win Matrix manifest](./benchmark-win-matrix-2026-09-16.json) — machine-readable release-blocker status
 - [Node regression JSON](./benchmark-node-regression-2026-09-16.json) — Node adapter comparison หลัง Bun-only change
 - [v1.1.x request-count soak](./soak-v11-2026-09-16.md) — 1M/10M evidence; 24h deferred
 - [v0.5 Core oha Report](./benchmark-oha-v05-2026-09-14.md) — release benchmark
@@ -96,7 +99,7 @@
 - [Historical 10-round Snapshot](./benchmark-10-rounds.md)
 - [Historical 100-round Snapshot](./benchmark-100-rounds.md)
 - [1M/10M Soak Report](./soak-roadmap-rerun-2026-09-14.md)
-- [Current 1M/10M Soak Evidence](./soak-roadmap-rerun-2026-09-15.md) — request-count gates recorded for the v1.0 release line
+- [Historical v1.0 1M/10M Soak Evidence](./soak-roadmap-rerun-2026-09-15.md) — request-count gates recorded for the v1.0 release line
 - [Runtime Contract Evidence](./benchmark-runtime-contract-2026-09-15.md) — inject/network parity, fuzz and memory bursts
 - [Original Soak Report](./soak-v05-2026-09-14.md)
 - [Compatibility Snapshot](./benchmark-oha-2026-09-14.md)
@@ -107,7 +110,7 @@ speedup เดียวกัน
 
 ## Release, deployment และ operations
 
-- [v1.0 Guide](./v1.0.md) — public contract และสถานะ release ปัจจุบัน
+- [v1.0 Guide](./v1.0.md) — historical public contract และ release context
 - [v0.5 Release Gates](./v0.5-release-gates.md) — historical gate ของ v0.5 feature line
 - [Compatibility Matrix](./compatibility.md) — Node, Bun, Deno, Cloudflare, Vercel
 - [Production Modules](./index.html#production-modules) — upload, logger, timeout, session, roles, CSRF, cache, health
@@ -141,13 +144,17 @@ npm run benchmark:runtime
 npm run benchmark:oha:short
 npm run release:check:v06 # historical v0.6 gate
 
-# Current v1.0 release-line checks
+# Historical v1.0 release-line checks
 npm run release:check:v07
 npm run release:check:v08
 npm run release:check:v09
 npm run release:check:v1
 npm run release:check:v11
 npm run release:check:v111 # รวม 1M/10M soak; ไม่รวม 24h
+
+# Unreleased workspace gates
+npm run benchmark:verify:win-matrix
+npm run release:check:win-matrix
 ```
 
 ผลการตรวจสอบในรอบล่าสุดและข้อที่ยัง deferred ให้ดูที่

@@ -19,7 +19,7 @@ graph TD
     subgraph L2["Layer 2: Compiler & Analysis Subsystem (AOT / CLI)"]
         Inspector["Route Graph Analyzer & Inspector"]
         Classifier["Execution Classifier (static-prebuilt / static-sync / SPECIALIZED / GENERIC)"]
-        Codegen["Standalone Code Generator & Matcher"]
+        Codegen["Build-time AOT Dispatcher / Matcher"]
         Manifest["Build Manifest & Content-Addressed Cache"]
     end
 
@@ -93,6 +93,30 @@ modules/users/
 ```
 
 The root application explicitly composes modules with `.use()` or `.mount()`. `state`, `decorate`, `derive`, and `resolve` extend a module's context; `guard` and `macro` apply reusable route policy without introducing a traditional controller class.
+
+### Current Hybrid AOT runtime contract
+
+The v1.2.0 workspace uses a hybrid execution model without changing the public
+API:
+
+1. `COMPILED` routes use the compiler IR and registered function table to select
+   a generated/AOT dispatcher for behavior proven at registration/build time.
+2. `SPECIALIZED` routes use an immutable per-route execution plan. The plan
+   records only the context fields, lifecycle stages, and response work that
+   conservative analysis can prove are needed.
+3. `GENERIC` routes use the reference pipeline. Dynamic context access,
+   opaque handlers, mounts, providers, extensions, telemetry, and unsupported
+   schema/response behavior always fall back here.
+
+The dispatcher never evaluates user source with runtime `eval()` or
+`new Function()`. Plans are cached outside `RouteRecord` and invalidated by an
+internal composition version whenever routes, hooks, providers, mounts,
+schemas, context extensions, or telemetry change. Bun, Node, and Fetch cross
+the same internal `ResponseData | Promise<ResponseData>` executor boundary;
+the public `handle()` and `preflight()` Promise signatures remain unchanged.
+Context objects keep their literal shape and do not use per-request
+`Object.defineProperty`; specialized lanes materialize only proven fields and
+the generic lane preserves full-context semantics.
 
 ```ts
 export const app = new Nelysia()

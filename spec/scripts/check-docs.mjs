@@ -3,6 +3,9 @@ import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const packageJson = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
+const winMatrixPath = resolve(fileURLToPath(new URL("../..", import.meta.url)), "docs/benchmark-win-matrix-2026-09-16.json")
+const winMatrix = JSON.parse(await readFile(winMatrixPath, "utf8"))
+const { verifyWinMatrix } = await import("./check-win-matrix.mjs")
 const root = fileURLToPath(new URL("../..", import.meta.url))
 const indexPath = resolve(root, "docs/index.html")
 const documentationFiles = [
@@ -12,6 +15,10 @@ const documentationFiles = [
   "docs/DOCUMENTATION_TH.md",
   "docs/ARCHITECTURE.md",
   "docs/release-status.md",
+  "docs/roadmap-v1.md",
+  "docs/v1.0.md",
+  "docs/compatibility.md",
+  "docs/benchmark-latest-readable-2026-09-16.md",
   "docs/index.html",
   "docs/reference/versioning.md",
   "docs/core/route-options.md",
@@ -29,8 +36,26 @@ const failures = []
 const html = await readFile(indexPath, "utf8")
 const currentVersion = `v${packageJson.version}`
 
-for (const file of ["README.md", "docs/README.md", "docs/DOCUMENTATION_EN.md", "docs/DOCUMENTATION_TH.md", "docs/index.html", "docs/reference/versioning.md"]) {
+for (const file of ["README.md", "docs/README.md", "docs/DOCUMENTATION_EN.md", "docs/DOCUMENTATION_TH.md", "docs/index.html", "docs/reference/versioning.md", "docs/release-status.md"]) {
   if (!textFor(file).includes(currentVersion)) failures.push(`current version is missing from ${file}: ${currentVersion}`)
+}
+
+const releaseStatus = textFor("docs/release-status.md")
+if (!releaseStatus.includes("Current package: `1.2.0`")) failures.push("release status does not identify v1.2.0 as current")
+if (!releaseStatus.includes("Next Workspace") || !releaseStatus.includes("BLOCKED") || !releaseStatus.includes("NO PERFORMANCE CLAIM")) {
+  failures.push("release status is missing the unreleased Win Matrix blocker state")
+}
+for (const [file, marker] of [["docs/roadmap-v1.md", "Historical Roadmap"], ["docs/v1.0.md", "Historical"], ["docs/compatibility.md", "historically"]]) {
+  if (!textFor(file).includes(marker)) failures.push(`historical documentation marker is missing from ${file}`)
+}
+const currentBenchmark = textFor("docs/benchmark-latest-readable-2026-09-16.md")
+for (const required of ["BLOCKED", "Bun", "AMD Ryzen", "seeds", "npm run benchmark:verify:win-matrix"]) {
+  if (!currentBenchmark.includes(required)) failures.push(`current benchmark evidence is missing ${required}`)
+}
+const winMatrixResult = verifyWinMatrix(winMatrix, packageJson.version)
+const docsDeclareBlocked = currentBenchmark.includes("BLOCKED") && currentBenchmark.includes("NO PERFORMANCE CLAIM")
+if (winMatrixResult.ok === docsDeclareBlocked) {
+  failures.push(`Win Matrix documentation status does not match verifier: verifier=${winMatrixResult.ok ? "PASS" : "BLOCKED"}, docs=${docsDeclareBlocked ? "BLOCKED" : "PASS"}`)
 }
 
 for (const exportPath of Object.keys(packageJson.exports)) {
@@ -44,7 +69,9 @@ for (const stale of [
   "Contract frozen; release pending",
   "Current v0.6 workspace gate",
   "current non-24-hour v0.6 workspace-gate",
-  "current additive v0.6 workspace gate"
+  "current additive v0.6 workspace gate",
+  "Current v1.0 release-line verification gate",
+  "current v1.0 release-line verification gate"
 ]) {
   if (text.includes(stale)) failures.push(`stale documentation claim: ${stale}`)
 }

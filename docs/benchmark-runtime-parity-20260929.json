@@ -1,0 +1,528 @@
+{
+  "schema": "nelysia.benchmark.v11",
+  "generatedAt": "2026-09-16T12:29:47.206Z",
+  "environment": {
+    "cpu": "AMD Ryzen 5 5600 6-Core Processor",
+    "cores": 12,
+    "node": "v26.8.2",
+    "bun": "1.4.0",
+    "oha": "oha 1.16.0",
+    "os": "linux",
+    "concurrency": 50,
+    "durationSec": 5,
+    "rounds": 5,
+    "warmupSec": 2,
+    "routeSet": "multi",
+    "routeCount": 2,
+    "orderSeed": 20260929,
+    "entrypoint": "listen",
+    "target": "all",
+    "workload": "all"
+  },
+  "results": [
+    {
+      "framework": "Nelysia (Generic Dynamic)",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 97909.84472812447,
+      "rpsMin": 75993.56646351209,
+      "rpsMax": 111407.28198442448,
+      "avgLatencyMs": 0.5090717245678956,
+      "p50Ms": 0.445339,
+      "p90Ms": 0.6848559999999999,
+      "p95Ms": 0.8666229999999999,
+      "p99Ms": 1.3564370000000001,
+      "maxLatencyMs": 10.63494,
+      "successRate": 100,
+      "totalRequests": 5.002159993,
+      "failureCount": 0,
+      "throughputMBs": 1.027115146645898,
+      "serverRssBeforeKb": 74292,
+      "serverRssAfterKb": 85372,
+      "runnerHeapDeltaKb": 4662,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 76108.40870955591,
+          "p95Ms": 1.0651510000000002,
+          "p99Ms": 1.3564370000000001,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 111407.28198442448,
+          "p95Ms": 0.676781,
+          "p99Ms": 0.856213,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 75993.56646351209,
+          "p95Ms": 1.073547,
+          "p99Ms": 1.3824969999999999,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 103942.09715954601,
+          "p95Ms": 0.817779,
+          "p99Ms": 1.1235819999999999,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 97909.84472812447,
+          "p95Ms": 0.8666229999999999,
+          "p99Ms": 1.440818,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "listen"
+    },
+    {
+      "framework": "Nelysia (Generic JSON)",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 106337.67530462434,
+      "rpsMin": 103439.99225885002,
+      "rpsMax": 108237.543335361,
+      "avgLatencyMs": 0.4686563743915336,
+      "p50Ms": 0.42669,
+      "p90Ms": 0.579926,
+      "p95Ms": 0.79732,
+      "p99Ms": 1.062033,
+      "maxLatencyMs": 11.894361000000002,
+      "successRate": 100,
+      "totalRequests": 5.002585231,
+      "failureCount": 0,
+      "throughputMBs": 3.042345294131022,
+      "serverRssBeforeKb": 73152,
+      "serverRssAfterKb": 85304,
+      "runnerHeapDeltaKb": 1025,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 106497.93564706584,
+          "p95Ms": 0.79732,
+          "p99Ms": 1.062033,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 108237.543335361,
+          "p95Ms": 0.79001,
+          "p99Ms": 1.05007,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 103439.99225885002,
+          "p95Ms": 0.8152889999999999,
+          "p99Ms": 1.1437599999999999,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 104641.21165991944,
+          "p95Ms": 0.8057799999999999,
+          "p99Ms": 1.1095549999999998,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 106337.67530462434,
+          "p95Ms": 0.79519,
+          "p99Ms": 1.0431570000000001,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "listen"
+    },
+    {
+      "framework": "Nelysia (Zero-arg Specialized)",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 108428.57351224199,
+      "rpsMin": 107712.34550982282,
+      "rpsMax": 110473.502528731,
+      "avgLatencyMs": 0.459679962352986,
+      "p50Ms": 0.41389600000000004,
+      "p90Ms": 0.558223,
+      "p95Ms": 0.78047,
+      "p99Ms": 1.028689,
+      "maxLatencyMs": 11.68455,
+      "successRate": 100,
+      "totalRequests": 5.002616504,
+      "failureCount": 0,
+      "throughputMBs": 3.102166371695766,
+      "serverRssBeforeKb": 72852,
+      "serverRssAfterKb": 79312,
+      "runnerHeapDeltaKb": 486,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 109528.48365687957,
+          "p95Ms": 0.774529,
+          "p99Ms": 1.028689,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 108428.57351224199,
+          "p95Ms": 0.78047,
+          "p99Ms": 1.027736,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 108420.01308293141,
+          "p95Ms": 0.7843680000000001,
+          "p99Ms": 1.058135,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 107712.34550982282,
+          "p95Ms": 0.7851400000000001,
+          "p99Ms": 1.077772,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 110473.502528731,
+          "p95Ms": 0.773958,
+          "p99Ms": 1.011895,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "listen"
+    },
+    {
+      "framework": "Elysia",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 109365.00305876812,
+      "rpsMin": 105765.55096036098,
+      "rpsMax": 109580.83909123941,
+      "avgLatencyMs": 0.45572235894539903,
+      "p50Ms": 0.411771,
+      "p90Ms": 0.563843,
+      "p95Ms": 0.7790969999999999,
+      "p99Ms": 1.0482040000000001,
+      "maxLatencyMs": 11.463451,
+      "successRate": 100,
+      "totalRequests": 5.003037333,
+      "failureCount": 0,
+      "throughputMBs": 3.128957835925144,
+      "serverRssBeforeKb": 71996,
+      "serverRssAfterKb": 78952,
+      "runnerHeapDeltaKb": 343,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 108609.58352513585,
+          "p95Ms": 0.780841,
+          "p99Ms": 1.082821,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 105765.55096036098,
+          "p95Ms": 0.797653,
+          "p99Ms": 1.099924,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 109473.77690036462,
+          "p95Ms": 0.772595,
+          "p99Ms": 1.022676,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 109580.83909123941,
+          "p95Ms": 0.768817,
+          "p99Ms": 1.0482040000000001,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 109365.00305876812,
+          "p95Ms": 0.7790969999999999,
+          "p99Ms": 1.042573,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "listen"
+    },
+    {
+      "framework": "Nelysia (Params Compiled)",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 107715.21492865925,
+      "rpsMin": 106898.62245580227,
+      "rpsMax": 108933.88115789327,
+      "avgLatencyMs": 0.46266654551258307,
+      "p50Ms": 0.41806299999999996,
+      "p90Ms": 0.567761,
+      "p95Ms": 0.78608,
+      "p99Ms": 1.0642049999999998,
+      "maxLatencyMs": 11.662051,
+      "successRate": 100,
+      "totalRequests": 5.002291245,
+      "failureCount": 0,
+      "throughputMBs": 1.1299775736000555,
+      "serverRssBeforeKb": 73312,
+      "serverRssAfterKb": 79960,
+      "runnerHeapDeltaKb": -1863,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 107037.09986327514,
+          "p95Ms": 0.7918120000000001,
+          "p99Ms": 1.0659079999999999,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 107715.21492865925,
+          "p95Ms": 0.78608,
+          "p99Ms": 1.0642049999999998,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 106898.62245580227,
+          "p95Ms": 0.7865310000000001,
+          "p99Ms": 1.086036,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 108621.57416762471,
+          "p95Ms": 0.783044,
+          "p99Ms": 1.023196,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 108933.88115789327,
+          "p95Ms": 0.781171,
+          "p99Ms": 1.0198379999999998,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "listen"
+    },
+    {
+      "framework": "Elysia (Generic Dynamic)",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 106018.55927079373,
+      "rpsMin": 104451.06613318904,
+      "rpsMax": 106775.77950848894,
+      "avgLatencyMs": 0.4700353363565908,
+      "p50Ms": 0.425246,
+      "p90Ms": 0.567991,
+      "p95Ms": 0.793083,
+      "p99Ms": 1.075194,
+      "maxLatencyMs": 9.670391,
+      "successRate": 100,
+      "totalRequests": 5.002423098,
+      "failureCount": 0,
+      "throughputMBs": 1.1121789474284467,
+      "serverRssBeforeKb": 72972,
+      "serverRssAfterKb": 87028,
+      "runnerHeapDeltaKb": 430,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 106693.63911357905,
+          "p95Ms": 0.795087,
+          "p99Ms": 1.1022269999999998,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 106775.77950848894,
+          "p95Ms": 0.793083,
+          "p99Ms": 1.073451,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 104451.06613318904,
+          "p95Ms": 0.8025709999999999,
+          "p99Ms": 1.102667,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 106018.55927079373,
+          "p95Ms": 0.790628,
+          "p99Ms": 1.039777,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 105646.00187682884,
+          "p95Ms": 0.7905679999999999,
+          "p99Ms": 1.075194,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "listen"
+    },
+    {
+      "framework": "Elysia",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 106463.88647694571,
+      "rpsMin": 104533.6214154942,
+      "rpsMax": 108127.75757653921,
+      "avgLatencyMs": 0.4682080567437147,
+      "p50Ms": 0.422891,
+      "p90Ms": 0.578159,
+      "p95Ms": 0.7882129999999999,
+      "p99Ms": 1.064312,
+      "maxLatencyMs": 12.427684,
+      "successRate": 100,
+      "totalRequests": 5.002415773,
+      "failureCount": 0,
+      "throughputMBs": 1.1168506157363918,
+      "serverRssBeforeKb": 72324,
+      "serverRssAfterKb": 86548,
+      "runnerHeapDeltaKb": 331,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 107737.29359550738,
+          "p95Ms": 0.7882129999999999,
+          "p99Ms": 1.03687,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 105307.68613337097,
+          "p95Ms": 0.7985530000000001,
+          "p99Ms": 1.087577,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 108127.75757653921,
+          "p95Ms": 0.779195,
+          "p99Ms": 1.019707,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 104533.6214154942,
+          "p95Ms": 0.803251,
+          "p99Ms": 1.121462,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 106463.88647694571,
+          "p95Ms": 0.787051,
+          "p99Ms": 1.064312,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "listen"
+    },
+    {
+      "framework": "Elysia (Generic JSON)",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Bun",
+      "rps": 108862.84131506125,
+      "rpsMin": 106767.79216836866,
+      "rpsMax": 109691.48997558239,
+      "avgLatencyMs": 0.4579386817748574,
+      "p50Ms": 0.412441,
+      "p90Ms": 0.567188,
+      "p95Ms": 0.779525,
+      "p99Ms": 1.060114,
+      "maxLatencyMs": 9.756295999999999,
+      "successRate": 100,
+      "totalRequests": 5.002741029,
+      "failureCount": 0,
+      "throughputMBs": 3.114590873195493,
+      "serverRssBeforeKb": 72616,
+      "serverRssAfterKb": 85500,
+      "runnerHeapDeltaKb": -783,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 106767.79216836866,
+          "p95Ms": 0.792841,
+          "p99Ms": 1.062679,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 106943.6996640985,
+          "p95Ms": 0.793763,
+          "p99Ms": 1.12038,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 108862.84131506125,
+          "p95Ms": 0.779525,
+          "p99Ms": 1.060114,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 109364.24588609261,
+          "p95Ms": 0.777853,
+          "p99Ms": 1.057819,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 109691.48997558239,
+          "p95Ms": 0.773614,
+          "p99Ms": 1.013695,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "listen"
+    }
+  ]
+}

@@ -5,7 +5,10 @@
 > **Language:** TypeScript / JavaScript (ESM)
 
 Use the [Documentation Map](./README.md) to choose the right guide, status
-page, or benchmark report.
+page, or benchmark report. The current package is `v1.2.0`; the next runtime
+parity workspace is tracked in the [Win Matrix evidence](./benchmark-latest-readable-2026-09-16.md)
+and remains `BLOCKED` / `NO PERFORMANCE CLAIM` until every release blocker is
+recorded.
 
 Focused offline references: [versioning](./reference/versioning.md), [route
 options](./core/route-options.md), [errors](./core/errors.md), [authentication
@@ -113,7 +116,7 @@ Runnable examples: [basic](../examples/hello/index.ts),
 
 ---
 
-### The 10 Superpowers of Nelysia (Why Nelysia Wins)
+### The 10 architectural strengths of Nelysia
 
 #### 1. 3-Lane AOT Execution Model
 Nelysia analyzes every route before the first request arrives and assigns one of
@@ -123,6 +126,14 @@ three public execution lanes:
 - **`GENERIC`**: complex routes with middleware, schema validation, body parsing, or unsupported behavior use the full pipeline.
 
 Result: every request uses only the power it actually needs.
+
+The current Hybrid AOT contract keeps these lanes conservative: a compiled
+dispatcher has priority for behavior proven by compiler IR and a route function
+table; specialized routes use an immutable data plan; unknown or dynamic
+behavior falls back to the generic reference pipeline. Runtime `eval()` and
+`new Function()` are never used to evaluate user source. Plan invalidation is
+driven by internal composition versioning, and Bun, Node, and Fetch share the
+same sync/async executor contract.
 
 #### 2. 95,173 req/s — Raw Bun parity snapshot
 The recorded 10-round compatibility snapshot measured **95,173 req/s** for Bun static JSON at 50
@@ -1778,8 +1789,12 @@ npm run benchmark:oha:release
 # Short v1.0 regression matrix (route counts 1/10/100/500)
 npm run benchmark:short
 
-# Current v1.0 release-line verification gate (does not run the deferred 24-hour soak)
+# Historical v1.0 release-line verification gate (does not run the deferred 24-hour soak)
 npm run release:check:v1
+
+# Current v1.2.0 Win Matrix release gate (fails while blockers are pending)
+npm run benchmark:verify:win-matrix
+npm run release:check:win-matrix
 # If the default base port 4321 is occupied:
 BENCH_PORT=4341 npm run benchmark:oha
 

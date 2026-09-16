@@ -1,14 +1,183 @@
-import { allowedMethodsFor, compilePath, lookupDynamicRoute, normalizeMethod, normalizePathname, splitSegments } from "./router.ts"
+import { allowedMethodsFor, compilePath, lookupDynamicPath, lookupDynamicUrl, matchSingleDynamicPath, matchSingleDynamicUrl, normalizeMethod, normalizePathname, splitSegments } from "./router.ts"
 import { fromStandardSchema, type Schema, type StandardSchema } from "./schema.ts"
 import { HttpError, responseMarker, type AddRoute, type AfterHook, type AfterResponseHook, type ApplyGuard, type AuthStrategyDescriptor, type AuthStrategySetting, type AuthStrategyProvider, type Context, type ContextExtension, type CookieOptions, type DecorationOptions, type ErrorHandler, type FetchHandler, type GuardOptions, type Handler, type Hook, type HookOptions, type HookScope, type InjectOptions, type InjectResponse, type InjectResponseBodyFor, type InjectResponseStatusesFor, type MacroDefinition, type MapResponseHook, type MergeRouteMaps, type ModelValues, type ModuleGraphNode, type NormalizedRouteMetadata, type NelysiaOptions, type NelysiaPlugin, type ParseHook, type ParsedQuery, type RateLimitRouteOptions, type RequestData, type RequestHook, type ResponseData, type ResponseOptions, type RouteContext, type RouteFeatureProvider, type RouteGraph, type RouteGuard, type RouteMap, type RouteMetadataOptions, type RouteOptions, type RouteRecord, type SchemaInput, type ServerInfo, type Telemetry, type TransformHook, type TypedInjectOptions, type WebSocketHandlers } from "./types.ts"
+import { createExecutionPlan, isThenable, registerRuntimeExecutor, type ExecutionPlan, type PreparedRequest, type RuntimeExecutor } from "./execution.ts"
 import { createBunServer } from "../../runtime-bun/src/server.ts"
 
 const asHeaders = (headers?: Headers): Headers => headers ?? new Headers()
 const defaultSignal = new AbortController().signal
+const sharedEmptyResponseHeaders = new Headers()
+const sharedNativeJsonHeaders = new Headers({ "content-type": "application/json; charset=utf-8" })
+const lazyFullContextStateSymbol = Symbol("nelysia.lazy-context-state")
+const lazyFullContextPrototype = Object.create(Object.prototype) as Record<PropertyKey, unknown>
+
+interface LazyFullContextState {
+  readonly search: string
+  readonly headers: Headers
+  readonly responseHeaders: Headers
+  readonly secureCookies: boolean
+  readonly stateValues: ReadonlyMap<string, unknown>
+  routeSource?: RouteRecord
+  route?: Context["route"]
+  query?: ParsedQuery
+  store?: Record<string, unknown>
+  cookies?: Record<string, string>
+  setCookie?: Context["setCookie"]
+  deleteCookie?: Context["deleteCookie"]
+  response?: Context["response"]
+  html?: Context["html"]
+  text?: Context["text"]
+  json?: Context["json"]
+  redirect?: Context["redirect"]
+  header?: Context["header"]
+}
+
+function lazyFullContextState(context: object): LazyFullContextState {
+  const state = (context as { [lazyFullContextStateSymbol]?: LazyFullContextState })[lazyFullContextStateSymbol]
+  if (state === undefined) throw new Error("Nelysia context state is unavailable")
+  return state
+}
+
+Object.defineProperties(lazyFullContextPrototype, {
+  query: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      return state.query ??= (state.search === "" ? new URLSearchParams() : createParsedQuery(state.search)) as ParsedQuery
+    },
+    set(this: Context, value: ParsedQuery) { lazyFullContextState(this).query = value }
+  },
+  store: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      return state.store ??= Object.fromEntries(state.stateValues)
+    },
+    set(this: Context, value: Record<string, unknown>) { lazyFullContextState(this).store = value }
+  },
+  cookies: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      return state.cookies ??= lazyCookies(state.headers)
+    },
+    set(this: Context, value: Record<string, string>) { lazyFullContextState(this).cookies = value }
+  },
+  setCookie: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const context = this
+      const state = lazyFullContextState(context)
+      return state.setCookie ??= ((name, value, options) => state.responseHeaders.append("set-cookie", serializeCookie(name, value, state.secureCookies ? { ...options, secure: options?.secure ?? true } : options))) as Context["setCookie"]
+    },
+    set(this: Context, value: Context["setCookie"]) { lazyFullContextState(this).setCookie = value }
+  },
+  deleteCookie: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      return state.deleteCookie ??= ((name, options) => state.responseHeaders.append("set-cookie", serializeCookie(name, "", { ...options, maxAge: 0, path: options?.path ?? "/" }))) as Context["deleteCookie"]
+    },
+    set(this: Context, value: Context["deleteCookie"]) { lazyFullContextState(this).deleteCookie = value }
+  },
+  response: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      return state.response ??= ((bodyOrStatus: unknown, optionsOrBody?: unknown, extraHeaders?: Record<string, string>) => createContextResponse(state.responseHeaders, bodyOrStatus, optionsOrBody, extraHeaders)) as Context["response"]
+    },
+    set(this: Context, value: Context["response"]) { lazyFullContextState(this).response = value }
+  },
+  html: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      return state.html ??= ((body: string, status = 200) => ({ status, body, headers: mergeHeaders(state.responseHeaders, { "content-type": "text/html; charset=utf-8" }), [responseMarker]: true })) as Context["html"]
+    },
+    set(this: Context, value: Context["html"]) { lazyFullContextState(this).html = value }
+  },
+  text: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      return state.text ??= ((body: string, status = 200) => ({ status, body, headers: mergeHeaders(state.responseHeaders, { "content-type": "text/plain; charset=utf-8" }), [responseMarker]: true })) as Context["text"]
+    },
+    set(this: Context, value: Context["text"]) { lazyFullContextState(this).text = value }
+  },
+  json: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      return state.json ??= ((body: unknown, statusOrOptions: number | ResponseOptions = 200) => {
+        const options = typeof statusOrOptions === "number" ? { status: statusOrOptions } : statusOrOptions
+        return { status: options.status ?? 200, body, headers: mergeHeaders(state.responseHeaders, mergeHeaders(new Headers({ "content-type": "application/json; charset=utf-8" }), options.headers)), [responseMarker]: true }
+      }) as Context["json"]
+    },
+    set(this: Context, value: Context["json"]) { lazyFullContextState(this).json = value }
+  },
+  redirect: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      return state.redirect ??= ((url: string, status = 302) => ({ status, body: undefined, headers: mergeHeaders(state.responseHeaders, { location: url }), [responseMarker]: true })) as Context["redirect"]
+    },
+    set(this: Context, value: Context["redirect"]) { lazyFullContextState(this).redirect = value }
+  },
+  header: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const context = this
+      const state = lazyFullContextState(context)
+      return state.header ??= ((name: string, value: string) => {
+        context.set.headers[name.toLowerCase()] = value
+        return context
+      }) as Context["header"]
+    },
+    set(this: Context, value: Context["header"]) { lazyFullContextState(this).header = value }
+  },
+  route: {
+    enumerable: true,
+    configurable: true,
+    get(this: Context) {
+      const state = lazyFullContextState(this)
+      if (state.route !== undefined) return state.route
+      const source = state.routeSource
+      if (source === undefined) return undefined
+      return state.route ??= { method: source.method, path: source.path, features: source.features ?? {}, auth: source.auth }
+    },
+    set(this: Context, value: Context["route"]) {
+      const state = lazyFullContextState(this)
+      state.routeSource = undefined
+      state.route = value
+    }
+  }
+})
+
+function assignContextRoute(context: Context, route: RouteRecord): void {
+  const state = (context as { [lazyFullContextStateSymbol]?: LazyFullContextState })[lazyFullContextStateSymbol]
+  if (state !== undefined) {
+    state.routeSource = route
+    state.route = undefined
+    return
+  }
+  context.route = { method: route.method, path: route.path, features: route.features ?? {}, auth: route.auth }
+}
 
 type PluginCallback = (app: Nelysia<any, any, any>) => Nelysia<any, any, any> | void | Promise<Nelysia<any, any, any> | void>
 type Plugin = Nelysia<any, any, any> | PluginCallback | NelysiaPlugin<any>
 type LazyPlugin = Plugin | Promise<Plugin | { default?: Plugin; app?: Plugin }>
+type NativeRequestInput = Pick<RequestData, "method" | "url" | "requestId" | "headers"> & { preflight?: RequestData["preflight"] }
 type ExtensionsOf<App> = App extends Nelysia<infer Extensions, any, any> ? Extensions : {}
 type RoutesOf<App> = App extends Nelysia<any, infer Routes, any> ? Routes : {}
 type ModelsOf<App> = App extends Nelysia<any, any, infer Models> ? Models : {}
@@ -90,13 +259,13 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   readonly websocketRoutes: { path: string; handlers: WebSocketHandlers }[] = []
   private readonly fetchMounts: { prefix: string; handler: FetchHandler }[] = []
   private readonly staticRoutes = new Map<string, RouteRecord>()
+  private readonly staticGetRoutes = new Map<string, RouteRecord>()
   private readonly dynamicRoutes = new Map<string, RouteRecord[]>()
-  /**
-   * Minimal-lane decision per route. Route records are composition-time
-   * snapshots (same staleness contract as the compiler dispatcher built at
-   * listen()), so caching avoids ~20 checks + Object.keys/regex per request.
-   */
-  private readonly minimalLaneCache = new WeakMap<RouteRecord, boolean>()
+  /** Route plans are private composition-time snapshots. The version lets a
+   * mutation invalidate every route without adding state to public
+   * RouteRecord values. */
+  private executionPlanVersion = 0
+  private readonly executionPlanCache = new Map<RouteRecord, { version: number; plan: ExecutionPlan }>()
   private readonly mountedRoutes = new Set<RouteRecord>()
   private readonly routeGuardRegistrations: Array<{ guard: RouteGuard; applies: (auth: RouteRecord["auth"]) => boolean }> = []
   private readonly authStrategyProviders = new Map<string, AuthStrategyProvider>()
@@ -119,10 +288,22 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     this.trustedProxy = options.trustedProxy ?? false
     this.secureCookies = options.secureCookies ?? false
     this.requestIdEnabled = options.requestId ?? true
+    const executor: RuntimeExecutor = {
+      preflight: (request) => this.runPreflight(request),
+      handle: (request) => this.runHandle(request),
+      handleNative: (request) => this.runNativeHandle(request),
+      handleNativeRequest: (request, requestId) => this.runNativeHandle(request, requestId)
+    }
+    registerRuntimeExecutor(this, executor)
+  }
+
+  private invalidateExecutionPlans(): void {
+    this.executionPlanVersion++
   }
 
   /** Internal extension point for route-scoped guards such as JWT auth. */
   registerRouteGuard(guard: RouteGuard, applies: (auth: RouteRecord["auth"]) => boolean): this {
+    this.invalidateExecutionPlans()
     this.routeGuardRegistrations.push({ guard, applies })
     for (const route of this.graph.routes) {
       if (!applies(route.auth)) continue
@@ -138,6 +319,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(name)) throw new Error(`Invalid auth strategy name: ${name}`)
     const existing = this.authStrategyProviders.get(name)
     if (existing !== undefined && existing !== provider) throw new Error(`Conflicting auth strategy provider: ${name}`)
+    this.invalidateExecutionPlans()
     this.authStrategyProviders.set(name, provider)
     this.registerRouteGuard(provider.guard, (auth) => authMatchesStrategy(auth, name))
     return this
@@ -148,6 +330,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   registerRouteFeature<Value = unknown>(name: string, provider: RouteFeatureProvider<Value>): this {
     const existing = this.routeFeatureProviders.get(name)
     if (existing !== undefined && existing !== provider) throw new Error(`Conflicting route feature provider: ${name}`)
+    this.invalidateExecutionPlans()
     this.routeFeatureProviders.set(name, provider as RouteFeatureProvider)
     for (const route of this.graph.routes) {
       const value = route.features?.[name]
@@ -230,6 +413,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const options = typeof optionsOrHook === "function" ? {} : optionsOrHook
     const hook = typeof optionsOrHook === "function" ? optionsOrHook : maybeHook
     if (!hook) throw new Error("onBeforeHandle requires a hook")
+    this.invalidateExecutionPlans()
     this.hooks.push(hook)
     if (options.as === "local") this.localHooks.push(hook)
     if (options.as === "scoped") this.scopedHooks.push(hook)
@@ -244,6 +428,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const options = typeof optionsOrHook === "function" ? {} : optionsOrHook
     const hook = typeof optionsOrHook === "function" ? optionsOrHook : maybeHook
     if (!hook) throw new Error("onRequest requires a hook")
+    this.invalidateExecutionPlans()
     this.requestHooks.push(hook)
     if (options.as === "local") this.localRequestHooks.push(hook)
     if (options.as === "scoped") this.scopedRequestHooks.push(hook)
@@ -258,6 +443,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const options = typeof optionsOrHook === "function" ? {} : optionsOrHook
     const hook = typeof optionsOrHook === "function" ? optionsOrHook : maybeHook
     if (!hook) throw new Error("onParse requires a hook")
+    this.invalidateExecutionPlans()
     this.parseHooks.push(hook)
     if (options.as === "local") this.localParseHooks.push(hook)
     if (options.as === "scoped") this.scopedParseHooks.push(hook)
@@ -272,6 +458,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const options = typeof optionsOrHook === "function" ? {} : optionsOrHook
     const hook = typeof optionsOrHook === "function" ? optionsOrHook : maybeHook
     if (!hook) throw new Error("onTransform requires a hook")
+    this.invalidateExecutionPlans()
     this.transformHooks.push(hook)
     if (options.as === "local") this.localTransformHooks.push(hook)
     if (options.as === "scoped") this.scopedTransformHooks.push(hook)
@@ -286,6 +473,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const options = typeof optionsOrHook === "function" ? {} : optionsOrHook
     const hook = typeof optionsOrHook === "function" ? optionsOrHook : maybeHook
     if (!hook) throw new Error("mapResponse requires a hook")
+    this.invalidateExecutionPlans()
     this.mapResponseHooks.push(hook)
     if (options.as === "local") this.localMapResponseHooks.push(hook)
     if (options.as === "scoped") this.scopedMapResponseHooks.push(hook)
@@ -300,6 +488,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const options = typeof optionsOrHook === "function" ? {} : optionsOrHook
     const hook = typeof optionsOrHook === "function" ? optionsOrHook : maybeHook
     if (!hook) throw new Error("onAfterResponse requires a hook")
+    this.invalidateExecutionPlans()
     this.afterResponseHooks.push(hook)
     if (options.as === "local") this.localAfterResponseHooks.push(hook)
     if (options.as === "scoped") this.scopedAfterResponseHooks.push(hook)
@@ -309,6 +498,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   }
 
   as(scope: HookOptions["as"]): this {
+    this.invalidateExecutionPlans()
     if (scope === "scoped") {
       for (const hook of this.hooks) if (!this.scopedHooks.includes(hook)) this.scopedHooks.push(hook)
       for (const hook of this.transformHooks) if (!this.scopedTransformHooks.includes(hook)) this.scopedTransformHooks.push(hook)
@@ -337,6 +527,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   onAfterHandle(optionsOrHook: AfterHook | HookOptions, maybeHook?: AfterHook): this {
     const hook = typeof optionsOrHook === "function" ? optionsOrHook : maybeHook
     if (!hook) throw new Error("onAfterHandle requires a hook")
+    this.invalidateExecutionPlans()
     this.afterHooks.push(hook)
     if (typeof optionsOrHook !== "function" && optionsOrHook.as === "local") this.localAfterHooks.push(hook)
     if (typeof optionsOrHook !== "function" && optionsOrHook.as === "scoped") this.scopedAfterHooks.push(hook)
@@ -350,6 +541,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   onError(optionsOrHandler: ErrorHandler | HookOptions, maybeHandler?: ErrorHandler): this {
     const handler = typeof optionsOrHandler === "function" ? optionsOrHandler : maybeHandler
     if (!handler) throw new Error("onError requires a handler")
+    this.invalidateExecutionPlans()
     this.errorHandlers.push(handler)
     if (typeof optionsOrHandler !== "function" && optionsOrHandler.as === "local") this.localErrorHandlers.push(handler)
     if (typeof optionsOrHandler !== "function" && optionsOrHandler.as === "scoped") this.scopedErrorHandlers.push(handler)
@@ -359,12 +551,14 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   }
 
   state<K extends string, Value>(name: K, value: Value): Nelysia<Extensions & { store: Record<K, Value> } & Record<K, Value>, Routes, Models, MacroNames> {
+    this.invalidateExecutionPlans()
     this.stateValues.set(name, value)
     this.contextValues.set(name, value)
     return this as unknown as Nelysia<Extensions & { store: Record<K, Value> } & Record<K, Value>, Routes, Models, MacroNames>
   }
 
   decorate<K extends string, Value>(name: K, value: Value | ((context: Context & Extensions) => Value), options?: DecorationOptions): Nelysia<Extensions & Record<K, Value>, Routes, Models, MacroNames> {
+    this.invalidateExecutionPlans()
     this.decorationValues.set(name, value)
     this.contextValues.set(name, value)
     if (options?.enumerable === false) this.nonEnumerableDecorations.add(name)
@@ -585,6 +779,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   mount<Prefix extends string, Child extends Nelysia<any, any, any, any>>(prefix: Prefix, child: Child): Nelysia<Extensions, MergeRouteMaps<Routes, PrefixRoutes<Prefix, RoutesOf<Child>>>, Models & ModelsOf<Child>, MergeMacroNames<MacroNames, MacrosOf<Child>>>
   mount(prefix: string, handler: FetchHandler): this
   mount(prefix: string, childOrHandler: Nelysia<any, any, any> | FetchHandler): this {
+    this.invalidateExecutionPlans()
     if (typeof childOrHandler === "function") {
       this.fetchMounts.push({ prefix: normalizePrefix(prefix), handler: childOrHandler })
       return this
@@ -922,10 +1117,12 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   }
 
   private registerRoute(route: RouteRecord, mounted = false): void {
+    this.invalidateExecutionPlans()
     this.graph.routes.push(route)
     if (mounted) this.mountedRoutes.add(route)
     if (route.static) {
       this.staticRoutes.set(`${route.method} ${route.path}`, route)
+      if (route.method === "GET") this.staticGetRoutes.set(route.path, route)
       return
     }
     const list = this.dynamicRoutes.get(route.method)
@@ -939,39 +1136,25 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   }
 
   /**
-   * True when a route can be served without building a full request context.
-   * The handler must be zero-arg or params-only (same shape the compiler's
-   * static-sync/params lanes accept), and nothing else may observe the
-   * request: no hooks, guards, schemas, auth, telemetry, or app-level state.
-   * The visible response is then identical to the generic lane.
+   * Build one immutable plan per route composition. A route record is still
+   * the public source of truth; the plan is deliberately kept out of it.
    */
-  private canUseMinimalContext(route: RouteRecord): boolean {
-    const cached = this.minimalLaneCache.get(route)
-    if (cached !== undefined) return cached
-    const eligible = this.checkMinimalContext(route)
-    this.minimalLaneCache.set(route, eligible)
-    return eligible
+  private executionPlan(route: RouteRecord): ExecutionPlan {
+    const cached = this.executionPlanCache.get(route)
+    if (cached?.version === this.executionPlanVersion) return cached.plan
+    const plan = createExecutionPlan(route, {
+      telemetry: this.telemetry !== undefined,
+      modulesPending: this.moduleState === "pending",
+      mounts: this.fetchMounts.length > 0,
+      contextValues: this.contextValues.size > 0,
+      contextExtensions: this.contextExtensionHooks.length > 0
+    })
+    this.executionPlanCache.set(route, { version: this.executionPlanVersion, plan })
+    return plan
   }
 
-  private checkMinimalContext(route: RouteRecord): boolean {
-    if (this.telemetry !== undefined) return false
-    if (this.modulePromises.length > 0 || this.fetchMounts.length > 0) return false
-    if (this.hasGlobalLifecycle || this.hasContextValues || this.hasFetchMounts) return false
-    if (this.hooks.length > 0 || this.requestHooks.length > 0 || this.parseHooks.length > 0) return false
-    if (this.transformHooks.length > 0 || this.mapResponseHooks.length > 0 || this.afterResponseHooks.length > 0) return false
-    if (this.afterHooks.length > 0 || this.errorHandlers.length > 0 || this.contextExtensionHooks.length > 0) return false
-    if (route.auth !== undefined || route.role !== undefined || route.permissions !== undefined) return false
-    if (route.features !== undefined && Object.keys(route.features).length > 0) return false
-    if ((route.routeGuards?.length ?? 0) > 0) return false
-    if ((route.requestHooks?.length ?? 0) > 0 || (route.parseHooks?.length ?? 0) > 0) return false
-    if ((route.mapResponseHooks?.length ?? 0) > 0 || (route.afterResponseHooks?.length ?? 0) > 0) return false
-    if (route.hooks.length > 0 || route.afterHooks.length > 0 || route.errorHandlers.length > 0) return false
-    if (route.bodySchema !== undefined || route.paramsSchema !== undefined || route.querySchema !== undefined) return false
-    if (route.headersSchema !== undefined || route.responseSchema !== undefined) return false
-    if (route.responseSchemas !== undefined && Object.keys(route.responseSchemas).length > 0) return false
-    const handler = route.handler as (...args: never[]) => unknown
-    if (handler.length === 0) return true
-    return /^(?:async\s*)?\(\s*\{\s*params\s*\}\s*\)\s*=>/.test(Function.prototype.toString.call(handler))
+  private canUseMinimalContext(route: RouteRecord): boolean {
+    return this.executionPlan(route).lane === "minimal"
   }
 
   /**
@@ -981,36 +1164,76 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
    * no schemas to validate, no hooks to run). The x-request-id response
    * contract matches createContext: echoed/generated when enabled.
    */
-  private async handleMinimalContext(route: RouteRecord, params: Record<string, string>, request: RequestData, method: string): Promise<ResponseData> {
+  private handleMinimalContext(route: RouteRecord, params: Record<string, string>, request: RequestData, method: string): ResponseData | Promise<ResponseData> {
     const handler = route.handler as (context: { params: Record<string, string> }) => unknown
-    const headers = new Headers()
+    const headers = this.requestIdEnabled ? new Headers() : sharedEmptyResponseHeaders
     if (this.requestIdEnabled) {
       headers.set("x-request-id", request.requestId ?? asHeaders(request.headers).get("x-request-id") ?? `req-${method}-${request.url}`)
     }
-    let result: unknown
-    try {
-      const invoked = handler.length === 0 ? (handler as () => unknown)() : handler({ params })
-      result = invoked instanceof Promise ? await invoked : invoked
-    } catch (error) {
+    const finish = (result: unknown): ResponseData => {
+      if (result instanceof HttpError) return this.response(errorStatusOf(result), result.body ?? { error: result.message })
+      if (isResponse(result)) return result
+      if (result instanceof Response) return { status: result.status, headers: mergeHeaders(headers, Object.fromEntries(result.headers.entries())), body: result.body, [responseMarker]: true as const }
+      if (result instanceof ReadableStream) return { status: 200, headers, body: result, [responseMarker]: true as const }
+      return { status: 200, headers, body: result, [responseMarker]: true as const }
+    }
+    const failed = (error: unknown): ResponseData | Promise<ResponseData> => {
       if (error instanceof HttpError) return this.response(errorStatusOf(error), error.body ?? { error: error.message })
       throw error
     }
-    if (result instanceof HttpError) return this.response(errorStatusOf(result), result.body ?? { error: result.message })
-    if (isResponse(result)) return result
-    if (result instanceof Response) return { status: result.status, headers: mergeHeaders(headers, Object.fromEntries(result.headers.entries())), body: result.body, [responseMarker]: true as const }
-    if (result instanceof ReadableStream) return { status: 200, headers, body: result, [responseMarker]: true as const }
-    return { status: 200, headers, body: result, [responseMarker]: true as const }
+    try {
+      const invoked = handler.length === 0 ? (handler as () => unknown)() : handler({ params })
+      return isThenable(invoked) ? Promise.resolve(invoked).then(finish, failed) : finish(invoked)
+    } catch (error) {
+      return failed(error)
+    }
   }
 
-  private createContext(request: RequestData, params: Record<string, string>, search: string, method: string): { context: Context; responseHeaders: Headers } {
+  /**
+   * Opaque handlers still receive the complete Context contract, but the
+   * expensive query/store/cookie/helper values are inherited accessors and
+   * only materialize when the handler reads them. Handlers that inspect own
+   * keys are kept on the eager literal path by ExecutionPlan.
+   */
+  private createLazyFullContext(request: RequestData, params: Record<string, string>, search: string, method: string): { context: Context; responseHeaders: Headers } {
     const headers = asHeaders(request.headers)
-    let requestId = ""
-    if (this.requestIdEnabled) {
-      requestId = request.requestId ?? headers.get("x-request-id") ?? `req-${method}-${request.url}`
-    }
+    const requestId = this.requestIdEnabled ? request.requestId ?? headers.get("x-request-id") ?? `req-${method}-${request.url}` : ""
     const responseHeaders = new Headers()
     if (this.requestIdEnabled) responseHeaders.set("x-request-id", requestId)
     const clientIp = this.trustedProxy ? headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.remoteAddress : request.remoteAddress
+    const state: LazyFullContextState = {
+      search,
+      headers,
+      responseHeaders,
+      secureCookies: this.secureCookies,
+      stateValues: this.stateValues
+    }
+    const context = Object.create(lazyFullContextPrototype) as Context & { [lazyFullContextStateSymbol]: LazyFullContextState }
+    context[lazyFullContextStateSymbol] = state
+    context.request = { ...request, headers }
+    context.requestId = requestId
+    context.clientIp = clientIp
+    context.env = request.env
+    context.executionContext = request.executionContext
+    context.params = params
+    context.set = { status: undefined, headers: {} }
+    context.body = request.body
+    context.headers = headers
+    context.signal = request.signal ?? defaultSignal
+    return { context, responseHeaders }
+  }
+
+  private createContext(request: RequestData, params: Record<string, string>, search: string, method: string, plan?: ExecutionPlan): { context: Context; responseHeaders: Headers } {
+    const headers = asHeaders(request.headers)
+    const requestId = this.requestIdEnabled ? request.requestId ?? headers.get("x-request-id") ?? `req-${method}-${request.url}` : ""
+    const responseHeaders = new Headers()
+    if (this.requestIdEnabled) responseHeaders.set("x-request-id", requestId)
+    const clientIp = this.trustedProxy ? headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.remoteAddress : request.remoteAddress
+    const fullContext = plan === undefined || plan.needs.full
+    const needs = (field: import("./execution.ts").ContextField): boolean => fullContext || plan?.needs.has(field) === true
+    if (plan !== undefined && fullContext && !plan.needs.ownProperties && this.stateValues.size === 0 && this.decorationValues.size === 0) {
+      return this.createLazyFullContext(request, params, search, method)
+    }
     const context: Context = {
       request: { ...request, headers },
       requestId,
@@ -1018,63 +1241,70 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       env: request.env,
       executionContext: request.executionContext,
       params,
-      query: createParsedQuery(search),
+      query: needs("query") ? createParsedQuery(search) : undefined as unknown as ParsedQuery,
       set: { status: undefined, headers: {} },
-      // Canonical state storage is kept separate from decorations. State is
-      // available through `store`; the top-level mirror remains only as a
-      // v0.x compatibility bridge and is intentionally not used by plugins.
-      store: Object.fromEntries(this.stateValues),
+      store: needs("store") ? Object.fromEntries(this.stateValues) : undefined as unknown as Record<string, unknown>,
       body: request.body,
       headers,
       signal: request.signal ?? defaultSignal,
-      cookies: lazyCookies(headers),
-      setCookie: (name, value, options) => responseHeaders.append("set-cookie", serializeCookie(name, value, this.secureCookies ? { ...options, secure: options?.secure ?? true } : options)),
-      deleteCookie: (name, options) => responseHeaders.append("set-cookie", serializeCookie(name, "", { ...options, maxAge: 0, path: options?.path ?? "/" })),
-      response: ((bodyOrStatus: unknown, optionsOrBody?: unknown, extraHeaders?: Record<string, string>) => createContextResponse(responseHeaders, bodyOrStatus, optionsOrBody, extraHeaders)) as Context["response"],
-      html: (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "text/html; charset=utf-8" }), [responseMarker]: true }),
-      text: (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "text/plain; charset=utf-8" }), [responseMarker]: true }),
-      json: (body, statusOrOptions = 200) => {
-        const options = typeof statusOrOptions === "number" ? { status: statusOrOptions } : statusOrOptions
-        return { status: options.status ?? 200, body, headers: mergeHeaders(responseHeaders, mergeHeaders(new Headers({ "content-type": "application/json; charset=utf-8" }), options.headers)), [responseMarker]: true }
-      },
-      redirect: (url, status = 302) => ({ status, body: undefined, headers: mergeHeaders(responseHeaders, { location: url }), [responseMarker]: true }),
-      header: (name, value) => {
-        context.set.headers[name.toLowerCase()] = value
-        return context
-      }
+      cookies: needs("cookies") ? lazyCookies(headers) : undefined as unknown as Record<string, string>,
+      setCookie: undefined as unknown as Context["setCookie"],
+      deleteCookie: undefined as unknown as Context["deleteCookie"],
+      response: undefined as unknown as Context["response"],
+      html: undefined as unknown as Context["html"],
+      text: undefined as unknown as Context["text"],
+      json: undefined as unknown as Context["json"],
+      redirect: undefined as unknown as Context["redirect"],
+      header: undefined as unknown as Context["header"]
     }
-    for (const [name, value] of this.stateValues) {
-      ;(context as unknown as Record<string, unknown>)[name] = value
+    const secureCookies = this.secureCookies
+    if (needs("setCookie")) context.setCookie = (name, value, options) => responseHeaders.append("set-cookie", serializeCookie(name, value, secureCookies ? { ...options, secure: options?.secure ?? true } : options))
+    if (needs("deleteCookie")) context.deleteCookie = (name, options) => responseHeaders.append("set-cookie", serializeCookie(name, "", { ...options, maxAge: 0, path: options?.path ?? "/" }))
+    if (needs("response")) context.response = ((bodyOrStatus: unknown, optionsOrBody?: unknown, extraHeaders?: Record<string, string>) => createContextResponse(responseHeaders, bodyOrStatus, optionsOrBody, extraHeaders)) as Context["response"]
+    if (needs("html")) context.html = (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "text/html; charset=utf-8" }), [responseMarker]: true })
+    if (needs("text")) context.text = (body, status = 200) => ({ status, body, headers: mergeHeaders(responseHeaders, { "content-type": "text/plain; charset=utf-8" }), [responseMarker]: true })
+    if (needs("json")) context.json = (body, statusOrOptions = 200) => {
+      const options = typeof statusOrOptions === "number" ? { status: statusOrOptions } : statusOrOptions
+      return { status: options.status ?? 200, body, headers: mergeHeaders(responseHeaders, mergeHeaders(new Headers({ "content-type": "application/json; charset=utf-8" }), options.headers)), [responseMarker]: true }
     }
-    for (const [name, value] of this.decorationValues) {
-      const resolve = () => typeof value === "function" ? (value as (context: Context) => unknown)(context) : value
-      if (this.lazyDecorations.has(name)) {
-        let initialized = false
-        let resolved: unknown
-        Object.defineProperty(context, name, {
-          configurable: true,
-          enumerable: !this.nonEnumerableDecorations.has(name),
-          get() {
-            if (!initialized) {
-              resolved = resolve()
-              initialized = true
+    if (needs("redirect")) context.redirect = (url, status = 302) => ({ status, body: undefined, headers: mergeHeaders(responseHeaders, { location: url }), [responseMarker]: true })
+    if (needs("header")) context.header = (name, value) => {
+      context.set.headers[name.toLowerCase()] = value
+      return context
+    }
+    if (fullContext) {
+      for (const [name, value] of this.stateValues) (context as unknown as Record<string, unknown>)[name] = value
+      for (const [name, value] of this.decorationValues) {
+        const resolve = () => typeof value === "function" ? (value as (context: Context) => unknown)(context) : value
+        if (this.lazyDecorations.has(name)) {
+          let initialized = false
+          let resolved: unknown
+          Object.defineProperty(context, name, {
+            configurable: true,
+            enumerable: !this.nonEnumerableDecorations.has(name),
+            get() {
+              if (!initialized) {
+                resolved = resolve()
+                initialized = true
+              }
+              return resolved
             }
-            return resolved
-          }
-        })
-      } else {
-        Object.defineProperty(context, name, {
-          configurable: true,
-          enumerable: !this.nonEnumerableDecorations.has(name),
-          value: resolve(),
-          writable: true
-        })
+          })
+        } else {
+          Object.defineProperty(context, name, {
+            configurable: true,
+            enumerable: !this.nonEnumerableDecorations.has(name),
+            value: resolve(),
+            writable: true
+          })
+        }
       }
     }
     return { context, responseHeaders }
   }
 
   private addContextExtension(extension: ContextExtension): void {
+    this.invalidateExecutionPlans()
     const apply = async (context: Context) => {
       const values = await extension(context)
       if (values) Object.assign(context, values)
@@ -1121,7 +1351,16 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
    * adapter consumes a request body. The returned context is reused by
    * handle(), which preserves auth data set by a guard.
    */
-  async preflight(request: RequestData): Promise<import("./types.ts").RequestPreflight> {
+  preflight(request: RequestData): Promise<import("./types.ts").RequestPreflight> {
+    return Promise.resolve(this.runPreflight(request))
+  }
+
+  private runPreflight(request: RequestData): import("./types.ts").RequestPreflight | Promise<import("./types.ts").RequestPreflight> {
+    if (this.moduleState === "pending") return this.waitForModules().then(() => this.preflightReference(request))
+    return this.preflightReference(request)
+  }
+
+  private async preflightReference(request: RequestData): Promise<import("./types.ts").RequestPreflight> {
     if (this.modulePromises.length > 0) await this.waitForModules()
     const { pathname, search } = splitUrl(request.url)
     const method = fastNormalizeMethod(request.method)
@@ -1141,21 +1380,15 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const lookupMethod = method === "HEAD" ? "GET" : method
     const normalized = normalizePathname(pathname)
     const direct = this.staticRoutes.get(`${lookupMethod} ${normalized}`)
-    const match = direct === undefined ? lookupDynamicRoute(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, splitSegments(normalized)) : undefined
+    const match = direct === undefined ? lookupDynamicPath(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, normalized) : undefined
     const route = direct ?? match?.route
     if (route === undefined) {
       return { kind: "response", response: await this.handle({ ...request, body: undefined, preflight: undefined }) }
     }
     const params = match?.params ?? {}
-    if (this.canUseMinimalContext(route)) {
-      // No request hooks/guards to run and handle() serves this route without
-      // a full context — skip createContext (URLSearchParams+Proxy, cookie
-      // parse, store). handle() detects the same condition and runs the
-      // minimal lane, so the placeholder context is never observed.
-      return { kind: "route", route, params, context: undefined as unknown as Context, responseHeaders: new Headers(), method, pathname: normalized, search, url: request.url }
-    }
-    const { context, responseHeaders } = this.createContext(request, params, search, method)
-    context.route = { method: route.method, path: route.path, features: route.features ?? {}, auth: route.auth }
+    const plan = this.executionPlan(route)
+    const { context, responseHeaders } = this.createContext(request, params, search, method, plan.lane === "specialized" ? plan : undefined)
+    assignContextRoute(context, route)
     try {
       for (const hook of route.requestHooks ?? []) {
         const result = await hook(request)
@@ -1234,20 +1467,593 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     }
   }
 
-  async handle(request: RequestData): Promise<ResponseData> {
-    if (this.modulePromises.length > 0) await this.waitForModules()
+  handle(request: RequestData): Promise<ResponseData> {
+    return Promise.resolve().then(() => this.runHandle(request))
+  }
+
+  private runNativeHandle(request: NativeRequestInput | Request, nativeRequestId?: string): Response | Promise<Response> | undefined {
+    if (this.moduleState !== "loaded") return undefined
     const method = fastNormalizeMethod(request.method)
+    const data = request as NativeRequestInput
+    const requestId = "requestId" in request ? data.requestId : nativeRequestId
+    // The native boundary is only allowed to elide preflight for bodyless
+    // requests. POST/PUT/etc. still need adapter body parsing and must use the
+    // reference preflight contract.
+    if (method === undefined || (method !== "GET" && method !== "HEAD") || this.fetchMounts.length > 0 || ("preflight" in request && data.preflight !== undefined)) return undefined
+    const runtimeRequest = request instanceof Request ? undefined : data
+    const lookupMethod = method === "HEAD" ? "GET" : method
+    const url = request.url
+    const fastPath = lookupMethod === "GET" ? normalizePathname(fastPathname(url)) : undefined
+    if (lookupMethod === "GET") {
+      const direct = this.staticGetRoutes.get(fastPath!)
+      if (direct !== undefined) return this.runNativeMatch(request, runtimeRequest, direct, {}, method, fastPath ?? direct.path, url, requestId)
+    }
+    const dynamicRoutes = this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES
+    if (dynamicRoutes.length === 1) {
+      const route = dynamicRoutes[0]!
+      const params = fastPath === undefined ? matchSingleDynamicUrl(route, url) : matchSingleDynamicPath(route, fastPath)
+      if (params !== undefined) return this.runNativeMatch(request, runtimeRequest, route, params, method, fastPath ?? route.path, url, requestId)
+    }
+    const match = lookupDynamicUrl(dynamicRoutes, url)
+    return match === undefined ? undefined : this.runNativeMatch(request, runtimeRequest, match.route, match.params, method, fastPath ?? match.route.path, url, requestId)
+  }
+
+  private runNativeMatch(
+    nativeRequest: NativeRequestInput | Request,
+    runtimeRequest: RequestData | undefined,
+    route: RouteRecord,
+    params: Record<string, string>,
+    method: string,
+    pathname: string,
+    url: string,
+    requestId?: string
+  ): Response | Promise<Response> | undefined {
+    const plan = this.executionPlan(route)
+    if (plan.pipelineSafe && plan.contextFreePipeline) {
+      return this.handleContextFreeNative(nativeRequest, params, method, plan, requestId)
+    }
+    const request = runtimeRequest ?? {
+      method: nativeRequest.method,
+      url,
+      requestId,
+      headers: nativeRequest.headers,
+      rawRequest: nativeRequest instanceof Request ? nativeRequest : undefined
+    }
+    const queryIndex = url.indexOf("?")
+    return this.runNativePrepared({
+      request,
+      route,
+      params,
+      method,
+      pathname,
+      search: queryIndex === -1 ? "" : url.slice(queryIndex + 1),
+      plan
+    }, requestId)
+  }
+
+  private runNativePrepared(prepared: PreparedRequest, requestId?: string): Response | Promise<Response> | undefined {
+    // A pipeline-safe route has no observable request/body/guard stage that
+    // requires preflight. Run the same internal executor used by Fetch, then
+    // normalize at the adapter boundary. This also covers opaque handlers:
+    // they still receive the full context, but do not pay for a second route
+    // match and an async preflight/handle pair.
+    if (!prepared.plan.pipelineSafe) return undefined
+    if (prepared.plan.contextFreePipeline) return this.handleContextFreeNative(prepared.request, prepared.params, prepared.method, prepared.plan, requestId)
+    if (prepared.plan.allSynchronous && prepared.plan.mapResponseHooks.length === 0
+      && prepared.plan.afterHooks.length === 0 && prepared.plan.afterResponseHooks.length === 0 && prepared.plan.errorHandlers.length === 0) {
+      return this.handleSpecializedNativeSynchronous(prepared)
+    }
+    return this.toNativeResponse(this.runPrepared(prepared.request, prepared))
+  }
+
+  private toNativeResponse(result: ResponseData | Promise<ResponseData>): Response | Promise<Response> {
+    if (isThenable(result)) return Promise.resolve(result).then((response) => this.nativeResponseData(response))
+    return this.nativeResponseData(result)
+  }
+
+  private handleContextFreeNative(request: Pick<RequestData, "method" | "url" | "headers">, params: Record<string, string>, method: string, plan: ExecutionPlan, requestId?: string): Response | Promise<Response> {
+    const headers = this.requestIdEnabled ? new Headers() : sharedEmptyResponseHeaders
+    if (this.requestIdEnabled) headers.set("x-request-id", requestId ?? asHeaders(request.headers).get("x-request-id") ?? `req-${method}-${request.url}`)
+    const handlerContext = plan.needs.has("params") ? { params } : undefined
+    return this.runContextFreeNative(plan, headers, handlerContext)
+  }
+
+  private runContextFreeNative(
+    plan: ExecutionPlan,
+    headers: Headers,
+    handlerContext: { params: Record<string, string> } | undefined,
+    hookIndex = 0
+  ): Response | Promise<Response> {
+    try {
+      if (plan.nativeHooks.length > 0) {
+        for (let cursor = hookIndex; cursor < plan.nativeHooks.length; cursor++) {
+          const value = (plan.nativeHooks[cursor] as unknown as () => unknown)()
+          if (isThenable(value)) return Promise.resolve(value).then((resolved) => {
+            if (isResponse(resolved) || resolved instanceof Response) return this.finishContextFreeNative(resolved, headers)
+            return this.runContextFreeNative(plan, headers, handlerContext, cursor + 1)
+          }, (error) => this.finishContextFreeNativeError(error, headers))
+          if (isResponse(value) || value instanceof Response) return this.finishContextFreeNative(value, headers)
+        }
+      }
+      const result = handlerContext === undefined
+        ? (plan.handler as unknown as () => unknown)()
+        : (plan.handler as unknown as (context: { params: Record<string, string> }) => unknown)(handlerContext)
+      return isThenable(result)
+        ? Promise.resolve(result).then((value) => this.finishContextFreeNative(value, headers), (error) => this.finishContextFreeNativeError(error, headers))
+        : this.finishContextFreeNative(result, headers)
+    } catch (error) {
+      if (error instanceof HttpError) return this.finishContextFreeNative(error, headers)
+      throw error
+    }
+  }
+
+  private finishContextFreeNative(value: unknown, headers: Headers): Response {
+    if (value instanceof HttpError) return this.nativeBodyResponse(errorStatusOf(value), value.body ?? { error: value.message }, headers)
+    if (isResponse(value)) return this.nativeResponseData(value)
+    if (value instanceof Response) {
+      if (headers === sharedEmptyResponseHeaders) return value
+      return new Response(value.body, { status: value.status, headers: mergeHeaders(headers, Object.fromEntries(value.headers.entries())) })
+    }
+    if (value instanceof ReadableStream) return new Response(value, { status: 200, headers })
+    return this.nativeBodyResponse(200, value, headers)
+  }
+
+  private nativeResponseData(result: ResponseData): Response {
+    if (result.body instanceof Response) {
+      const headers = mergeHeaders(result.headers, Object.fromEntries(result.body.headers.entries()))
+      return new Response(result.body.body, { status: result.status, headers })
+    }
+    if (result.body instanceof ReadableStream) return new Response(result.body, { status: result.status, headers: result.headers })
+    return this.nativeBodyResponse(result.status, result.body, result.headers)
+  }
+
+  private nativeBodyResponse(status: number, body: unknown, headers: Headers): Response {
+    if (body instanceof ReadableStream) return new Response(body, { status, headers })
+    if (body instanceof Response) return new Response(body.body, { status, headers: mergeHeaders(headers, Object.fromEntries(body.headers.entries())) })
+    if (body === undefined || body === null) return new Response(null, { status, headers })
+    if (typeof body === "string" || body instanceof Uint8Array) return new Response(body as BodyInit, { status, headers })
+    if (headers === sharedEmptyResponseHeaders) return new Response(JSON.stringify(body), { status, headers: sharedNativeJsonHeaders })
+    if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8")
+    return new Response(JSON.stringify(body), { status, headers })
+  }
+
+  private runHandle(request: RequestData): ResponseData | Promise<ResponseData> {
+    if (this.moduleState === "pending") return this.waitForModules().then(() => this.runHandle(request))
+    const prepared = this.prepareRuntimeRequest(request)
+    if (prepared === undefined) return this.handleReference(request)
+    return this.runPrepared(request, prepared)
+  }
+
+  private runPrepared(request: RequestData, prepared: PreparedRequest): ResponseData | Promise<ResponseData> {
+    if (prepared.plan.lane === "minimal") return this.handleMinimalContext(prepared.route, prepared.params, request, prepared.method)
+    if (prepared.plan.contextFreePipeline) return this.handleContextFreePipeline(prepared)
+    if (prepared.plan.pipelineSafe) return this.handleSpecialized(prepared)
+    return this.handleReference(request, prepared)
+  }
+
+  private handleContextFreePipeline(prepared: PreparedRequest): ResponseData | Promise<ResponseData> {
+    const headers = this.requestIdEnabled ? new Headers() : sharedEmptyResponseHeaders
+    if (this.requestIdEnabled) headers.set("x-request-id", prepared.request.requestId ?? asHeaders(prepared.request.headers).get("x-request-id") ?? `req-${prepared.method}-${prepared.request.url}`)
+    const handlerContext = prepared.plan.needs.has("params") ? { params: prepared.params } : undefined
+    if (prepared.plan.allSynchronous) return this.runContextFreeSynchronous(prepared, headers, handlerContext)
+    return this.runContextFreeWithClosures(prepared, headers, handlerContext)
+  }
+
+  private runContextFreeSynchronous(
+    prepared: PreparedRequest,
+    headers: Headers,
+    handlerContext: { params: Record<string, string> } | undefined,
+    hookIndex = 0
+  ): ResponseData | Promise<ResponseData> {
+    try {
+      for (let cursor = hookIndex; cursor < prepared.plan.hooks.length; cursor++) {
+        const value = (prepared.plan.hooks[cursor] as unknown as () => unknown)()
+        if (isThenable(value)) return Promise.resolve(value).then((resolved) => {
+          if (isResponse(resolved) || resolved instanceof Response) return this.finishContextFree(resolved, headers)
+          return this.runContextFreeSynchronous(prepared, headers, handlerContext, cursor + 1)
+        }, (error) => this.finishContextFreeError(error))
+        if (isResponse(value) || value instanceof Response) return this.finishContextFree(value, headers)
+      }
+      const result = handlerContext === undefined
+        ? (prepared.plan.handler as unknown as () => unknown)()
+        : (prepared.plan.handler as unknown as (context: { params: Record<string, string> }) => unknown)(handlerContext)
+      return isThenable(result)
+        ? Promise.resolve(result).then((value) => this.finishContextFree(value, headers), (error) => this.finishContextFreeError(error))
+        : this.finishContextFree(result, headers)
+    } catch (error) {
+      if (error instanceof HttpError) return this.response(errorStatusOf(error), error.body ?? { error: error.message })
+      throw error
+    }
+  }
+
+  private runContextFreeWithClosures(prepared: PreparedRequest, headers: Headers, handlerContext: { params: Record<string, string> } | undefined): ResponseData | Promise<ResponseData> {
+    const finish = (value: unknown): ResponseData => this.finishContextFree(value, headers)
+    const invoke = (index: number): ResponseData | Promise<ResponseData> => {
+      for (let cursor = index; cursor < prepared.plan.hooks.length; cursor++) {
+        const value = (prepared.plan.hooks[cursor] as unknown as () => unknown)()
+        if (isThenable(value)) return Promise.resolve(value).then((resolved) => {
+          if (isResponse(resolved) || resolved instanceof Response) return finish(resolved)
+          return invoke(cursor + 1)
+        }, (error) => this.finishContextFreeError(error))
+        if (isResponse(value) || value instanceof Response) return finish(value)
+      }
+      const result = handlerContext === undefined
+        ? (prepared.plan.handler as unknown as () => unknown)()
+        : (prepared.plan.handler as unknown as (context: { params: Record<string, string> }) => unknown)(handlerContext)
+      return isThenable(result)
+        ? Promise.resolve(result).then(finish, (error) => this.finishContextFreeError(error))
+        : finish(result)
+    }
+    try { return invoke(0) } catch (error) {
+      if (error instanceof HttpError) return this.response(errorStatusOf(error), error.body ?? { error: error.message })
+      throw error
+    }
+  }
+
+  private finishContextFree(value: unknown, headers: Headers): ResponseData {
+    if (value instanceof HttpError) return this.response(errorStatusOf(value), value.body ?? { error: value.message })
+    if (isResponse(value)) return value
+    if (value instanceof Response) return { status: value.status, headers: mergeHeaders(headers, Object.fromEntries(value.headers.entries())), body: value.body, [responseMarker]: true as const }
+    if (value instanceof ReadableStream) return { status: 200, headers, body: value, [responseMarker]: true as const }
+    return { status: 200, headers, body: value, [responseMarker]: true as const }
+  }
+
+  private finishContextFreeError(error: unknown): ResponseData {
+    if (error instanceof HttpError) return this.response(errorStatusOf(error), error.body ?? { error: error.message })
+    throw error
+  }
+
+  private finishContextFreeNativeError(error: unknown, headers: Headers): Response {
+    if (error instanceof HttpError) return this.nativeBodyResponse(errorStatusOf(error), error.body ?? { error: error.message }, headers)
+    throw error
+  }
+
+  private prepareRuntimeRequest(request: RequestData): PreparedRequest | undefined {
+    if (request.preflight?.kind === "response") return undefined
+    const method = fastNormalizeMethod(request.method)
+    if (method === undefined || this.fetchMounts.length > 0) return undefined
+    const preflight = request.preflight?.kind === "route" ? request.preflight : undefined
+    // The common context-free dynamic route can match directly against the
+    // original absolute URL. This mirrors the compiler's prefix matcher and
+    // avoids allocating pathname/search/segment strings before the plan is
+    // known to need neither value.
+    if (preflight === undefined) {
+      const lookupMethod = method === "HEAD" ? "GET" : method
+      const fastPath = normalizePathname(fastPathname(request.url))
+      const fastDirect = lookupMethod === "GET" ? this.staticGetRoutes.get(fastPath) : undefined
+      if (fastDirect !== undefined) {
+        const fastPlan = this.executionPlan(fastDirect)
+        if (fastPlan.lane !== "generic" && fastPlan.contextFreePipeline) {
+          return { request, route: fastDirect, params: {}, method, pathname: fastDirect.path, search: "", plan: fastPlan }
+        }
+        const queryIndex = request.url.indexOf("?")
+        return {
+          request,
+          route: fastDirect,
+          params: {},
+          method,
+          pathname: fastPath,
+          search: queryIndex === -1 ? "" : request.url.slice(queryIndex + 1),
+          plan: fastPlan
+        }
+      }
+      const fastMatch = lookupDynamicUrl(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, request.url)
+      if (fastMatch !== undefined) {
+        const fastPlan = this.executionPlan(fastMatch.route)
+        if (fastPlan.lane !== "generic" && fastPlan.contextFreePipeline) {
+          return { request, route: fastMatch.route, params: fastMatch.params, method, pathname: fastMatch.route.path, search: "", plan: fastPlan }
+        }
+        const queryIndex = request.url.indexOf("?")
+        return {
+          request,
+          route: fastMatch.route,
+          params: fastMatch.params,
+          method,
+          pathname: fastPath,
+          search: queryIndex === -1 ? "" : request.url.slice(queryIndex + 1),
+          plan: fastPlan
+        }
+      }
+    }
+    const split = splitUrl(request.url)
+    const requestPathname = normalizePathname(split.pathname)
+    const requestSearch = split.search
+    let pathname: string
+    let search: string
+    let route: RouteRecord | undefined
+    let params: Record<string, string>
+    let reusablePreflight: typeof preflight
+    if (preflight !== undefined && preflight.method === method && preflight.pathname === requestPathname && preflight.search === requestSearch) {
+      pathname = preflight.pathname
+      search = preflight.search
+      route = preflight.route
+      params = preflight.params
+      reusablePreflight = preflight
+    } else {
+      pathname = requestPathname
+      search = requestSearch
+      const lookupMethod = method === "HEAD" ? "GET" : method
+      const direct = this.staticRoutes.get(`${lookupMethod} ${pathname}`)
+      const match = direct === undefined ? lookupDynamicPath(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, pathname) : undefined
+      route = direct ?? match?.route
+      params = match?.params ?? {}
+    }
+    if (route === undefined) return undefined
+    const plan = this.executionPlan(route)
+    return { request, route, params, method, pathname, search, plan, preflight: reusablePreflight }
+  }
+
+  private handleSpecialized(prepared: PreparedRequest): ResponseData | Promise<ResponseData> {
+    const { request, route, params, method, search, plan, preflight } = prepared
+    const built = preflight === undefined ? this.createContext(request, params, search, method, plan) : { context: preflight.context, responseHeaders: preflight.responseHeaders }
+    const { context, responseHeaders } = built
+    if (preflight !== undefined) {
+      context.body = request.body
+      Object.assign(context.request, request, { headers: asHeaders(request.headers), body: request.body })
+    }
+    assignContextRoute(context, route)
+    if (plan.allSynchronous && plan.mapResponseHooks.length === 0
+      && plan.afterHooks.length === 0 && plan.afterResponseHooks.length === 0 && plan.errorHandlers.length === 0) {
+      return this.handleSpecializedSynchronous(prepared, context, responseHeaders)
+    }
+    const respondHook = (value: unknown): ResponseData | undefined => {
+      if (isResponse(value)) return value
+      if (value instanceof Response) return responseFromNative(value, context.set)
+      return undefined
+    }
+    const normalize = (value: unknown): ResponseData => {
+      if (value instanceof HttpError) throw value
+      const hasSetHeaders = Object.keys(context.set.headers).length > 0
+      const effectiveHeaders = hasSetHeaders ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
+      if (isResponse(value)) {
+        if (context.set.status !== undefined && value.status === 200) return { ...value, status: context.set.status, headers: mergeHeaders(value.headers, context.set.headers) }
+        return hasSetHeaders ? { ...value, headers: mergeHeaders(value.headers, context.set.headers) } : value
+      }
+      if (value instanceof Response) return { status: context.set.status ?? value.status, headers: mergeHeaders(effectiveHeaders, Object.fromEntries(value.headers.entries())), body: value.body, [responseMarker]: true as const }
+      return { status: context.set.status ?? 200, body: value, headers: effectiveHeaders, [responseMarker]: true as const }
+    }
+    const finishAfter = (response: ResponseData): ResponseData | Promise<ResponseData> => {
+      for (const hook of plan.afterResponseHooks) {
+        const result = hook(context, response)
+        if (isThenable(result)) return Promise.resolve(result).then(() => finishAfter(response))
+      }
+      return response
+    }
+    const finishMap = (response: ResponseData, index = 0): ResponseData | Promise<ResponseData> => {
+      for (let cursor = index; cursor < plan.mapResponseHooks.length; cursor++) {
+        const mapped = plan.mapResponseHooks[cursor]!(context, response)
+        if (isThenable(mapped)) return Promise.resolve(mapped).then((value) => {
+          if (isResponse(value)) response = value
+          else if (value !== undefined) response.body = value
+          return finishMap(response, cursor + 1)
+        })
+        if (isResponse(mapped)) response = mapped
+        else if (mapped !== undefined) response.body = mapped
+      }
+      return runAfterHooks(response)
+    }
+    const runAfterHooks = (response: ResponseData, index = 0): ResponseData | Promise<ResponseData> => {
+      for (let cursor = index; cursor < plan.afterHooks.length; cursor++) {
+        const result = plan.afterHooks[cursor]!(context, response)
+        if (isThenable(result)) return Promise.resolve(result).then(() => runAfterHooks(response, cursor + 1))
+      }
+      return finishAfter(response)
+    }
+    const runHandler = (): ResponseData | Promise<ResponseData> => {
+      const value = context.executionControl === undefined ? plan.handler(context) : context.executionControl.invoke(() => plan.handler(context))
+      if (isThenable(value)) return Promise.resolve(value).then((result) => {
+        const response = normalize(result)
+        return finishMap(response)
+      })
+      const response = normalize(value)
+      return finishMap(response)
+    }
+    const runHooks = (index = 0): ResponseData | Promise<ResponseData> => {
+      for (let cursor = index; cursor < plan.hooks.length; cursor++) {
+        const value = plan.hooks[cursor]!(context)
+        const early = respondHook(value)
+        if (isThenable(value)) return Promise.resolve(value).then((result) => {
+          const response = respondHook(result)
+          if (response !== undefined) return response
+          return runHooks(cursor + 1)
+        })
+        if (early !== undefined) return early
+      }
+      return runHandler()
+    }
+    const runErrorHandler = (error: unknown, index = 0): ResponseData | Promise<ResponseData> => {
+      context.set.status = errorStatusOf(error)
+      for (let cursor = index; cursor < plan.errorHandlers.length; cursor++) {
+        let result: unknown
+        try { result = plan.errorHandlers[cursor]!(error, context) } catch { continue }
+        if (isThenable(result)) return Promise.resolve(result).then((value) => {
+          if (isResponse(value)) return value
+          if (value instanceof Response) return responseFromNative(value, context.set, responseHeaders)
+          if (value !== undefined) return { status: context.set.status ?? errorStatusOf(error), body: value, headers: mergeHeaders(responseHeaders, context.set.headers), [responseMarker]: true as const }
+          return runErrorHandler(error, cursor + 1)
+        }, () => runErrorHandler(error, cursor + 1))
+        if (isResponse(result)) return result
+        if (result instanceof Response) return responseFromNative(result, context.set, responseHeaders)
+        if (result !== undefined) return { status: context.set.status ?? errorStatusOf(error), body: result, headers: mergeHeaders(responseHeaders, context.set.headers), [responseMarker]: true as const }
+      }
+      if (error instanceof HttpError) return this.response(errorStatusOf(error), error.body ?? { error: error.message })
+      throw error
+    }
+    try {
+      const result = runHooks()
+      if (isThenable(result)) return Promise.resolve(result).catch((error) => runErrorHandler(error)).finally(() => context.executionControl?.cleanup())
+      context.executionControl?.cleanup()
+      return result
+    } catch (error) {
+      try {
+        const result = runErrorHandler(error)
+        if (isThenable(result)) return Promise.resolve(result).finally(() => context.executionControl?.cleanup())
+        context.executionControl?.cleanup()
+        return result
+      } catch (nextError) {
+        context.executionControl?.cleanup()
+        throw nextError
+      }
+    }
+  }
+
+  /**
+   * Small synchronous generic lane for opaque handlers with no lifecycle
+   * stages left to run. The handler still receives the full context, but the
+   * common path avoids allocating the closure graph used by the reference
+   * async-compatible runner. Thenables are checked at the invocation boundary
+   * so a sync-classified handler that returns a Promise keeps its semantics.
+   */
+  private handleSpecializedSynchronous(prepared: PreparedRequest, context: Context, responseHeaders: Headers): ResponseData | Promise<ResponseData> {
+    const runHandler = (): ResponseData | Promise<ResponseData> => {
+      const result = context.executionControl === undefined
+        ? prepared.plan.handler(context)
+        : context.executionControl.invoke(() => prepared.plan.handler(context))
+      if (isThenable(result)) {
+        return Promise.resolve(result).then(
+          (value) => this.finishSpecializedSynchronous(value, context, responseHeaders),
+          (error) => this.finishSpecializedSynchronousError(error)
+        )
+      }
+      return this.finishSpecializedSynchronous(result, context, responseHeaders)
+    }
+    const runHooks = (start = 0): ResponseData | Promise<ResponseData> => {
+      for (let cursor = start; cursor < prepared.plan.hooks.length; cursor++) {
+        const hook = prepared.plan.hooks[cursor]!
+        const value = context.executionControl === undefined
+          ? hook(context)
+          : context.executionControl.invoke(() => hook(context))
+        if (isThenable(value)) return Promise.resolve(value).then((resolved) => {
+          if (isResponse(resolved)) return resolved
+          if (resolved instanceof Response) return responseFromNative(resolved, context.set, responseHeaders)
+          return runHooks(cursor + 1)
+        }, (error) => this.finishSpecializedSynchronousError(error))
+        if (isResponse(value)) return value
+        if (value instanceof Response) return responseFromNative(value, context.set, responseHeaders)
+      }
+      return runHandler()
+    }
+    try {
+      const result = runHooks()
+      if (isThenable(result)) return Promise.resolve(result).finally(() => context.executionControl?.cleanup())
+      context.executionControl?.cleanup()
+      return result
+    } catch (error) {
+      context.executionControl?.cleanup()
+      return this.finishSpecializedSynchronousError(error)
+    }
+  }
+
+  private finishSpecializedSynchronous(value: unknown, context: Context, responseHeaders: Headers): ResponseData {
+    if (value instanceof HttpError) return this.response(errorStatusOf(value), value.body ?? { error: value.message })
+    const hasSetHeaders = Object.keys(context.set.headers).length > 0
+    const effectiveHeaders = hasSetHeaders ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
+    if (isResponse(value)) {
+      if (context.set.status !== undefined && value.status === 200) return { ...value, status: context.set.status, headers: mergeHeaders(value.headers, context.set.headers) }
+      return hasSetHeaders ? { ...value, headers: mergeHeaders(value.headers, context.set.headers) } : value
+    }
+    if (value instanceof Response) return { status: context.set.status ?? value.status, headers: mergeHeaders(effectiveHeaders, Object.fromEntries(value.headers.entries())), body: value.body, [responseMarker]: true as const }
+    return { status: context.set.status ?? 200, body: value, headers: effectiveHeaders, [responseMarker]: true as const }
+  }
+
+  private finishSpecializedSynchronousError(error: unknown): ResponseData {
+    if (error instanceof HttpError) return this.response(errorStatusOf(error), error.body ?? { error: error.message })
+    throw error
+  }
+
+  private handleSpecializedNativeSynchronous(prepared: PreparedRequest): Response | Promise<Response> {
+    const { request, route, params, method, search, plan, preflight } = prepared
+    const built = preflight === undefined ? this.createContext(request, params, search, method, plan) : { context: preflight.context, responseHeaders: preflight.responseHeaders }
+    const { context, responseHeaders } = built
+    if (preflight !== undefined) {
+      context.body = request.body
+      Object.assign(context.request, request, { headers: asHeaders(request.headers), body: request.body })
+    }
+    assignContextRoute(context, route)
+    const runHandler = (): Response | Promise<Response> => {
+      const result = context.executionControl === undefined
+        ? plan.handler(context)
+        : context.executionControl.invoke(() => plan.handler(context))
+      if (isThenable(result)) {
+        return Promise.resolve(result).then(
+          (value) => this.finishSpecializedNativeSynchronous(value, context, responseHeaders),
+          (error) => this.finishSpecializedNativeSynchronousError(error)
+        )
+      }
+      return this.finishSpecializedNativeSynchronous(result, context, responseHeaders)
+    }
+    const runHooks = (start = 0): Response | Promise<Response> => {
+      for (let cursor = start; cursor < plan.hooks.length; cursor++) {
+        const hook = plan.hooks[cursor]!
+        const value = context.executionControl === undefined
+          ? hook(context)
+          : context.executionControl.invoke(() => hook(context))
+        if (isThenable(value)) return Promise.resolve(value).then((resolved) => {
+          if (isResponse(resolved) || resolved instanceof Response) return this.finishSpecializedNativeSynchronous(resolved, context, responseHeaders)
+          return runHooks(cursor + 1)
+        }, (error) => this.finishSpecializedNativeSynchronousError(error))
+        if (isResponse(value) || value instanceof Response) return this.finishSpecializedNativeSynchronous(value, context, responseHeaders)
+      }
+      return runHandler()
+    }
+    try {
+      const result = runHooks()
+      if (isThenable(result)) return Promise.resolve(result).finally(() => context.executionControl?.cleanup())
+      context.executionControl?.cleanup()
+      return result
+    } catch (error) {
+      context.executionControl?.cleanup()
+      return this.finishSpecializedNativeSynchronousError(error)
+    }
+  }
+
+  private finishSpecializedNativeSynchronous(value: unknown, context: Context, responseHeaders: Headers): Response {
+    if (value instanceof HttpError) return this.nativeBodyResponse(errorStatusOf(value), value.body ?? { error: value.message }, sharedEmptyResponseHeaders)
+    const hasSetHeaders = Object.keys(context.set.headers).length > 0
+    const effectiveHeaders = hasSetHeaders ? mergeHeaders(responseHeaders, context.set.headers) : responseHeaders
+    if (isResponse(value)) {
+      if (context.set.status !== undefined && value.status === 200) {
+        return this.nativeResponseData({ ...value, status: context.set.status, headers: mergeHeaders(value.headers, context.set.headers) })
+      }
+      return this.nativeResponseData(hasSetHeaders ? { ...value, headers: mergeHeaders(value.headers, context.set.headers) } : value)
+    }
+    if (value instanceof Response) {
+      if (context.set.status === undefined && !hasSetHeaders && responseHeaders.keys().next().done === true) return value
+      return new Response(value.body, { status: context.set.status ?? value.status, headers: mergeHeaders(effectiveHeaders, Object.fromEntries(value.headers.entries())) })
+    }
+    const noResponseHeaders = responseHeaders.keys().next().done === true
+    if (context.set.status === undefined && !hasSetHeaders && noResponseHeaders
+      && value !== null && typeof value === "object" && !(value instanceof Uint8Array) && !(value instanceof ReadableStream)) {
+      return new Response(JSON.stringify(value), { status: 200, headers: sharedNativeJsonHeaders })
+    }
+    const outputHeaders = !hasSetHeaders && noResponseHeaders ? sharedEmptyResponseHeaders : effectiveHeaders
+    return this.nativeBodyResponse(context.set.status ?? 200, value, outputHeaders)
+  }
+
+  private finishSpecializedNativeSynchronousError(error: unknown): Response {
+    if (error instanceof HttpError) return this.nativeBodyResponse(errorStatusOf(error), error.body ?? { error: error.message }, sharedEmptyResponseHeaders)
+    throw error
+  }
+
+  private async handleReference(request: RequestData, prepared?: PreparedRequest): Promise<ResponseData> {
+    if (this.modulePromises.length > 0) await this.waitForModules()
+    const method = prepared?.method ?? fastNormalizeMethod(request.method)
     if (method === undefined) return this.response(400, { error: "Unsupported HTTP method" })
     // Q1: identical URL string parses identically. When the preflight was made
     // for this exact URL and method, reuse its normalized triple and skip the
     // second splitUrl/normalize entirely. Method is still compared because the
     // same URL can be requested with different methods.
-    const candidate = request.preflight
+    const candidate = prepared?.preflight ?? request.preflight
     let fastPreflight: Extract<import("./types.ts").RequestPreflight, { kind: "route" }> | undefined
     let normalized: string
     let search: string
     let rawPathname: string
-    if (
+    if (prepared !== undefined) {
+      fastPreflight = prepared.preflight
+      normalized = prepared.pathname
+      search = prepared.search
+      rawPathname = prepared.pathname
+    } else if (
       candidate?.kind === "route" &&
       candidate.url === request.url &&
       candidate.method === method &&
@@ -1277,7 +2083,10 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       && request.preflight.search === search
       ? request.preflight
       : undefined)
-    if (reusablePreflight !== undefined) {
+    if (prepared !== undefined) {
+      route = prepared.route
+      params = prepared.params
+    } else if (reusablePreflight !== undefined) {
       // preflight already checked mount precedence, matched this route, and
       // ran request hooks/guards. Reuse its result instead of matching twice.
       route = reusablePreflight.route
@@ -1307,10 +2116,10 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
         route = directRoute
         params = {}
       } else {
-        const actual = splitSegments(normalized)
-        const match = lookupDynamicRoute(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, actual)
+        const match = lookupDynamicPath(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, normalized)
         if (match === undefined) {
           // Cold paths only: 404 / 405. Never scanned on a matched request.
+          const actual = splitSegments(normalized)
           const allow = allowedMethodsFor(this.graph.routes, actual)
           if (method === "OPTIONS") {
             if (this.hooks.length > 0) {
@@ -1375,12 +2184,12 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       // allocation per reused-preflight request.
       Object.assign(context.request, request, { headers: asHeaders(request.headers), body: request.body })
     }
-    context.route = { method: route.method, path: route.path, features: route.features ?? {}, auth: route.auth }
+    assignContextRoute(context, route)
     const requestId = context.requestId
     try {
-      await this.emitTelemetryEvent({ phase: "request.start", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
+      if (hasTelemetry) await this.emitTelemetryEvent({ phase: "request.start", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
       let parsedRequest = request
-      await this.emitTelemetryEvent({ phase: "route.matched", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
+      if (hasTelemetry) await this.emitTelemetryEvent({ phase: "route.matched", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
       if (preflight === undefined) {
         for (const hook of route.requestHooks ?? []) {
           const result = await hook(parsedRequest)
@@ -1393,7 +2202,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
           if (result instanceof Response) return responseFromNative(result, context.set)
         }
       }
-      await this.emitTelemetryEvent({ phase: "parse", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
+      if (hasTelemetry) await this.emitTelemetryEvent({ phase: "parse", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
       for (const hook of route.parseHooks ?? []) {
         const parsed = await hook(parsedRequest, parsedRequest.headers?.get("content-type") ?? null)
         if (parsed !== undefined) {
@@ -1401,17 +2210,20 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
           context.body = parsed
         }
       }
-      await this.telemetry?.onRequest?.(context)
+      if (hasTelemetry) await this.telemetry?.onRequest?.(context)
       if (route.paramsSchema) context.params = await route.paramsSchema.validate(context.params) as Record<string, string>
       if (route.querySchema) context.query = asParsedQuery(await route.querySchema.validate(Object.fromEntries(context.query.entries())))
       if (route.headersSchema) context.headers = await route.headersSchema.validate(Object.fromEntries(context.headers.entries())) as Headers
       if (route.bodySchema) context.body = await route.bodySchema.validate(context.body)
       for (const hook of route.hooks) {
-        const result = await hook(context)
+        // Sync hooks (the common case: no-op/undefined returns) skip the
+        // await microtask tick. Thenables keep exact async semantics.
+        const invoked = hook(context) as unknown
+        const result = invoked !== null && (typeof invoked === "object" || typeof invoked === "function") && typeof (invoked as { then?: unknown }).then === "function" ? await invoked : invoked
         if (isResponse(result)) return result
         if (result instanceof Response) return responseFromNative(result, context.set)
       }
-      await this.emitTelemetryEvent({ phase: "handler", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
+      if (hasTelemetry) await this.emitTelemetryEvent({ phase: "handler", requestId, method, route: route.path, durationMs: this.telemetryDuration(startedAt) })
       const result = context.executionControl === undefined
         ? await route.handler(context)
         : await context.executionControl.invoke(() => route.handler(context))
@@ -1436,19 +2248,23 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
           }
         }
        for (const hook of route.afterHooks) await hook(context, response)
-       await this.telemetry?.onResponse?.(context, response)
-       await this.emitTelemetryEvent({ phase: "response", requestId, method, route: route.path, status: response.status, durationMs: this.telemetryDuration(startedAt) })
-       await this.exportTelemetrySpan({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: response.status, durationMs: hasTelemetry ? performance.now() - startedAt : 0 })
-        if ((route.afterResponseHooks?.length ?? 0) > 0 || this.afterResponseHooks.length > 0) {
-          for (const hook of uniqueIdentity([...(route.afterResponseHooks ?? []), ...this.afterResponseHooks.filter((hook) => !this.localAfterResponseHooks.includes(hook))])) await hook(context, response)
-        }
-       await this.emitTelemetryEvent({ phase: "after.response", requestId, method, route: route.path, status: response.status, durationMs: this.telemetryDuration(startedAt) })
+       if (hasTelemetry) {
+         await this.telemetry?.onResponse?.(context, response)
+         await this.emitTelemetryEvent({ phase: "response", requestId, method, route: route.path, status: response.status, durationMs: this.telemetryDuration(startedAt) })
+         await this.exportTelemetrySpan({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: response.status, durationMs: performance.now() - startedAt })
+       }
+         if ((route.afterResponseHooks?.length ?? 0) > 0 || this.afterResponseHooks.length > 0) {
+           for (const hook of uniqueIdentity([...(route.afterResponseHooks ?? []), ...this.afterResponseHooks.filter((hook) => !this.localAfterResponseHooks.includes(hook))])) await hook(context, response)
+         }
+       if (hasTelemetry) await this.emitTelemetryEvent({ phase: "after.response", requestId, method, route: route.path, status: response.status, durationMs: this.telemetryDuration(startedAt) })
       return response
     } catch (error) {
-      await this.telemetry?.onError?.(context, error)
+      if (hasTelemetry) await this.telemetry?.onError?.(context, error)
       const errorStatus = errorStatusOf(error)
-      await this.emitTelemetryEvent({ phase: "error", requestId, method, route: route.path, status: errorStatus, durationMs: this.telemetryDuration(startedAt), error })
-      await this.exportTelemetrySpan({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: errorStatus, durationMs: hasTelemetry ? performance.now() - startedAt : 0, error })
+      if (hasTelemetry) {
+        await this.emitTelemetryEvent({ phase: "error", requestId, method, route: route.path, status: errorStatus, durationMs: this.telemetryDuration(startedAt), error })
+        await this.exportTelemetrySpan({ name: `${method} ${route.path}`, requestId, method, route: route.path, status: errorStatus, durationMs: performance.now() - startedAt, error })
+      }
       context.set.status = errorStatus
       for (const handler of route.errorHandlers) {
         let result: unknown
@@ -1483,7 +2299,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const lookupMethod = method === "HEAD" ? "GET" : method
     const normalized = normalizePathname(pathname)
     const direct = this.staticRoutes.get(`${lookupMethod} ${normalized}`)
-    const match = direct === undefined ? lookupDynamicRoute(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, splitSegments(normalized)) : undefined
+    const match = direct === undefined ? lookupDynamicPath(this.dynamicRoutes.get(lookupMethod) ?? EMPTY_ROUTES, normalized) : undefined
     const route = direct ?? match?.route
     const { context, responseHeaders } = this.createContext(request, match?.params ?? {}, search, method)
     const errorStatus = errorStatusOf(error)
@@ -1601,6 +2417,20 @@ function splitUrl(input: string): { pathname: string; search: string } {
   return queryIndex === -1
     ? { pathname: value || "/", search: "" }
     : { pathname: value.slice(0, queryIndex) || "/", search: value.slice(queryIndex + 1) }
+}
+
+function fastPathname(input: string): string {
+  // Most adapter URLs have a normal host, so starting after the scheme and
+  // the first host characters avoids scanning the same prefix on every hit.
+  // Keep the short-host fallback for tests and relative Web Requests.
+  const relative = input.charCodeAt(0) === 47
+  let start = relative ? 0 : input.indexOf("/", 11)
+  if (start === -1 && !relative) start = input.indexOf("/", 7)
+  if (start === -1) return "/"
+  const queryIndex = input.indexOf("?", start)
+  return queryIndex === -1
+    ? input.slice(start) || "/"
+    : queryIndex === start ? "/" : input.slice(start, queryIndex)
 }
 
 function applyPathParams(input: string, params?: Record<string, string>): string {

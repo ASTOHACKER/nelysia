@@ -2,10 +2,57 @@
 
 This file is the finite progress board for work after v0.1. A checkbox is marked complete only when code, tests, and a runnable example exist.
 
-> Current package: `1.1.0`. The `v0.5.1`, `v0.6.0`, and `v1.0.0` tags/releases are immutable.
-> The 24-hour soak remains deferred, so production readiness is not declared.
+> Current package: `1.2.0`. The `v0.5.1`, `v0.6.0`, `v1.0.0`, `v1.1.0`, and
+> `v1.2.0` tags/releases are immutable. The runtime win-matrix work below is
+> unreleased workspace evidence, not a new package claim.
 
-## v1.1.0 Current Release
+## v1.2.0 Current Release
+
+- [x] Generic Bun route-preflight reuse shipped as an additive runtime fix
+- [x] Node/Bun tests, typecheck, package build/imports, packed consumer, framework/deployment smoke, docs check, and audit recorded for the release
+- [x] GitHub release/tag `v1.2.0` created
+- [ ] npm publication when the registry account is ready
+- [ ] 24-hour soak before any production-readiness announcement
+
+The immutable `v1.2.0` release does not include the unreleased win-matrix
+workspace changes below. Its benchmark numbers remain historical release
+evidence and are not universal performance claims.
+
+## Next Workspace — Runtime Win Matrix (Unreleased)
+
+- [x] Immutable execution plans, conservative context inference, and shared sync/async executor are implemented in the current workspace
+- [x] Bun three-seed parity evidence is recorded with zero failures and zero status/body mismatches
+- [ ] Hybrid AOT dispatcher reaches the full Bun, Node, Fetch, memory, latency, and stability gates
+- [ ] Node and Fetch throughput/latency matrix is recorded against its declared baselines
+- [ ] 25 package exports, five framework fixtures, and integration smoke are attached to the same workspace evidence set
+- [ ] 24-hour soak records zero failures, zero unhandled errors, and stable RSS/heap
+- [ ] Documentation truth checker reports no current-version contradiction
+
+Until every unchecked item in this section passes, the workspace status is
+`BLOCKED` / `NO PERFORMANCE CLAIM`; it must not be described as production-ready
+or as universally faster than Elysia.
+
+### Win Matrix acceptance status
+
+| Axis | Release gate | Current status |
+| --- | --- | --- |
+| Bun throughput | zero-arg, params, generic JSON and generic dynamic median RPS ≥ Elysia `2.0.0-exp.60` | `BLOCKED` — generic evidence is 97.4% / 98.4% |
+| Bun latency | p95/p99 no worse than Elysia by more than 2% | `BLOCKED` — generic latency is outside the full gate |
+| Node throughput | ≥ Fastify and within 2% of raw Node | `PENDING` — release matrix not recorded |
+| Fetch / Edge | correctness, latency and startup baseline | `PENDING` — baseline artifact not recorded |
+| Memory | no RSS/heap regression and no soak growth | `PENDING` — clean baseline and soak comparison not recorded |
+| Correctness | zero failures/status mismatches/body mismatches on every runtime and seed | `PARTIAL` — Bun evidence is clean; cross-runtime matrix is pending |
+| Stability | at least 3 seeds with ≤10% spread | `PARTIAL` — Bun evidence passes; cross-runtime matrix is pending |
+| Lifecycle | hooks, auth, schemas, errors, mounts, WebSocket, HEAD/OPTIONS/405, cleanup | `PENDING` — release-gate evidence bundle not recorded |
+| Ecosystem | package exports 25/25, framework fixtures 5/5, integration smoke | `PENDING` — not attached to this manifest |
+| Long-running | 24-hour soak, zero failures/unhandled errors, no abnormal memory growth | `PENDING` — not run |
+| DX | typecheck, tests, typed client, OpenAPI, CLI, consumer, docs | `PENDING` — release command is intentionally fail-closed |
+
+The checked-in manifest and fail-closed verifier are
+[`benchmark-win-matrix-2026-09-16.json`](./benchmark-win-matrix-2026-09-16.json)
+and `npm run benchmark:verify:win-matrix`.
+
+## v1.1.0 Historical Release
 
 - [x] Runtime correctness, adapter parity, compiler safety, package reliability, and Bun stabilization changes included
 - [x] Node/Bun tests, typecheck, package build/imports, packed consumer, framework/deployment smoke, docs check, audit, and `git diff --check`
@@ -20,7 +67,7 @@ The v1.1.0 release does not claim a speedup or parity with Elysia. The strict
 performance gate remains open because the recorded runner showed variance and
 one set exceeded the ±2% threshold.
 
-## v1.0 Current Release
+## v1.0 Historical Release
 
 - [x] v0.6–v0.9 implementation gates and API-freeze prerequisites passed
 - [x] Public v1.0 contract frozen for routing, context, options, schema, auth, plugins, lifecycle, errors, server, inject, and client
@@ -48,7 +95,7 @@ milestone tags are not required. The 24-hour soak remains intentionally deferred
 - [x] v1.1.0 package version bump, commit, tag, and GitHub Release completed; npm publication remains separate
 - [x] 1M/10M soak evidence for v1.1.1 ([soak-v11-2026-09-16.md](./soak-v11-2026-09-16.md)); 24-hour soak remains deferred
 
-Current source is package version `1.1.0`; the latest short benchmark
+The v1.1.0 historical source was package version `1.1.0`; its latest short benchmark
 is in [`benchmark-runtime-v11-2026-09-16.md`](./benchmark-runtime-v11-2026-09-16.md)
 with raw results in the two `benchmark-runtime-v11-*-latest.json` files.
 
@@ -156,7 +203,7 @@ The milestone commands are `release:check:v07`, `release:check:v08`,
 `release:check:v09`, and `release:check:v1`; they validate the release evidence
 but do not create separate milestone tags.
 
-The current v1.0 release-line verification gate is `npm run release:check:v1`.
+The historical v1.0 release-line verification gate is `npm run release:check:v1`.
 It includes the type/test, package/tarball/import, deployment, framework,
 benchmark, 1M/10M soak, Deno, documentation, audit, and diff checks; it does
 not invoke the deferred 24-hour soak. The v0.6 command remains available as
@@ -242,11 +289,11 @@ they are not a new release claim until their milestone gates pass:
 - [x] Fresh 1M/10M soak rerun after current changes: zero failures/runtime errors and successful process exit
 - [x] `release:check:v07`, `release:check:v08`, and `release:check:v09` pass for the current workspace slice (these do not create milestone tags or releases)
 - [x] v0.7–v0.9 gates incorporated into the `v1.0.0` release; separate milestone tags are not required
-- [ ] Future 30m/1h/6h/24-hour evidence, if production-evidence work is approved later (not a current v1.0 gate)
+- [ ] Future 30m/1h/6h/24-hour evidence, if production-evidence work is approved later (not a historical v1.0 gate)
 
-The package is now `1.0.0` and the existing v0.5.1/v0.6.0 tags remain immutable.
-The v1.0.0 release contains the frozen API contract. No production-readiness
-announcement is made for the deferred 24-hour soak gate.
+The current package is `1.2.0`; the existing v0.5.1/v0.6.0/v1.0.0/v1.1.0
+tags remain immutable. The v1.0.0 release contains the frozen API contract.
+No production-readiness announcement is made for the deferred 24-hour soak gate.
 
 ## Archived v0.4.0 verification record (2026-09-14)
 

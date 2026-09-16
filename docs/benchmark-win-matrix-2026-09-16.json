@@ -1,0 +1,52 @@
+{
+  "schema": "nelysia.win-matrix.v1",
+  "generatedAt": "2026-09-16T14:20:12.098Z",
+  "packageVersion": "1.2.0",
+  "status": "BLOCKED",
+  "baseline": {
+    "name": "Elysia",
+    "version": "2.0.0-exp.60"
+  },
+  "environment": {
+    "cpu": "AMD Ryzen 5 5600 6-Core Processor",
+    "cores": 12,
+    "os": "linux",
+    "bun": "1.4.0",
+    "node": "v26.3.0",
+    "oha": "oha 1.16.0",
+    "routeSet": "multi",
+    "routeCount": 2,
+    "entrypoint": "app.listen()",
+    "concurrency": 50,
+    "durationSec": 5,
+    "rounds": 5,
+    "seeds": [20261011, 20261012, 20261013],
+    "command": "npm run benchmark:verify:runtime-parity"
+  },
+  "axes": {
+    "bun": {
+      "status": "BLOCKED",
+      "evidence": "docs/benchmark-runtime-parity-20261011.json, docs/benchmark-runtime-parity-20261012.json, docs/benchmark-runtime-parity-20261013.json",
+      "seeds": 3,
+      "spreadPercent": 7.13,
+      "correctness": {
+        "failures": 0,
+        "statusMismatches": 0,
+        "bodyMismatches": 0
+      },
+      "workloads": [
+        { "name": "zero-arg", "nelysiaRps": 93060.79372859129, "baselineRps": 92536.95872856399, "nelysiaP95Ms": 0.970886, "baselineP95Ms": 0.976427, "nelysiaP99Ms": 1.460191, "baselineP99Ms": 1.468287 },
+        { "name": "params", "nelysiaRps": 90002.38381591413, "baselineRps": 89000.39750258162, "nelysiaP95Ms": 0.996584, "baselineP95Ms": 1.015751, "nelysiaP99Ms": 1.499616, "baselineP99Ms": 1.521809 },
+        { "name": "generic-json", "nelysiaRps": 75649.87114972393, "baselineRps": 77664.73280425946, "nelysiaP95Ms": 1.175588, "baselineP95Ms": 1.136924, "nelysiaP99Ms": 1.711562, "baselineP99Ms": 1.69488 },
+        { "name": "generic-dynamic", "nelysiaRps": 75290.3398383513, "baselineRps": 76489.10533775277, "nelysiaP95Ms": 1.178182, "baselineP95Ms": 1.161991, "nelysiaP99Ms": 1.748782, "baselineP99Ms": 1.707444 }
+      ]
+    },
+    "node": { "status": "PENDING", "reason": "Node/Fastify/raw-Node matrix is not a release-gate run yet" },
+    "fetch": { "status": "PENDING", "reason": "Fetch/Deno/Cloudflare/Vercel latency and startup evidence is not recorded" },
+    "memory": { "status": "PENDING", "reason": "Clean-baseline RSS/heap and soak comparison is not recorded" },
+    "lifecycle": { "status": "PENDING", "reason": "The contract tests exist, but a release-gate matrix artifact is not recorded" },
+    "ecosystem": { "status": "PENDING", "reason": "25/25 exports, 5/5 framework fixtures, and integration smoke are not bundled into this artifact" },
+    "soak24h": { "status": "PENDING", "reason": "24-hour soak has not been run" },
+    "dx": { "status": "PENDING", "reason": "The release command remains blocked until all matrix axes are recorded" }
+  }
+}

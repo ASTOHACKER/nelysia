@@ -195,8 +195,9 @@ import { health } from "@narudom96/nelysia/health"
 ```
 
 The CLI also provides `routes`, `doctor`, `create`, and `dev` in addition to
-`inspect`, `build`, `generate`, and `client`. These additive APIs are included
-in the v1.0.0 release; the API contract is now frozen and future work remains additive.
+`inspect`, `build`, `generate`, and `client`. These additive APIs were included
+in the historical v1.0.0 release; the public API contract is now frozen and
+future work remains additive on the current v1.2.0 package line.
 
 Executable examples are available for [basic](./examples/hello/index.ts),
 [JWT](./examples/jwt/index.ts), [upload](./examples/upload/index.ts), and
@@ -212,8 +213,12 @@ Open the complete static documentation at [`docs/index.html`](./docs/index.html)
 
 Latest verified test and benchmark results: [`docs/benchmark-results.html`](./docs/benchmark-results.html).
 
-Current v1.1.x runtime evidence: [`docs/benchmark-runtime-v11-2026-09-16.md`](./docs/benchmark-runtime-v11-2026-09-16.md),
+Historical v1.1.x runtime evidence: [`docs/benchmark-runtime-v11-2026-09-16.md`](./docs/benchmark-runtime-v11-2026-09-16.md),
 with [`docs/soak-v11-2026-09-16.md`](./docs/soak-v11-2026-09-16.md) for the 1M/10M request-count gates.
+The current v1.2.0 runtime workspace is tracked in the
+[`Win Matrix evidence`](./docs/benchmark-latest-readable-2026-09-16.md);
+it is currently `BLOCKED`/`NO PERFORMANCE CLAIM` until Node, Fetch/Edge,
+memory, ecosystem, and 24-hour soak gates are recorded.
 
 Current v0.5 release `oha` report: [`docs/benchmark-oha-v05-2026-09-14.md`](./docs/benchmark-oha-v05-2026-09-14.md).
 The separate compatibility snapshot is [`docs/benchmark-oha-2026-09-14.md`](./docs/benchmark-oha-2026-09-14.md).
@@ -229,7 +234,7 @@ npm run typecheck
 npm run example
 ```
 
-Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The v1.0.0 release includes runnable full-stack framework fixtures.
+Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The historical v1.0.0 release introduced the runnable full-stack framework fixtures; the current fixture gate is part of the v1.2.0 Win Matrix.
 
 With Bun installed, run the Bun target:
 
@@ -351,9 +356,13 @@ npm run benchmark:oha
 # Release evidence: 30 seconds × 7 samples, with environment and percentiles
 npm run benchmark:oha:release
 
-# Current v1.1.x short evidence: 5 seconds × 3, concurrency 50
+# Historical v1.1.x short evidence: 5 seconds × 3, concurrency 50
 BENCH_ENTRYPOINT=listen npm run benchmark:oha:bun:listen
 npm run benchmark:oha:node
+
+# Current v1.2.0 Win Matrix verifier (fails while release blockers are pending)
+npm run benchmark:verify:win-matrix
+npm run release:check:win-matrix
 
 # Bun route fast-path evidence: run both matched route-set fixtures
 BENCH_ROUTE_SET=single npm run benchmark:oha:route:release
@@ -374,7 +383,7 @@ npm run soak:10m
 npm run soak:24h
 ```
 
-Latest v1.1.x local `oha` evidence (3 rounds, 5 seconds per sample,
+Historical v1.1.x local `oha` evidence (3 rounds, 5 seconds per sample,
 concurrency 50, zero failures):
 
 | Workload | Raw runtime | Nelysia | Peer baseline |

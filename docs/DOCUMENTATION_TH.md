@@ -7,6 +7,10 @@
 เริ่มจาก [แผนผังเอกสาร](./README.md) เพื่อเลือกคู่มือ, สถานะ release หรือ
 รายงาน benchmark ที่ต้องการได้เร็วขึ้น
 
+package ปัจจุบันคือ `v1.2.0` ส่วน workspace งาน runtime parity รุ่นถัดไปอยู่ใน
+[หลักฐาน Win Matrix](./benchmark-latest-readable-2026-09-16.md) และยังเป็นสถานะ
+`BLOCKED` / `NO PERFORMANCE CLAIM` จนกว่าจะมีหลักฐานครบทุก release blocker
+
 Reference แบบแยกหมวดที่เปิดอ่าน offline ได้: [versioning](./reference/versioning.md),
 [route options](./core/route-options.md), [errors](./core/errors.md),
 [ภาพรวม authentication](./auth/overview.md), [JWT](./auth/jwt.md),
@@ -111,7 +115,7 @@ package line เป็น v1.2.0
 
 ---
 
-### รวม 10 สุดยอดสรรพคุณและจุดเด่นระดับเทพของ Nelysia (Why Nelysia?)
+### 10 จุดแข็งเชิงสถาปัตยกรรมของ Nelysia
 
 #### 1. โมเดลการทำงาน 3 Lane พร้อม fast-path (AOT)
 Nelysia วิเคราะห์ Route ทั้งหมดล่วงหน้าตั้งแต่เปิดเซิร์ฟเวอร์ แล้วจัดเข้า 3 public execution lane ตามพฤติกรรมที่พิสูจน์ได้:
@@ -120,6 +124,14 @@ Nelysia วิเคราะห์ Route ทั้งหมดล่วงห�
 - **`GENERIC`**: route ที่มี middleware, validation, body parsing หรือ behavior ที่ไม่รองรับ ใช้ full pipeline
 
 ผลลัพธ์: แต่ละ Request ใช้พลังงานพอดีกับสิ่งที่ต้องการ ไม่เปลือง ไม่เสียเวลา
+
+สัญญา Hybrid AOT ปัจจุบันใช้ lane แบบ conservative: compiled dispatcher มี
+priority เมื่อ compiler IR และ function table พิสูจน์ behavior ได้, specialized
+ใช้ immutable data plan ต่อ route และ behavior ที่ไม่รู้แน่หรือ dynamic จะ
+fallback ไป generic reference pipeline เสมอ ไม่มีการใช้ runtime `eval()` หรือ
+`new Function()` เพื่อประเมิน source ของผู้ใช้ การเปลี่ยน composition ใช้
+internal version เพื่อ invalidate plan และ Bun, Node, Fetch ใช้ sync/async
+executor contract เดียวกัน
 
 #### 2. 95,173 req/s — parity snapshot กับ Raw Bun
 compatibility snapshot ที่บันทึกไว้ 10 รอบวัด Bun static JSON ได้ **95,173 req/s** ที่ concurrency 50

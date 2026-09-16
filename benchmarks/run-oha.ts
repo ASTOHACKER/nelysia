@@ -71,6 +71,7 @@ const ROUTE_COUNT = Math.max(ROUTE_SET === "single" ? 1 : 2, Number(process.env.
 const ORDER_SEED = Number(process.env.BENCH_ORDER_SEED ?? 0)
 const OUTPUT = process.env.BENCH_OUTPUT
 const TARGET_FILTER = process.env.BENCH_TARGET
+const TARGET_FILTERS = process.env.BENCH_TARGETS?.split(",").map((value) => value.trim()).filter(Boolean)
 const WORKLOAD_FILTER = process.env.BENCH_WORKLOAD
 
 async function runCommand(cmd: string, args: string[]): Promise<string> {
@@ -207,8 +208,24 @@ function getTargets(): TargetConfig[] {
       command: { bin: "bun", file: "benchmarks/server-bun.ts" }
     },
     {
+      framework: "nelysia-bun-generic",
+      label: "Nelysia (Generic JSON)",
+      runtime: "Bun",
+      workload: "JSON Serialization (/json)",
+      path: "/json",
+      command: { bin: "bun", file: "benchmarks/server-bun.ts" }
+    },
+    {
       framework: "elysia-bun",
       label: "Elysia",
+      runtime: "Bun",
+      workload: "JSON Serialization (/json)",
+      path: "/json",
+      command: { bin: "bun", file: "benchmarks/server-bun.ts" }
+    },
+    {
+      framework: "elysia-bun-generic",
+      label: "Elysia (Generic JSON)",
       runtime: "Bun",
       workload: "JSON Serialization (/json)",
       path: "/json",
@@ -248,8 +265,24 @@ function getTargets(): TargetConfig[] {
       command: { bin: "bun", file: "benchmarks/server-bun.ts" }
     },
     {
+      framework: "nelysia-bun-generic",
+      label: "Nelysia (Generic Dynamic)",
+      runtime: "Bun",
+      workload: "Dynamic Route (/users/42)",
+      path: "/users/42",
+      command: { bin: "bun", file: "benchmarks/server-bun.ts" }
+    },
+    {
       framework: "elysia-bun",
       label: "Elysia",
+      runtime: "Bun",
+      workload: "Dynamic Route (/users/42)",
+      path: "/users/42",
+      command: { bin: "bun", file: "benchmarks/server-bun.ts" }
+    },
+    {
+      framework: "elysia-bun-generic",
+      label: "Elysia (Generic Dynamic)",
       runtime: "Bun",
       workload: "Dynamic Route (/users/42)",
       path: "/users/42",
@@ -278,6 +311,14 @@ function getTargets(): TargetConfig[] {
     {
       framework: "nelysia",
       label: "Nelysia (Node Adapter)",
+      runtime: "Node.js",
+      workload: "JSON Serialization (/json)",
+      path: "/json",
+      command: { bin: process.execPath, file: "benchmarks/server.ts" }
+    },
+    {
+      framework: "nelysia-generic",
+      label: "Nelysia (Generic JSON)",
       runtime: "Node.js",
       workload: "JSON Serialization (/json)",
       path: "/json",
@@ -319,6 +360,14 @@ function getTargets(): TargetConfig[] {
     {
       framework: "nelysia",
       label: "Nelysia (Node Adapter)",
+      runtime: "Node.js",
+      workload: "Dynamic Route (/users/42)",
+      path: "/users/42",
+      command: { bin: process.execPath, file: "benchmarks/server.ts" }
+    },
+    {
+      framework: "nelysia-generic",
+      label: "Nelysia (Generic Dynamic)",
       runtime: "Node.js",
       workload: "Dynamic Route (/users/42)",
       path: "/users/42",
@@ -389,6 +438,8 @@ function entrypointForTarget(target: TargetConfig): "handler" | "listen" {
   // The standard target intentionally exercises createBunHandler(), even
   // when the surrounding suite is a public app.listen() run. Keep it out of
   // the public listener table instead of labelling the generic path as listen.
+  // nelysia-bun-generic respects BENCH_ENTRYPOINT (listen => app.listen()
+  // with a hook-forced GENERIC lane, otherwise createBunHandler).
   if (target.framework === "nelysia-bun-standard") return "handler"
   return process.env.BENCH_ENTRYPOINT === "listen" ? "listen" : "handler"
 }
@@ -409,7 +460,9 @@ async function main() {
   console.log(`------------------------------------------------------------------------\n`)
 
   const targets = getTargets().filter((target) => {
-    const targetMatches = TARGET_FILTER === undefined || target.framework === TARGET_FILTER || target.label === TARGET_FILTER
+    const targetMatches = TARGET_FILTERS !== undefined
+      ? TARGET_FILTERS.includes(target.framework) || TARGET_FILTERS.includes(target.label)
+      : TARGET_FILTER === undefined || target.framework === TARGET_FILTER || target.label === TARGET_FILTER
     const workloadMatches = WORKLOAD_FILTER === undefined || (WORKLOAD_FILTER === "dynamic" ? target.workload.startsWith("Dynamic") : target.workload.startsWith("JSON"))
     return targetMatches && workloadMatches
   })

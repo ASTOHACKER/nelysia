@@ -2,7 +2,7 @@ import { asParsedQuery, createParsedQuery, type Nelysia } from "../../core/src/a
 import { HttpError } from "../../core/src/types.ts"
 import { requestIdFor, responseMarker, type Context, type RouteGraph, type RouteRecord } from "../../core/src/types.ts"
 import type { Schema } from "../../core/src/schema.ts"
-import { createBunHandler } from "../../runtime-bun/src/handler.ts"
+import { createBunRuntimeHandler } from "../../runtime-bun/src/handler.ts"
 import { canGenerateSchema, compileDispatcher, createSchemaIR, executeGeneratedGet, fastPathname, isCompilableRoute, isParamsOnlyHandler, isStaticFastPathRoute, jsonContentType, lookupCompiled, matchSingleDynamicUrl, serializeStaticValue, textContentType, type CompiledRoute } from "./dispatcher.ts"
 import { createHash } from "node:crypto"
 
@@ -120,7 +120,7 @@ export function compile(app: Nelysia<any, any, any>): CompiledApplication {
 }
 
 export function createCompiledBunHandler(app: Nelysia<any, any, any>, fallback?: (request: Request) => Promise<Response>): (request: Request) => Response | Promise<Response> {
-  const genericFallback = fallback ?? createBunHandler(app)
+  const genericFallback = fallback ?? createBunRuntimeHandler(app)
   const useFallback = app.telemetry !== undefined || app.hasGlobalLifecycle || app.hasFetchMounts
   // Shared Headers instances: Bun normalizes plain-object headers on every
   // construction (~1.8M/s) but reuses Headers instances (~2.8M/s).
@@ -130,6 +130,10 @@ export function createCompiledBunHandler(app: Nelysia<any, any, any>, fallback?:
   const jsonHeaders = new Headers({ "content-type": "application/json; charset=utf-8" })
   const textHeaders = new Headers({ "content-type": "text/plain;charset=UTF-8" })
   const dispatcher = useFallback ? undefined : compileDispatcher(app)
+  // A lifecycle-heavy application may have no compilable routes at all. In
+  // that case the dispatcher cannot ever produce a hit, so return the runtime
+  // fallback directly instead of paying a route-map probe on every request.
+  if (dispatcher === undefined || dispatcher.routes.length === 0) return genericFallback
 
   // Bun-specific prebuilt responses from platform-neutral payloads.
   const prebuilt = new Map<CompiledRoute, Response>()
@@ -184,7 +188,7 @@ export function createCompiledBunHandler(app: Nelysia<any, any, any>, fallback?:
         // behavior remain on the reference adapter, preserving the exact
         // generic lifecycle contract.
         if (found.entry.generated === undefined || dispatcher.hasContextValues) return genericFallback(request)
-        return runGeneric(found.entry, found.params, request, genericFallback, requestId)
+        return runGeneric(found.entry, found.params, request, requestId)
     }
   }
 
@@ -222,7 +226,7 @@ export function createCompiledBunHandler(app: Nelysia<any, any, any>, fallback?:
     return responseFromResult(result.status, result.headers, result.body, requestId)
   }
 
-  function runGeneric(entry: CompiledRoute, params: Record<string, string>, request: Request, _fb: (r: Request) => Promise<Response>, requestId?: string): Promise<Response> {
+  function runGeneric(entry: CompiledRoute, params: Record<string, string>, request: Request, requestId?: string): Promise<Response> {
     return executeGeneratedGet(entry, params, request, requestId).then(
       (result) => responseFromResult(result.status, result.headers, result.body, requestId),
       (error) => handleFastError(error, request, requestId)

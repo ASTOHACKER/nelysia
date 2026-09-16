@@ -10,6 +10,20 @@ export function isMultipartContentType(contentType: string | null | undefined): 
   return contentType?.split(";", 1)[0]?.trim().toLowerCase() === "multipart/form-data"
 }
 
+export function isFormUrlEncodedContentType(contentType: string | null | undefined): boolean {
+  return contentType?.split(";", 1)[0]?.trim().toLowerCase() === "application/x-www-form-urlencoded"
+}
+
+export function parseFormUrlEncoded(text: string): Record<string, string | string[]> {
+  const params = new URLSearchParams(text)
+  const output: Record<string, string | string[]> = {}
+  for (const key of new Set(params.keys())) {
+    const values = params.getAll(key)
+    output[key] = values.length > 1 ? values : (values[0] as string)
+  }
+  return output
+}
+
 export async function parseWebRequestBody(request: Request, limit: number): Promise<unknown> {
   if (request.method === "GET" || request.method === "HEAD" || request.body === null) return undefined
   const declaredLength = Number(request.headers.get("content-length") ?? 0)
@@ -25,6 +39,9 @@ export async function parseWebRequestBody(request: Request, limit: number): Prom
   const text = new TextDecoder().decode(bytes)
   if (isJsonContentType(request.headers.get("content-type"))) {
     try { return JSON.parse(text) } catch { throw new HttpError(400, "Malformed JSON body") }
+  }
+  if (isFormUrlEncodedContentType(request.headers.get("content-type"))) {
+    return parseFormUrlEncoded(text)
   }
   return text
 }

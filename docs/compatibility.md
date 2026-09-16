@@ -1,7 +1,8 @@
 # Compatibility Matrix
 
-This matrix records verified behavior in the current `v1.0.0` release. It is
-intentionally narrower than a promise of support for every version of a runtime.
+This matrix records the v1.2.0 compatibility contract and the workspace checks
+currently available. It is intentionally narrower than a promise of support
+for every version of a runtime.
 
 | Capability | Node 26.8.2 | Bun 1.4.0 |
 | --- | --- | --- |
@@ -26,6 +27,23 @@ the base for Deno, Cloudflare Workers, Vercel, Astro, Next.js, SvelteKit, and
 TanStack Start integrations. Nuxt/Nitro uses H3's `toWebRequest(event)` bridge
 to produce the same contract.
 
+## Runtime Win Matrix status
+
+The current release line is evidence-first. Bun has a separate three-seed
+runtime-parity artifact, but that legacy verifier is not the full release gate:
+
+| Runtime/axis | Current evidence | Win Matrix status |
+| --- | --- | --- |
+| Bun throughput and latency | `app.listen()`, 3 seeds, 2 routes, 5s × 5, concurrency 50 | `BLOCKED`: generic workloads are below the new 100% Elysia throughput floor |
+| Node throughput | Contract and short adapter evidence | `PENDING`: Fastify and raw-Node release matrix not recorded |
+| Fetch / Deno / Cloudflare / Vercel | Shared Fetch contract and fixture smoke | `PENDING`: latency and startup baselines not recorded |
+| RSS / heap / long-running | Soak runner and memory instrumentation exist | `PENDING`: clean-baseline comparison and 24-hour run not recorded |
+
+The machine-readable source is
+[`benchmark-win-matrix-2026-09-16.json`](./benchmark-win-matrix-2026-09-16.json),
+and the verifier is `npm run benchmark:verify:win-matrix`. Until every axis is
+`PASS`, the workspace status is `BLOCKED` / `NO PERFORMANCE CLAIM`.
+
 ## Full-stack fixture matrix
 
 | Fixture | Framework boundary | Runtime verification |
@@ -49,12 +67,16 @@ npm run typecheck
 npm test
 bun test
 npm run soak
-npm run release:check:v05
 npm run framework:check
 npm run package:imports
+npm run package:consumer
+npm run integrations:smoke
 npm run deployment:smoke
 npm run soak:1m
 npm run soak:10m
+npm run benchmark:verify:win-matrix
+# The single release command is intentionally fail-closed while blockers remain:
+npm run release:check:win-matrix
 ```
 
 The v0.5 soak runner reports exact request count, failures, runtime errors,
@@ -70,7 +92,8 @@ fresh post-roadmap 1M/10M rerun is recorded in
 separate 24-hour soak is intentionally deferred and has not been run; therefore
 this matrix does not make a production-readiness claim.
 
-The v1.0.0 release includes the post-v0.5.1 typed context, JWT DX, compiler
-specialization, and production subpaths `session`, `roles`, `csrf`, `cache`,
-and `health`. Future additive work remains documented in
-[`roadmap-after-v051.md`](./roadmap-after-v051.md); the v0.5.1 tag remains immutable.
+The v1.0.0 release historically introduced the post-v0.5.1 typed context, JWT
+DX, compiler specialization, and production subpaths `session`, `roles`,
+`csrf`, `cache`, and `health`. The current v1.2.0 line preserves that contract;
+the unreleased runtime win-matrix work remains documented in
+[`release-status.md`](./release-status.md); the v0.5.1 tag remains immutable.

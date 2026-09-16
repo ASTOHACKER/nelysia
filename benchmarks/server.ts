@@ -10,6 +10,8 @@ const port = Number(process.env.PORT ?? 4310)
 const routeSet = process.env.BENCH_ROUTE_SET === "single" ? "single" : "multi"
 const benchCase = process.env.BENCH_CASE === "dynamic" ? "dynamic" : "json"
 const routeCount = Math.max(routeSet === "single" ? 1 : 2, Number(process.env.BENCH_ROUTE_COUNT ?? (routeSet === "single" ? 1 : 2)))
+const opaqueContextField = process.env.BENCH_CONTEXT_FIELD ?? "request"
+const opaqueParamsField = process.env.BENCH_PARAMS_FIELD ?? "params"
 
 function addNelysiaFillerRoutes(app: Nelysia): Nelysia {
   const baseRouteCount = routeSet === "multi" ? 2 : 1
@@ -47,11 +49,23 @@ function addHonoFillerRoutes(app: Hono): Hono {
   return app
 }
 
-if (framework === "nelysia") {
+if (framework === "nelysia" || framework === "nelysia-generic") {
   // requestId disabled so the comparison measures routing/serialization like
   // raw/fastify/express, which do not generate a request id per request.
+  // nelysia-generic adds a no-op lifecycle hook and dynamic context access to
+  // exercise the runtime fallback rather than a known/compiled lane.
   const app = new Nelysia({ requestId: false })
-  if (benchCase === "dynamic") app.get("/users/:id", ({ params }) => ({ id: params.id }))
+  if (framework === "nelysia-generic") app.onBeforeHandle(() => {})
+  if (benchCase === "dynamic") {
+    if (framework === "nelysia-generic") app.get("/users/:id", (context) => {
+      const params = (context as unknown as Record<string, unknown>)[opaqueParamsField] as { id: string }
+      return { id: params.id }
+    })
+    else app.get("/users/:id", ({ params }) => ({ id: params.id }))
+  } else if (framework === "nelysia-generic") app.get("/json", (context) => {
+    void (context as unknown as Record<string, unknown>)[opaqueContextField]
+    return { message: "hello", value: 42 }
+  })
   else app.get("/json", () => ({ message: "hello", value: 42 }))
   if (routeSet === "multi") {
     if (benchCase === "dynamic") app.get("/json", () => ({ message: "hello", value: 42 }))

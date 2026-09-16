@@ -4,6 +4,16 @@ All notable changes to Nelysia are documented here. Benchmark figures are
 release evidence for the stated host and workload, not universal performance
 claims.
 
+## [Unreleased] — Next Workspace
+
+This workspace contains the documentation-truth pass and the Win Matrix
+release gate for the v1.2.0 package line. It adds the shared Bun/Node/Fetch
+evidence contract, verifier wiring, and Hybrid AOT execution-plan tracking.
+
+No release, production-readiness, or universal performance claim is made by
+this section. The claim remains blocked until the Node, Fetch/Edge, memory,
+ecosystem, stability, and 24-hour soak gates are recorded and verified.
+
 ## [1.2.0] — 2026-09-16
 
 The generic Bun path (`app.handle()` / `createBunHandler()`) reuses a matching

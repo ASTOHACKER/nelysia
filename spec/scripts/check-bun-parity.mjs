@@ -26,7 +26,10 @@ for (const file of files) {
   const elysiaDynamic = dynamicResults.find((result) => result.framework === "Elysia")
 
   for (const result of report.results ?? []) {
-    if (result.entrypoint !== "listen") failures.push(`${file}: ${result.framework} was not measured through app.listen()`)
+    // Standard Bun Handler is a documented createBunHandler() lane (handler
+    // entrypoint by design); parity gate enforces app.listen() for the rest,
+    // including the hook-forced Generic lane which respects BENCH_ENTRYPOINT.
+    if (result.framework !== "Nelysia (Standard Bun Handler)" && result.entrypoint !== "listen") failures.push(`${file}: ${result.framework} was not measured through app.listen()`)
     if (result.routeCount !== 2) failures.push(`${file}: ${result.framework} has routeCount=${result.routeCount}, expected 2`)
     if (result.failureCount !== 0 || result.successRate !== 100) failures.push(`${file}: ${result.framework} has request failures`)
     if ((result.statusMismatchCount ?? 0) !== 0) failures.push(`${file}: ${result.framework} has status mismatches`)

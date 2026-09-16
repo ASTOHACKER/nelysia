@@ -17,7 +17,7 @@ export function betterAuthPlugin(auth: BetterAuthLike, prefix = "/api/auth"): (a
     if (auth.getSession !== undefined) {
       app.registerAuthStrategy("session", {
         guard: async (context) => {
-          const value = await auth.getSession!(new Request(context.request.url, { method: "GET", headers: context.headers }))
+          const value = await auth.getSession!(new Request(toAbsoluteUrl(context.request.url), { method: "GET", headers: context.headers }))
           if (value === undefined || value === null) {
             const optional = typeof context.route?.auth === "object" && context.route.auth.optional === true
             if (optional) return
@@ -31,8 +31,12 @@ export function betterAuthPlugin(auth: BetterAuthLike, prefix = "/api/auth"): (a
       const headers = new Headers(context.request.headers)
       const init: RequestInit = { method: context.request.method, headers }
       if (!["GET", "HEAD"].includes(context.request.method) && context.body !== undefined) init.body = typeof context.body === "string" ? context.body : JSON.stringify(context.body)
-      return auth.handler(new Request(context.request.url, init))
+      return auth.handler(new Request(toAbsoluteUrl(context.request.url), init))
     })
     return app
   }
+}
+
+function toAbsoluteUrl(url: string): string {
+  return url.includes("://") ? url : `http://localhost${url.startsWith("/") ? url : `/${url}`}`
 }

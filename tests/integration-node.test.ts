@@ -4,6 +4,7 @@ import { spawn } from "node:child_process"
 import { once } from "node:events"
 import { gracefulShutdown, Nelysia, t as schema } from "../packages/core/src/index.ts"
 import { createNodeServer } from "../packages/runtime-node/src/server.ts"
+import { getRuntimeExecutor } from "../packages/core/src/execution.ts"
 import WebSocket from "ws"
 
 test("Node adapter handles JSON, malformed JSON, and body limits", async (t) => {
@@ -84,6 +85,32 @@ test("Node adapter serves JSON params over HTTP", async (t) => {
   const response = await fetch(`http://127.0.0.1:${address.port}/users/42`)
   assert.equal(response.status, 200)
   assert.deepEqual(await response.json(), { id: "42" })
+})
+
+test("Node adapter skips preflight for bodyless opaque GET routes", async (t) => {
+  const selectField = () => "request"
+  const app = new Nelysia({ requestId: false })
+    .onBeforeHandle(() => {})
+    .get("/opaque", (context) => {
+      void (context as unknown as Record<string, unknown>)[selectField()]
+      return { ok: true }
+    })
+  const executor = getRuntimeExecutor(app)!
+  let preflightCalls = 0
+  const preflight = executor.preflight
+  executor.preflight = (request) => {
+    preflightCalls++
+    return preflight(request)
+  }
+  const server = createNodeServer(app)
+  await new Promise<void>((resolve) => server.listen(0, resolve))
+  t.after(() => server.close())
+  const address = server.address()
+  assert.ok(address && typeof address === "object")
+  const response = await fetch(`http://127.0.0.1:${address.port}/opaque`)
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), { ok: true })
+  assert.equal(preflightCalls, 0)
 })
 
 test("Node adapter preserves a caller-provided request ID", async (t) => {

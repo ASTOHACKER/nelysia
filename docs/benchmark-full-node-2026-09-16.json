@@ -1,0 +1,612 @@
+{
+  "schema": "nelysia.benchmark.v11",
+  "generatedAt": "2026-09-16T06:54:35.963Z",
+  "environment": {
+    "cpu": "AMD Ryzen 5 5600 6-Core Processor",
+    "cores": 12,
+    "node": "v26.8.2",
+    "bun": "1.4.0",
+    "oha": "oha 1.16.0",
+    "os": "linux",
+    "concurrency": 50,
+    "durationSec": 5,
+    "rounds": 3,
+    "warmupSec": 2,
+    "routeSet": "multi",
+    "routeCount": 2,
+    "orderSeed": 20260917,
+    "entrypoint": "handler",
+    "target": "all",
+    "workload": "all"
+  },
+  "results": [
+    {
+      "framework": "Nelysia (Generic JSON)",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 28668.726293420383,
+      "rpsMin": 27960.742289649046,
+      "rpsMax": 28718.328811686508,
+      "avgLatencyMs": 1.7411011026929817,
+      "p50Ms": 1.6280629999999998,
+      "p90Ms": 2.211445,
+      "p95Ms": 2.502625,
+      "p99Ms": 3.463895,
+      "maxLatencyMs": 55.273472999999996,
+      "successRate": 100,
+      "totalRequests": 5.00360562,
+      "failureCount": 0,
+      "throughputMBs": 0.8202188385034671,
+      "serverRssBeforeKb": 128528,
+      "serverRssAfterKb": 148580,
+      "runnerHeapDeltaKb": 4871,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 28668.726293420383,
+          "p95Ms": 2.482797,
+          "p99Ms": 3.4093299999999997,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 28718.328811686508,
+          "p95Ms": 2.502625,
+          "p99Ms": 3.463895,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 27960.742289649046,
+          "p95Ms": 2.604452,
+          "p99Ms": 3.619345,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Nelysia (Node Adapter)",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 48035.55948015919,
+      "rpsMin": 45844.378230734896,
+      "rpsMax": 48254.61409013075,
+      "avgLatencyMs": 1.0386176283186788,
+      "p50Ms": 0.960438,
+      "p90Ms": 1.340168,
+      "p95Ms": 1.5562040000000001,
+      "p99Ms": 2.122684,
+      "maxLatencyMs": 28.703761,
+      "successRate": 100,
+      "totalRequests": 5.003439173,
+      "failureCount": 0,
+      "throughputMBs": 1.3743083805129772,
+      "serverRssBeforeKb": 128476,
+      "serverRssAfterKb": 146428,
+      "runnerHeapDeltaKb": 259,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 45844.378230734896,
+          "p95Ms": 1.6645130000000001,
+          "p99Ms": 2.2663610000000003,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 48035.55948015919,
+          "p95Ms": 1.5531080000000002,
+          "p99Ms": 2.120981,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 48254.61409013075,
+          "p95Ms": 1.5562040000000001,
+          "p99Ms": 2.122684,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Express 5",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 22489.702459285876,
+      "rpsMin": 21813.187476869538,
+      "rpsMax": 22809.027824723453,
+      "avgLatencyMs": 2.2196209733315544,
+      "p50Ms": 2.1054519999999997,
+      "p90Ms": 2.670379,
+      "p95Ms": 2.990274,
+      "p99Ms": 4.252603,
+      "maxLatencyMs": 57.635118999999996,
+      "successRate": 100,
+      "totalRequests": 5.004128815,
+      "failureCount": 0,
+      "throughputMBs": 0.6434355485711826,
+      "serverRssBeforeKb": 129464,
+      "serverRssAfterKb": 145728,
+      "runnerHeapDeltaKb": 831,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 22489.702459285876,
+          "p95Ms": 2.92571,
+          "p99Ms": 4.252603,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 21813.187476869538,
+          "p95Ms": 3.015072,
+          "p99Ms": 4.218728,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 22809.027824723453,
+          "p95Ms": 2.990274,
+          "p99Ms": 4.270187,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Fastify 5",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 52117.03015610923,
+      "rpsMin": 49691.824194261535,
+      "rpsMax": 53457.15557567656,
+      "avgLatencyMs": 0.9572380086606262,
+      "p50Ms": 0.879132,
+      "p90Ms": 1.235467,
+      "p95Ms": 1.460821,
+      "p99Ms": 2.025097,
+      "maxLatencyMs": 21.485387000000003,
+      "successRate": 100,
+      "totalRequests": 5.002791434,
+      "failureCount": 0,
+      "throughputMBs": 1.4910801932175415,
+      "serverRssBeforeKb": 131948,
+      "serverRssAfterKb": 141080,
+      "runnerHeapDeltaKb": 339,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 49691.824194261535,
+          "p95Ms": 1.590892,
+          "p99Ms": 2.220984,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 52117.03015610923,
+          "p95Ms": 1.460821,
+          "p99Ms": 2.025097,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 53457.15557567656,
+          "p95Ms": 1.437296,
+          "p99Ms": 1.998425,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Fastify 5",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 53219.86486256817,
+      "rpsMin": 52460.488307298394,
+      "rpsMax": 53713.48788156159,
+      "avgLatencyMs": 0.937488292828843,
+      "p50Ms": 0.8652650000000001,
+      "p90Ms": 1.217734,
+      "p95Ms": 1.44438,
+      "p99Ms": 2.020729,
+      "maxLatencyMs": 33.216224000000004,
+      "successRate": 100,
+      "totalRequests": 5.003300942,
+      "failureCount": 0,
+      "throughputMBs": 0.5582986006624697,
+      "serverRssBeforeKb": 132516,
+      "serverRssAfterKb": 143588,
+      "runnerHeapDeltaKb": 61,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 53219.86486256817,
+          "p95Ms": 1.443187,
+          "p99Ms": 2.021089,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 53713.48788156159,
+          "p95Ms": 1.44438,
+          "p99Ms": 1.97498,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 52460.488307298394,
+          "p95Ms": 1.455261,
+          "p99Ms": 2.020729,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Express 5",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 22564.54180948909,
+      "rpsMin": 22069.587666208714,
+      "rpsMax": 22961.207229764954,
+      "avgLatencyMs": 2.212522410096544,
+      "p50Ms": 2.106264,
+      "p90Ms": 2.637587,
+      "p95Ms": 2.9277740000000003,
+      "p99Ms": 4.184724,
+      "maxLatencyMs": 57.436576,
+      "successRate": 100,
+      "totalRequests": 5.003868501,
+      "failureCount": 0,
+      "throughputMBs": 0.2367114638370323,
+      "serverRssBeforeKb": 129284,
+      "serverRssAfterKb": 145208,
+      "runnerHeapDeltaKb": 52,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 22961.207229764954,
+          "p95Ms": 2.9277740000000003,
+          "p99Ms": 4.15686,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 22069.587666208714,
+          "p95Ms": 3.471221,
+          "p99Ms": 4.620904,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 22564.54180948909,
+          "p95Ms": 2.882918,
+          "p99Ms": 4.184724,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Nelysia (Generic Dynamic)",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 28615.576502337502,
+      "rpsMin": 28438.47082683657,
+      "rpsMax": 28933.483323133638,
+      "avgLatencyMs": 1.744138894149127,
+      "p50Ms": 1.633484,
+      "p90Ms": 2.17693,
+      "p95Ms": 2.441148,
+      "p99Ms": 3.383222,
+      "maxLatencyMs": 48.226209,
+      "successRate": 100,
+      "totalRequests": 5.003679729,
+      "failureCount": 0,
+      "throughputMBs": 0.30018934395381214,
+      "serverRssBeforeKb": 127740,
+      "serverRssAfterKb": 145996,
+      "runnerHeapDeltaKb": 133,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 28438.47082683657,
+          "p95Ms": 2.441148,
+          "p99Ms": 3.482352,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 28933.483323133638,
+          "p95Ms": 2.4142259999999998,
+          "p99Ms": 3.369716,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 28615.576502337502,
+          "p95Ms": 2.4518489999999997,
+          "p99Ms": 3.383222,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Hono (Node)",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 20217.337533233545,
+      "rpsMin": 20106.31447085169,
+      "rpsMax": 20658.22109708737,
+      "avgLatencyMs": 2.469661774556307,
+      "p50Ms": 2.342008,
+      "p90Ms": 2.988042,
+      "p95Ms": 3.306584,
+      "p99Ms": 4.783176999999999,
+      "maxLatencyMs": 67.372898,
+      "successRate": 100,
+      "totalRequests": 5.004690361,
+      "failureCount": 0,
+      "throughputMBs": 0.21208831106717013,
+      "serverRssBeforeKb": 128912,
+      "serverRssAfterKb": 152088,
+      "runnerHeapDeltaKb": -2122,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 20106.31447085169,
+          "p95Ms": 3.306584,
+          "p99Ms": 4.783176999999999,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 20658.22109708737,
+          "p95Ms": 3.2177529999999996,
+          "p99Ms": 4.670801,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 20217.337533233545,
+          "p95Ms": 3.331022,
+          "p99Ms": 4.788397,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Hono (Node)",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 20914.563175420055,
+      "rpsMin": 20205.10515294483,
+      "rpsMax": 21219.732929022048,
+      "avgLatencyMs": 2.386770171567241,
+      "p50Ms": 2.257996,
+      "p90Ms": 2.8499559999999997,
+      "p95Ms": 3.183929,
+      "p99Ms": 4.651283,
+      "maxLatencyMs": 65.634226,
+      "successRate": 100,
+      "totalRequests": 5.003933374,
+      "failureCount": 0,
+      "throughputMBs": 0.5983704521776215,
+      "serverRssBeforeKb": 128724,
+      "serverRssAfterKb": 149452,
+      "runnerHeapDeltaKb": 668,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 20205.10515294483,
+          "p95Ms": 3.3522220000000003,
+          "p99Ms": 4.833734,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 20914.563175420055,
+          "p95Ms": 3.13227,
+          "p99Ms": 4.651283,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 21219.732929022048,
+          "p95Ms": 3.183929,
+          "p99Ms": 4.516394,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Node.js http (Raw Baseline)",
+      "workload": "JSON Serialization (/json) (object) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 50601.53924973353,
+      "rpsMin": 50046.99710922351,
+      "rpsMax": 52082.48336357564,
+      "avgLatencyMs": 0.9859552421472755,
+      "p50Ms": 0.896135,
+      "p90Ms": 1.28312,
+      "p95Ms": 1.544854,
+      "p99Ms": 2.099341,
+      "maxLatencyMs": 27.180722,
+      "successRate": 100,
+      "totalRequests": 5.002200033,
+      "failureCount": 0,
+      "throughputMBs": 1.4477216505928094,
+      "serverRssBeforeKb": 128532,
+      "serverRssAfterKb": 138284,
+      "runnerHeapDeltaKb": 57,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 52082.48336357564,
+          "p95Ms": 1.4673150000000001,
+          "p99Ms": 2.023655,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 50601.53924973353,
+          "p95Ms": 1.546376,
+          "p99Ms": 2.127425,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 50046.99710922351,
+          "p95Ms": 1.544854,
+          "p99Ms": 2.099341,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "object",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Nelysia (Node Adapter)",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 46758.625060068385,
+      "rpsMin": 44575.90859594522,
+      "rpsMax": 47810.7723704912,
+      "avgLatencyMs": 1.0668480389125696,
+      "p50Ms": 0.9894140000000001,
+      "p90Ms": 1.3590360000000001,
+      "p95Ms": 1.601623,
+      "p99Ms": 2.183493,
+      "maxLatencyMs": 30.907517,
+      "successRate": 100,
+      "totalRequests": 5.003014763,
+      "failureCount": 0,
+      "throughputMBs": 0.4905174976928255,
+      "serverRssBeforeKb": 128088,
+      "serverRssAfterKb": 143548,
+      "runnerHeapDeltaKb": 107,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 47810.7723704912,
+          "p95Ms": 1.601623,
+          "p99Ms": 2.177272,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 46758.625060068385,
+          "p95Ms": 1.5678590000000001,
+          "p99Ms": 2.183493,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 44575.90859594522,
+          "p95Ms": 1.602315,
+          "p99Ms": 2.247907,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "handler"
+    },
+    {
+      "framework": "Node.js http (Raw Baseline)",
+      "workload": "Dynamic Route (/users/42) (dynamic) [multi route, 2 routes]",
+      "runtime": "Node.js",
+      "rps": 50128.25460919239,
+      "rpsMin": 48964.83476993908,
+      "rpsMax": 51495.964926760425,
+      "avgLatencyMs": 0.9950712247131269,
+      "p50Ms": 0.9095610000000001,
+      "p90Ms": 1.326453,
+      "p95Ms": 1.5677379999999999,
+      "p99Ms": 2.144669,
+      "maxLatencyMs": 31.607758,
+      "successRate": 100,
+      "totalRequests": 5.002807338,
+      "failureCount": 0,
+      "throughputMBs": 0.52586631841766,
+      "serverRssBeforeKb": 127856,
+      "serverRssAfterKb": 136504,
+      "runnerHeapDeltaKb": 24,
+      "routeCount": 2,
+      "statusMismatchCount": 0,
+      "bodyMismatchCount": 0,
+      "samples": [
+        {
+          "rps": 51495.964926760425,
+          "p95Ms": 1.511179,
+          "p99Ms": 2.091486,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 50128.25460919239,
+          "p95Ms": 1.568991,
+          "p99Ms": 2.1623229999999998,
+          "successRate": 100,
+          "failureCount": 0
+        },
+        {
+          "rps": 48964.83476993908,
+          "p95Ms": 1.5677379999999999,
+          "p99Ms": 2.144669,
+          "successRate": 100,
+          "failureCount": 0
+        }
+      ],
+      "tier": "dynamic",
+      "entrypoint": "handler"
+    }
+  ]
+}

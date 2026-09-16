@@ -9,6 +9,36 @@ import { matchSingleDynamicUrl } from "../packages/compiler/src/dispatcher.ts"
 import { compression } from "../packages/plugins/src/index.ts"
 import { health } from "../packages/health/src/index.ts"
 
+test("form-urlencoded bodies parse to objects on all adapters", async (t) => {
+  const app = new Nelysia().post("/form", ({ body }) => body)
+  const encoded = new URLSearchParams({ name: "Ada", role: "admin" }).toString()
+  const bunRes = await createBunHandler(app)(new Request("http://local/form", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: encoded }))
+  assert.deepEqual(await bunRes.json(), { name: "Ada", role: "admin" })
+  const fetchRes = await createFetchHandler(app)(new Request("http://local/form", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded; charset=utf-8" }, body: encoded }))
+  assert.deepEqual(await fetchRes.json(), { name: "Ada", role: "admin" })
+  const server = createNodeServer(app)
+  await new Promise<void>((resolve) => server.listen(0, resolve))
+  t.after(() => server.close())
+  const address = server.address()
+  assert.ok(address && typeof address === "object")
+  const nodeRes = await fetch(`http://127.0.0.1:${address.port}/form`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: encoded })
+  assert.deepEqual(await nodeRes.json(), { name: "Ada", role: "admin" })
+})
+
+test("empty POST bodies do not crash and resolve to undefined", async () => {
+  const app = new Nelysia().post("/empty", ({ body }) => ({ empty: body === undefined }))
+  const handler = createBunHandler(app)
+  const bunRes = await handler(new Request("http://local/empty", { method: "POST" }))
+  assert.deepEqual(await bunRes.json(), { empty: true })
+  const fetchRes = await createFetchHandler(app)(new Request("http://local/empty", { method: "POST" }))
+  assert.deepEqual(await fetchRes.json(), { empty: true })
+})
+
+test("duplicate routes throw a predictable diagnostic", () => {
+  const app = new Nelysia().get("/dup", () => "first")
+  assert.throws(() => app.get("/dup", () => "second"), /Duplicate route: GET \/dup/)
+})
+
 test("Bun parses bodies without content-length and supports case-insensitive +json", async () => {
   const app = new Nelysia().post("/body", ({ body }) => body)
   const handler = createBunHandler(app)
