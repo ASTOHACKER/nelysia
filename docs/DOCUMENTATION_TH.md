@@ -1,13 +1,13 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 1.2.1 (package และ GitHub Release ปัจจุบัน)
+> **เวอร์ชัน:** 1.2.2 (package และ GitHub Release ปัจจุบัน)
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
 
 เริ่มจาก [แผนผังเอกสาร](./README.md) เพื่อเลือกคู่มือ, สถานะ release หรือ
 รายงาน benchmark ที่ต้องการได้เร็วขึ้น
 
-package ปัจจุบันคือ `v1.2.1` ส่วน workspace งาน runtime parity รุ่นถัดไปอยู่ใน
+package ปัจจุบันคือ `v1.2.2` ส่วน workspace งาน runtime parity รุ่นถัดไปอยู่ใน
 [หลักฐาน Win Matrix](./benchmark-latest-readable-2026-09-16.md) และยังเป็นสถานะ
 `BLOCKED` / `NO PERFORMANCE CLAIM` จนกว่าจะมีหลักฐานครบทุก release blocker
 
@@ -16,21 +16,21 @@ Reference แบบแยกหมวดที่เปิดอ่าน offlin
 [ภาพรวม authentication](./auth/overview.md), [JWT](./auth/jwt.md),
 [Better Auth](./auth/better-auth.md), [session](./auth/session.md),
 [roles และ permissions](./auth/roles-permissions.md) และ [การเขียน plugin](./plugins/authoring-plugins.md)
-โดยแต่ละหน้ารวมภาษาอังกฤษและไทยของ contract v1.0 ที่ freeze แล้ว การแก้ไขแบบ additive ใน v1.1.x และงาน reuse route-preflight/runtime parity ใน v1.2.1
+โดยแต่ละหน้ารวมภาษาอังกฤษและไทยของ contract v1.0 ที่ freeze แล้ว การแก้ไขแบบ additive ใน v1.1.x และงาน reuse route-preflight/runtime parity ใน v1.2.2
 
 สำหรับเส้นทาง version ตั้งแต่ v0.6 ถึง v1.0 และ public contract ที่เตรียม freeze
 ให้ดู [Nelysia v1.0 Guide](./v1.0.md) ซึ่งแยกสถานะ workspace ที่ตรวจผ่านออกจาก
 สถานะ package/release ที่ publish แล้วอย่างชัดเจน
 
 ฟีเจอร์ additive หลัง v0.5.1 รวมอยู่ใน release v1.0.0 แล้ว และ v1.1.0 เพิ่มการแก้
-runtime correctness/stabilization แบบไม่ทำลาย compatibility ส่วน v1.2.1 เพิ่ม
+runtime correctness/stabilization แบบไม่ทำลาย compatibility ส่วน v1.2.2 เพิ่ม
 การ reuse route-preflight ของ generic Bun โดย public API ยังคง
 freeze แล้ว ส่วนประวัติแผนงานอยู่ที่
 [`roadmap-after-v051.md`](./roadmap-after-v051.md) โดย worktree ปัจจุบันมี
 subpath สำหรับ production contract ได้แก่ `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache` และ `@narudom96/nelysia/health` แล้ว แต่ยังคง
-package line เป็น v1.2.1
+package line เป็น v1.2.2
 
 ตัวอย่างที่รันได้: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts) และ
@@ -40,72 +40,74 @@ package line เป็น v1.2.1
 
 ## สารบัญ
 
-1. [บทนำและสถาปัตยกรรม (Introduction & Architecture)](#1-บทนำและสถาปัตยกรรม)
-2. [ข้อกำหนดและการติดตั้ง (Installation & Prerequisites)](#2-ข้อกำหนดและการติดตั้ง)
-3. [เริ่มต้นใช้งานอย่างรวดเร็ว (Quick Start)](#3-เริ่มต้นใช้งานอย่างรวดเร็ว)
-4. [แกนหลักของแอปพลิเคชัน (`Nelysia`)](#4-แกนหลักของแอปพลิเคชัน-nelysia)
-   - [การตั้งค่า Option ต่างๆ](#การตั้งค่า-option-ต่างๆ)
-   - [เมธอดสำหรับ Routing](#เมธอดสำหรับ-routing)
-   - [การจัดกลุ่ม Route ด้วย `group`](#การจัดกลุ่ม-route-ด้วย-group)
-   - [การปรับแต่งหน้า 404 ด้วย `notFound`](#การปรับแต่งหน้า-404-ด้วย-notfound)
-   - [การรวม Sub-App ด้วย `mount`](#การรวม-sub-app-ด้วย-mount)
-   - [การเปิดเซิร์ฟเวอร์ด้วย `listen`](#การเปิดเซิร์ฟเวอร์ด้วย-listen)
+1. [บทนำและสถาปัตยกรรม (Introduction & Architecture)](#1-บทนำและสถาปตยกรรม)
+2. [ข้อกำหนดและการติดตั้ง (Installation & Prerequisites)](#2-ขอกำหนดและการตดตง)
+3. [เริ่มต้นใช้งานอย่างรวดเร็ว (Quick Start)](#3-เรมตนใชงานอยางรวดเรว)
+4. [แกนหลักของแอปพลิเคชัน (`Nelysia`)](#4-แกนหลกของแอปพลเคชน-nelysia)
+   - [การตั้งค่า Option ต่างๆ](#การตงคา-option-ตางๆ)
+   - [เมธอดสำหรับ Routing](#เมธอดสำหรบ-routing)
+   - [การจัดกลุ่ม Route ด้วย `group`](#การจดกลม-route-ดวย-group)
+   - [การปรับแต่งหน้า 404 ด้วย `notFound`](#การปรบแตงหนา-404-ดวย-notfound)
+   - [การรวม Sub-App ด้วย `mount`](#การรวม-sub-app-ดวย-mount)
+   - [การเปิดเซิร์ฟเวอร์ด้วย `listen`](#การเปดเซรฟเวอรดวย-listen)
    - [กลไก Plugin (`use`) และขอบเขต Lifecycle](#กลไก-plugin-use-และขอบเขต-lifecycle)
 5. [Request Context (`Context`)](#5-request-context-context)
-   - [ข้อมูลใน Context](#ข้อมูลใน-context)
-   - [การอ่าน Query ด้วย Proxy Destructuring](#การอ่าน-query-ด้วย-proxy-destructuring)
-   - [การตั้งค่า Status และ Headers ด้วย `context.set`](#การตั้งค่า-status-และ-headers-ด้วย-contextset)
-   - [การแชร์ข้อมูลภายใน Request ด้วย `context.store`](#การแชร์ข้อมูลภายใน-request-ด้วย-contextstore)
-   - [ฟังก์ชันอำนวยความสะดวกสำหรับ Response Shorthands](#ฟังก์ชันอำนวยความสะดวกสำหรับ-response-shorthands)
-   - [การจัดการ Cookies และ `deleteCookie`](#การจัดการ-cookies)
-   - [การส่ง Response กลับในรูปแบบต่างๆ](#การส่ง-response-กลับในรูปแบบต่างๆ)
-6. [การตรวจสอบข้อมูลและ Schema Validation](#6-การตรวจสอบข้อมูลและ-schema-validation)
-   - [เครื่องมือสร้าง Schema ในตัว (`t`)](#เครื่องมือสร้าง-schema-ในตัว-t)
-   - [การเชื่อมต่อกับ Standard Schema (Zod, Valibot, ArkType)](#การเชื่อมต่อกับ-standard-schema-zod-valibot-arktype)
+   - [ภาพรวม Request Context](#5-request-context-context)
+   - [การอ่าน Query ด้วย Proxy Destructuring](#การอาน-query-ดวย-proxy-destructuring)
+   - [การตั้งค่า Status และ Headers ด้วย `context.set`](#การตงคา-status-และ-headers-ดวย-contextset)
+   - [การแชร์ข้อมูลภายใน Request ด้วย `context.store`](#การแชรขอมลภายใน-request-ดวย-contextstore)
+   - [ฟังก์ชันอำนวยความสะดวกสำหรับ Response Shorthands](#ฟงกชนอำนวยความสะดวกสำหรบ-response-shorthands)
+   - [การจัดการ Cookies](#การจดการ-cookies)
+   - [การส่ง Response กลับในรูปแบบต่างๆ](#การสง-response-กลบในรปแบบตางๆ)
+6. [การตรวจสอบข้อมูลและ Schema Validation](#6-การตรวจสอบขอมลและ-schema-validation)
+   - [เครื่องมือสร้าง Schema ในตัว (`t`)](#เครองมอสราง-schema-ในตว-t)
+   - [การเชื่อมต่อกับ Standard Schema (Zod, Valibot, ArkType)](#การเชอมตอกบ-standard-schema-zod-valibot-arktype)
    - [Strict TypeScript Contracts](#strict-typescript-contracts)
-   - [จุดที่สามารถ Validate ได้ทั้ง 5 จุด](#จุดที่สามารถ-validate-ได้ทั้ง-5-จุด)
-7. [Lifecycle Hooks และการดักจับข้อผิดพลาด (Error Handling)](#7-lifecycle-hooks-และการดักจับข้อผิดพลาด)
+   - [จุดที่สามารถ Validate ได้ทั้ง 5 จุด](#จดทสามารถ-validate-ไดทง-5-จด)
+7. [Lifecycle Hooks และการดักจับข้อผิดพลาด (Error Handling)](#7-lifecycle-hooks-และการดกจบขอผดพลาด)
    - [`onBeforeHandle`](#onbeforehandle)
    - [`onAfterHandle`](#onafterhandle)
    - [`onError` และ `HttpError`](#onerror-และ-httperror)
-   - [ลำดับการทำงานของ Request (Execution Flow)](#ลำดับการทำงานของ-request-execution-flow)
-   - [การปิดเซิร์ฟเวอร์อย่างปลอดภัย (`gracefulShutdown`)](#การปิดเซิร์ฟเวอร์อย่างปลอดภัย-gracefulshutdown)
-8. [การใช้งาน WebSockets](#8-การใช้งาน-websockets)
-9. [ระบบปลั๊กอิน (Plugins Ecosystem)](#9-ระบบปลั๊กอิน-plugins-ecosystem)
-   - [ระบบความปลอดภัย CORS (`cors`)](#ระบบความปลอดภัย-cors-cors)
+   - [ลำดับการทำงานของ Request (Execution Flow)](#ลำดบการทำงานของ-request-execution-flow)
+   - [การปิดเซิร์ฟเวอร์อย่างปลอดภัย (`gracefulShutdown`)](#การปดเซรฟเวอรอยางปลอดภย-gracefulshutdown)
+8. [การใช้งาน WebSockets](#8-การใชงาน-websockets)
+9. [ระบบปลั๊กอิน (Plugins Ecosystem)](#9-ระบบปลกอน-plugins-ecosystem)
+   - [ระบบความปลอดภัย CORS (`cors`)](#ระบบความปลอดภย-cors-cors)
    - [HTTP Security Headers (`securityHeaders`)](#http-security-headers-securityheaders)
-   - [การให้บริการโฟลเดอร์ไฟล์ Static (`staticDirectory`)](#การให้บริการโฟลเดอร์ไฟล์-static-staticdirectory)
-   - [การจำกัดจำนวน Request (`rateLimit`)](#การจำกัดจำนวน-request-ratelimit)
-   - [การให้บริการไฟล์ Static เดี่ยว (`staticFile`)](#การให้บริการไฟล์-static-staticfiles)
-   - [การบีบอัดข้อมูล Gzip (`compression`)](#การบีบอัดข้อมูล-gzip-compression)
+   - [การให้บริการโฟลเดอร์ไฟล์ Static (`staticDirectory`)](#การใหบรการโฟลเดอรไฟล-static-staticdirectory)
+   - [การจำกัดจำนวน Request (`rateLimit`)](#การจำกดจำนวน-request-ratelimit)
+   - [การให้บริการไฟล์ Static เดี่ยว (`staticFile`)](#การใหบรการไฟล-static-เดยว-staticfile)
+   - [การบีบอัดข้อมูล Gzip (`compression`)](#การบบอดขอมล-gzip-compression)
    - [Production Subpaths](#production-subpaths)
-10. [OpenAPI 3.1 และหน้าเอกสาร Redoc / Swagger UI](#10-openapi-31-และหน้าเอกสาร-redoc--swagger-ui)
-    - [สร้างเอกสาร OpenAPI อัตโนมัติและ Route Metadata](#สร้างเอกสาร-openapi-อัตโนมัติและ-route-metadata)
-    - [เปิดหน้าเว็บ Redoc UI (`openapiUi`)](#เปิดหน้าเว็บ-redoc-ui-openapiui)
-    - [เปิดหน้าเว็บ Swagger UI (`swaggerUi`)](#เปิดหน้าเว็บ-swagger-ui-swaggerui)
-    - [สร้าง TypeScript Interface สำหรับ Client](#สร้าง-typescript-interface-สำหรับ-client)
+10. [OpenAPI 3.1 และหน้าเอกสาร Redoc / Swagger UI](#10-openapi-31-และหนาเอกสาร-redoc--swagger-ui)
+    - [สร้างเอกสาร OpenAPI อัตโนมัติและ Route Metadata](#สรางเอกสาร-openapi-อตโนมตและ-route-metadata)
+    - [เปิดหน้าเว็บ Redoc UI (`openapiUi`)](#เปดหนาเวบ-redoc-ui-openapiui)
+    - [เปิดหน้าเว็บ Swagger UI (`swaggerUi`)](#เปดหนาเวบ-swagger-ui-swaggerui)
+    - [การสกัด Schema จาก Standard Schema](#การสกด-schema-จาก-standard-schema-zod--valibot)
 11. [ระบบ Observability & OpenTelemetry Tracing](#11-ระบบ-observability--opentelemetry-tracing)
-12. [การเชื่อมต่อกับ GraphQL](#12-การเชื่อมต่อกับ-graphql)
-13. [การเชื่อมต่อฐานข้อมูล (Drizzle & Prisma)](#13-การเชื่อมต่อฐานข้อมูล-drizzle--prisma)
-14. [การยืนยันตัวตนด้วย Better Auth](#14-การยืนยันตัวตนด้วย-better-auth)
+12. [การเชื่อมต่อกับ GraphQL](#12-การเชอมตอกบ-graphql)
+13. [การเชื่อมต่อฐานข้อมูล (Drizzle & Prisma)](#13-การเชอมตอฐานขอมล-drizzle--prisma)
+    - [Drizzle ORM](#drizzle-orm-narudom96nelysiadrizzle)
+    - [Prisma](#prisma-narudom96nelysiaprisma)
+14. [ระบบยืนยันตัวตน (JWT & Better Auth)](#14-ระบบยนยนตวตน-authentication-jwt--better-auth)
 15. [Nelysia Client SDK (`@narudom96/nelysia/client`)](#15-nelysia-client-sdk-narudom96nelysiaclient)
-16. [ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)](#16-ระบบคอมไพเลอร์และเครื่องมือ-cli-nelysia)
-    - [การจัดหมวดหมู่ Route (Compiled vs Specialized vs Generic)](#การจัดหมวดหมู่-route)
-    - [Standalone Generation](#standalone-generation-เส้นทางที่รองรับ)
-    - [คำสั่ง CLI (`inspect`, `build`)](#คำสั่ง-cli)
-    - [Build Manifest และ Cache](#build-manifest-และ-cache)
-17. [รันไทม์ที่รองรับและ Adapter](#17-รันไทม์ที่รองรับและ-adapter)
-18. [การเชื่อมต่อกับ Full-Stack Web Frameworks](#18-การเชื่อมต่อกับ-full-stack-web-frameworks)
-    - [Next.js App Router](#nextjs-app-router)
-    - [Nuxt](#nuxt)
-    - [SvelteKit](#sveltekit)
-    - [Astro](#astro)
-    - [TanStack Start](#tanstack-start)
-19. [การทดสอบประสิทธิภาพและ Soak Testing (Benchmark)](#19-การทดสอบประสิทธิภาพและ-soak-testing)
-20. [คู่มือการย้ายโค้ด (Migration Guide)](#20-คู่มือการย้ายโค้ด-migration-guide)
-21. [คู่มือปรับประสิทธิภาพ (Performance Tuning)](#21-คู่มือปรับประสิทธิภาพ-performance-tuning)
-22. [เช็กลิสต์ Deploy ขึ้น Production](#22-เช็กลิสต์-deploy-ขึ้น-production)
-23. [แก้ปัญหาและ FAQ (Troubleshooting)](#23-แก้ปัญหาและ-faq-troubleshooting)
+16. [ระบบคอมไพเลอร์และเครื่องมือ CLI (`nelysia`)](#16-ระบบคอมไพเลอรและเครองมอ-cli-nelysia)
+    - [การจัดหมวดหมู่ Route](#การจดหมวดหม-route)
+    - [Standalone Generation](#standalone-generation-เสนทางทรองรบ)
+    - [คำสั่ง CLI](#คำสง-cli)
+    - [Deploy ด้วย Docker](#deploy-ดวย-docker)
+17. [รันไทม์ที่รองรับและ Adapter](#17-รนไทมทรองรบและ-adapter)
+18. [การเชื่อมต่อกับ Full-Stack Web Frameworks](#18-การเชอมตอกบ-full-stack-web-frameworks)
+    - [Next.js / Nuxt / SvelteKit / Astro / TanStack Start](#18-การเชอมตอกบ-full-stack-web-frameworks)
+19. [การทดสอบประสิทธิภาพและ Soak Testing (Benchmark)](#19-การทดสอบประสทธภาพและ-soak-testing)
+    - [สัญญา production ใน v0.5.0 (รวมอยู่ใน package v0.5.1)](#สญญา-production-ใน-v050-รวมอยใน-package-v051)
+    - [patch v0.5.1: Bun route-compiled fast path](#patch-v051-bun-route-compiled-fast-path)
+    - [compatibility snapshot จาก `oha` 10 รอบ (2026-09-14)](#compatibility-snapshot-ทบนทกไวจาก-oha-10-รอบ-2026-09-14)
+    - [การเทียบกับ benchmark เดิมแบบ runner เดียวกัน](#การเทยบกบ-benchmark-เดมแบบ-runner-เดยวกน)
+20. [คู่มือการย้ายโค้ด (Migration Guide)](#20-คมอการยายโคด-migration-guide)
+21. [คู่มือปรับประสิทธิภาพ (Performance Tuning)](#21-คมอปรบประสทธภาพ-performance-tuning)
+22. [เช็กลิสต์ Deploy ขึ้น Production](#22-เชกลสต-deploy-ขน-production)
+23. [แก้ปัญหาและ FAQ (Troubleshooting)](#23-แกปญหาและ-faq-troubleshooting)
 
 ---
 
@@ -238,7 +240,7 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v1.0.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v1.2.2!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "default",
@@ -267,7 +269,7 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v1.0.0!</h1>
+# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v1.2.2!</h1>
 
 curl "http://localhost:3000/users/42?filter=active"
 # ผลลัพธ์: {"id":"42","filter":"active","timestamp":1726180000000}
@@ -289,9 +291,12 @@ const app = new Nelysia({
   bodyLimit: 5 * 1024 * 1024, // 5 MB
 
   // ใช้งาน X-Forwarded-For ในการหา IP ลูกค้า (กรณีอยู่หลัง Reverse Proxy/Load Balancer)
+  // คำเตือน: เปิดเฉพาะเมื่ออยู่หลัง reverse proxy ที่คุมเองเท่านั้น
+  // (Nginx/Cloudflare/ALB) — ไม่เช่นนั้น client จะปลอม IP ได้
   trustedProxy: true,
 
   // บังคับให้ Cookie ทุกตัวติด Flag 'Secure' โดยอัตโนมัติ
+  // ต้องใช้บน production HTTPS เท่านั้น Cookie แบบ Secure จะไม่ถูกส่งผ่าน HTTP ธรรมดา
   secureCookies: true,
 
   // การจัดการ Request ID (ค่าเริ่มต้น: true) ถ้าเป็น true จะหา request ID จาก
@@ -344,7 +349,7 @@ Nelysia รองรับ Method ต่างๆ ในรูปแบบ Chain
 ```ts
 app
   // ค่าคงที่ ไม่ต้องผ่านการประมวลผลของ Handler ใดๆ (Zero Context Allocation)
-  .getStatic("/version", { version: "1.0.0", env: "production" })
+  .getStatic("/version", { version: "1.2.2", env: "production" })
 
   // POST Request พร้อมอ่าน Body
   .post("/items", async ({ body }) => {
@@ -513,6 +518,10 @@ console.log(await res.json()) // { id: "42", filter: "active" }
 console.log(await res.text()) // ข้อมูลในรูปแบบข้อความ
 console.log(await res.bytes()) // Uint8Array
 ```
+
+ส่ง body ของ request เป็น object (`body: { name: "Ada" }`) ข้อความ JSON ดิบ
+จะไม่ถูก parse โดย `inject()` และไม่ผ่าน schema แบบ object ส่วน traffic จริง
+ผ่าน network จะถูก parse ตามปกติ
 
 เมื่อ app มี route map แบบ typed แล้ว `inject()` จะตรวจ method/path และ
 `injectTyped()` จะ infer response ตาม route ที่เลือก:
@@ -1147,7 +1156,7 @@ const app = new Nelysia()
   })
   .use(openapi({
     title: "ระบบ API ตัวอย่าง",
-    version: "1.0.0",
+    version: "1.2.2", // เวอร์ชันของเอกสาร API ไม่ใช่เวอร์ชัน package
     path: "/openapi.json"
   }))
 ```
@@ -1311,9 +1320,12 @@ Nelysia มาพร้อมกับโมดูล JWT อย่างเป�
 import { Nelysia } from "@narudom96/nelysia"
 import { jwt, signJwt, verifyJwt } from "@narudom96/nelysia/jwt"
 
+const secret = process.env.JWT_SECRET
+if (!secret) throw new Error("JWT_SECRET is required")
+
 const app = new Nelysia()
   .use(jwt({
-    secret: process.env.JWT_SECRET || "super-secret-key",
+    secret,
     expiresIn: 3600 // หมดอายุใน 1 ชั่วโมง (วินาที)
   }))
   // 1. Public route: Zero overhead, ไม่มี auth hook มารบกวน

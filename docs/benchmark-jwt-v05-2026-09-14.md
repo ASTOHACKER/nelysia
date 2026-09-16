@@ -1,5 +1,7 @@
 # Nelysia v0.5 JWT Release Benchmark Evidence — 2026-09-14
 
+> **Archived — v0.5.x evidence, not current.** Current package คือ `v1.2.1`; ดู evidence ล่าสุดที่ [benchmark-latest-readable-2026-09-16.md](./benchmark-latest-readable-2026-09-16.md).
+
 This report records the v0.5 JWT public/protected security benchmark. It uses
 one runner, one host, a separate warmup before every measured sample, 30
 seconds per measured sample, 7 measured samples, and concurrency 50. The

@@ -2,11 +2,25 @@
 
 This file is the finite progress board for work after v0.1. A checkbox is marked complete only when code, tests, and a runnable example exist.
 
-> Current package: `1.2.1`. The `v0.5.1`, `v0.6.0`, `v1.0.0`, `v1.1.0`,
-> `v1.2.0`, and `v1.2.1` tags/releases are immutable. The Win Matrix gates
+> Current package: `1.2.2`. The `v0.5.1`, `v0.6.0`, `v1.0.0`, `v1.1.0`,
+> `v1.2.0`, `v1.2.1`, and `v1.2.2` tags/releases are immutable. The Win Matrix gates
 > below remain evidence blockers, not a performance claim.
 
-## v1.2.1 Current GitHub Release
+## v1.2.2 Current GitHub Release
+
+- [x] Documentation-truth patch on the v1.2.x line with no runtime code changes
+- [x] Archived/historical labels, stale version strings, broken ToC anchors, and insecure doc patterns fixed
+- [x] Quickstart examples use consumer imports with documented prerequisites
+- [x] Node/Bun tests, typecheck, package build/imports, packed consumer, framework/integration smoke, and docs check recorded for the release
+- [x] GitHub release/tag `v1.2.2` created
+- [ ] npm publication when the registry account is ready
+- [ ] 24-hour soak before any production-readiness announcement
+
+The immutable `v1.2.2` GitHub release contains the documentation-truth fixes.
+The Win Matrix remains `BLOCKED` / `NO PERFORMANCE CLAIM` and the 24-hour
+soak remains deferred, same as v1.2.1.
+
+## v1.2.1 Historical Release
 
 - [x] Generic Bun route-preflight reuse shipped as an additive runtime fix
 - [x] Immutable execution plans, shared sync/async executor, Win Matrix verifier, and documentation truth pass included
@@ -61,7 +75,7 @@ and `npm run benchmark:verify:win-matrix`.
 - [ ] 24-hour soak before any production-readiness announcement
 
 The v1.2.0 benchmark evidence is retained as historical evidence; v1.2.1 is
-the current GitHub release.
+a historical release and v1.2.2 is the current GitHub release.
 
 ## v1.1.0 Historical Release
 
@@ -190,7 +204,7 @@ and TanStack Start.
 ## v0.6 Historical Workspace Gate
 
 The historical package line was `0.6.0`. The following checks are retained as
-evidence for the v0.6 implementation slice; the current public release is
+evidence for the v0.6 implementation slice; the public release at that time was
 `v1.0.0`.
 
 - [x] Strict public types, typed macros, auth registry, state/decorate storage, and lifecycle scope tests
@@ -302,7 +316,7 @@ they are not a new release claim until their milestone gates pass:
 - [x] v0.7–v0.9 gates incorporated into the `v1.0.0` release; separate milestone tags are not required
 - [ ] Future 30m/1h/6h/24-hour evidence, if production-evidence work is approved later (not a historical v1.0 gate)
 
-The current package is `1.2.1`; the existing v0.5.1/v0.6.0/v1.0.0/v1.1.0
+The current package is `1.2.2`; the existing v0.5.1/v0.6.0/v1.0.0/v1.1.0/v1.2.0/v1.2.1
 tags remain immutable. The v1.0.0 release contains the frozen API contract.
 No production-readiness announcement is made for the deferred 24-hour soak gate.
 

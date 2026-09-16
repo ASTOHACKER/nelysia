@@ -1,5 +1,5 @@
-import { Nelysia } from "../../packages/core/src/index.ts"
-import { memoryStorage, upload } from "../../packages/upload/src/index.ts"
+import { Nelysia } from "@narudom96/nelysia"
+import { memoryStorage, upload } from "@narudom96/nelysia/upload"
 
 export const app = new Nelysia()
   .use(upload({

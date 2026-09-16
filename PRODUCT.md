@@ -45,7 +45,7 @@ The documentation website (docs/index.html) is accessed by engineers evaluating 
 
 ## Evidence on Hand
 
-- Current v1.0.0 GitHub Release tarball with the frozen v1.0 API contract and v0.6–v0.9 foundations.
+- Current v1.2.2 GitHub Release tarball with the frozen v1.0 API contract and v0.6–v0.9 foundations.
 - Release evidence reports for core load, JWT security, route classification, and 1M/10M request-count soaks.
 - Full test, package-import, deployment-smoke, documentation, and audit gates passing on the recorded host; the 24-hour soak remains intentionally deferred.
 - Production modules in packages/* including \`@narudom96/nelysia/client\`, \`openapi\`, \`observability\`, \`jwt\`, \`upload\`, \`logger\`, and \`timeout\` subpaths.

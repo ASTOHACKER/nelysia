@@ -1,6 +1,5 @@
 node_modules
 dist
-dist-package
 .nelysia-cache
 .git
 docs

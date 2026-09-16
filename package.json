@@ -1,6 +1,6 @@
 {
   "name": "@narudom96/nelysia",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": false,
   "publishConfig": {
     "access": "public"
@@ -89,7 +89,6 @@
     "package:build": "tsc -p tsconfig.build.json",
     "package:tarball": "npm pack --dry-run",
     "prepack": "npm run package:build",
-    "prepare": "npm run package:build",
     "typecheck": "tsc --noEmit"
   },
   "bin": {
@@ -179,9 +178,5 @@
     "drizzle-orm": {
       "optional": true
     }
-  },
-  "allowScripts": {
-    "file:.deno/better-sqlite3@12.11.1/node_modules/better-sqlite3": true,
-    "file:../../better-sqlite3@12.11.1/node_modules/better-sqlite3": true
   }
 }

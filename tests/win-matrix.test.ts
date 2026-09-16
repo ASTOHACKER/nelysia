@@ -5,7 +5,7 @@ import { verifyWinMatrix } from "../spec/scripts/check-win-matrix.mjs"
 function completeMatrix() {
   return {
     schema: "nelysia.win-matrix.v1",
-    packageVersion: "1.2.0",
+    packageVersion: "1.2.2",
     baseline: { name: "Elysia", version: "2.0.0-exp.60" },
     status: "PASS",
     axes: {

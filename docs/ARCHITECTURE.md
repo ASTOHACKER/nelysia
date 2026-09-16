@@ -96,7 +96,7 @@ The root application explicitly composes modules with `.use()` or `.mount()`. `s
 
 ### Current Hybrid AOT runtime contract
 
-The v1.2.1 workspace uses a hybrid execution model without changing the public
+The v1.2.2 workspace uses a hybrid execution model without changing the public
 API:
 
 1. `COMPILED` routes use the compiler IR and registered function table to select

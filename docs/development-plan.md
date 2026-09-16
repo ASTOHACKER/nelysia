@@ -1,5 +1,7 @@
 # Nelysia Development Plan
 
+> **Archived — historical plan, not current.** Current package คือ `v1.2.1`; ดูสถานะปัจจุบันที่ [release-status.md](./release-status.md).
+
 This document preserves the original development boundaries. The current
 implementation and release evidence are tracked in
 [`docs/release-status.md`](./release-status.md) and

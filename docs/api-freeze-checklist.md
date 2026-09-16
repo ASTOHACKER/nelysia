@@ -1,5 +1,7 @@
 # Nelysia v1.0 API Freeze Checklist
 
+> **Archived — v1.0 checklist, not current.** Current package คือ `v1.2.1`; ดูสถานะปัจจุบันที่ [release-status.md](./release-status.md).
+
 สถานะ: **v1.0 public contract frozen** — ตรวจครบหลัง v0.6–v0.9 gates
 ผ่านแล้ว และ release `v1.0.0` ถูกสร้างจาก commit ที่ตรวจสอบแล้ว; tag เดิมยัง immutable
 

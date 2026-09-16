@@ -1,5 +1,5 @@
-import { Nelysia } from "../../packages/core/src/index.ts"
-import { jwt, signJwt } from "../../packages/jwt/src/index.ts"
+import { Nelysia } from "@narudom96/nelysia"
+import { jwt, signJwt } from "@narudom96/nelysia/jwt"
 
 const secret = process.env.JWT_SECRET
 if (!secret) throw new Error("JWT_SECRET is required")

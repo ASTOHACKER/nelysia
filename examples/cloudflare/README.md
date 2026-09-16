@@ -7,3 +7,10 @@ the worker entrypoint.
 
 The local contract smoke test is part of `npm test`; deployment compatibility
 depends on the Web APIs and bindings provided by the selected Workers runtime.
+
+Deploy (requires `wrangler` and a `wrangler.toml` in your own project — this
+folder ships no Workers config on purpose):
+
+```bash
+npx wrangler deploy
+```

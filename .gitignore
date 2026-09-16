@@ -18,7 +18,10 @@ Logo/
 *.log
 .DS_Store
 examples/prisma/*.db
+*.db
+*.sqlite*
+*.db-journal
 examples/prisma/generated/
-.env
-.env.local
+.env*
+!.env.example
 coverage/

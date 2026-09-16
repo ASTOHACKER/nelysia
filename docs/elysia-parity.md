@@ -1,5 +1,7 @@
 # Elysia Feature Parity Roadmap
 
+> **Archived — wishlist/roadmap, not a status report.** Current package คือ `v1.2.1`; ดูสถานะปัจจุบันที่ [release-status.md](./release-status.md).
+
 This is a prioritised roadmap based on Elysia's public documentation. Nelysia should match the useful developer experience, not copy implementation details or claims.
 
 ## Core API

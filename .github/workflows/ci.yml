@@ -16,7 +16,11 @@ jobs:
           node-version: "24"
           cache: npm
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
       - uses: denoland/setup-deno@v2
+        with:
+          deno-version: "2.9.6"
       - run: npm ci --legacy-peer-deps
       - run: npm run package:build
       - name: Install framework fixture dependencies

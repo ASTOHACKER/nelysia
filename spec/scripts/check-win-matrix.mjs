@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("../..", import.meta.url))
 
-export function verifyWinMatrix(matrix, packageVersion = "1.2.0") {
+export function verifyWinMatrix(matrix, packageVersion = "1.2.2") {
   const failures = []
   const requiredAxes = ["bun", "node", "fetch", "memory", "lifecycle", "ecosystem", "soak24h", "dx"]
 

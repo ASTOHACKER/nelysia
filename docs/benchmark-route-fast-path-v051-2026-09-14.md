@@ -1,5 +1,7 @@
 # v0.5.1 Bun Route Fast-Path Benchmark Evidence — 2026-09-14
 
+> **Archived — v0.5.x evidence, not current.** Current package คือ `v1.2.1`; ดู evidence ล่าสุดที่ [benchmark-latest-readable-2026-09-16.md](./benchmark-latest-readable-2026-09-16.md).
+
 This report records the v0.5.1 patch benchmark for the Bun compiled-dispatcher
 regression. It uses one runner, one host, warmup excluded, 30 seconds per
 sample, 7 measured samples, concurrency 50, and `oha 1.16.0`. The benchmark

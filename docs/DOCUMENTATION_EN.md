@@ -1,11 +1,11 @@
 # Nelysia: Comprehensive Technical Documentation
 
-> **Version:** 1.2.1 (Current package and GitHub Release)
+> **Version:** 1.2.2 (Current package and GitHub Release)
 > **Target Runtimes:** Bun 1.4+, Node.js 22+, and Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **Language:** TypeScript / JavaScript (ESM)
 
 Use the [Documentation Map](./README.md) to choose the right guide, status
-page, or benchmark report. The current package is `v1.2.1`; the next runtime
+page, or benchmark report. The current package is `v1.2.2`; the next runtime
 parity workspace is tracked in the [Win Matrix evidence](./benchmark-latest-readable-2026-09-16.md)
 and remains `BLOCKED` / `NO PERFORMANCE CLAIM` until every release blocker is
 recorded.
@@ -15,14 +15,14 @@ options](./core/route-options.md), [errors](./core/errors.md), [authentication
 overview](./auth/overview.md), [JWT](./auth/jwt.md), [Better Auth](./auth/better-auth.md),
 [sessions](./auth/session.md), [roles and permissions](./auth/roles-permissions.md),
 and [plugin authoring](./plugins/authoring-plugins.md). Each page contains
-English and Thai guidance for the frozen v1.0 contract plus additive v1.1.x runtime fixes and the v1.2.1 generic-Bun preflight-reuse and runtime-parity work.
+English and Thai guidance for the frozen v1.0 contract plus additive v1.1.x runtime fixes and the v1.2.2 generic-Bun preflight-reuse and runtime-parity work.
 
 For the complete version path and frozen public contract, see the
 [Nelysia v1.0 Guide](./v1.0.md). It explains what is verified in the workspace
 versus what has or has not been published as a package release.
 
 The post-v0.5.1 additive work was included in the v1.0.0 release. The v1.1.0
-runtime correctness and stabilization work is additive, and v1.2.1 adds
+runtime correctness and stabilization work is additive, and v1.2.2 adds
 generic-Bun route-preflight reuse; the public API contract
 remains frozen and future capabilities must be additive within 1.x. Historical
 milestones are documented in
@@ -30,7 +30,7 @@ milestones are documented in
 exports production contracts from `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache`, and `@narudom96/nelysia/health`; these remain on the
-v1.2.1 package line.
+v1.2.2 package line.
 
 Runnable examples: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts), and
@@ -52,12 +52,12 @@ Runnable examples: [basic](../examples/hello/index.ts),
    - [Unified Server Listener (`listen`)](#unified-server-listener-listen)
    - [Plugin Mechanics (`use`) and Lifecycle Scope](#plugin-mechanics-use-and-lifecycle-scope)
 5. [The Request Context (`Context`)](#5-the-request-context-context)
-   - [Context Properties & Interface](#context-properties--interface)
+   - [Request Context Overview](#5-the-request-context-context)
    - [Query Parameters via Proxy Destructuring](#query-parameters-via-proxy-destructuring)
    - [Response Mutation with `context.set`](#response-mutation-with-contextset)
    - [Request State Sharing with `context.store`](#request-state-sharing-with-contextstore)
    - [Response Shorthands (`html`, `text`, `json`, `redirect`)](#response-shorthands)
-   - [Cookies Management & `deleteCookie`](#cookies-management)
+   - [Cookies Management & `deleteCookie`](#cookies-management--deletecookie)
    - [Returning Custom Responses](#returning-custom-responses)
 6. [Schema Validation & Type Safety](#6-schema-validation--type-safety)
    - [Built-in Schema Builder (`t`)](#built-in-schema-builder-t)
@@ -68,11 +68,11 @@ Runnable examples: [basic](../examples/hello/index.ts),
    - [`onBeforeHandle`](#onbeforehandle)
    - [`onAfterHandle`](#onafterhandle)
    - [`onError` & `HttpError`](#onerror--httperror)
-   - [Execution Flow Diagram](#execution-flow-diagram)
+   - [Request Execution Flow](#7-lifecycle-hooks--error-handling)
    - [Graceful Shutdown (`gracefulShutdown`)](#graceful-shutdown-gracefulshutdown)
 8. [WebSocket Support](#8-websocket-support)
-   - [Handler Contract](#handler-contract)
-   - [Bun and Node Implementations](#bun-and-node-implementations)
+   - [Registration & Lifecycle Handlers](#registration--lifecycle-handlers)
+   - [Runtime Integration](#runtime-integration)
 9. [Plugins Ecosystem](#9-plugins-ecosystem)
    - [CORS Security (`cors`)](#cors-security-cors)
    - [OWASP Security Headers (`securityHeaders`)](#owasp-security-headers-securityheaders)
@@ -83,25 +83,21 @@ Runnable examples: [basic](../examples/hello/index.ts),
    - [Production Subpaths](#production-subpaths)
 10. [OpenAPI 3.1 & Redoc / Swagger UI](#10-openapi-31--redoc--swagger-ui)
     - [Generating OpenAPI Specification & Route Metadata](#generating-openapi-specification--route-metadata)
-    - [Serving OpenAPI JSON Endpoint](#serving-openapi-json-endpoint)
+    - [Generating OpenAPI Specification & Route Metadata](#generating-openapi-specification--route-metadata)
     - [Interactive Documentation UIs (`openapiUi` & `swaggerUi`)](#interactive-documentation-uis-openapiui--swaggerui)
     - [Standard Schema Extraction](#standard-schema-extraction)
     - [Client Type Generation (`generateClientTypes`)](#client-type-generation-generateclienttypes)
 11. [Observability & OpenTelemetry](#11-observability--opentelemetry)
-    - [Telemetry Callbacks](#telemetry-callbacks)
+    - [OTLP HTTP Exporter](#otlp-http-exporter-otlphttpexporter)
     - [OTLP HTTP Exporter (`otlpHttpExporter`)](#otlp-http-exporter-otlphttpexporter)
 12. [GraphQL Integration](#12-graphql-integration)
 13. [Database Integrations (Drizzle & Prisma)](#13-database-integrations-drizzle--prisma)
-14. [Authentication with Better Auth](#14-authentication-with-better-auth)
+14. [Authentication (JWT & Better Auth)](#14-authentication-jwt--better-auth)
 15. [Client SDK (`@narudom96/nelysia/client`)](#15-client-sdk-narudom96nelysiaclient)
 16. [Compiler Platform & CLI](#16-compiler-platform--cli)
 17. [Supported Runtimes & Adapters](#17-supported-runtimes--adapters)
 18. [Full-Stack Framework Integrations](#18-full-stack-framework-integrations)
-    - [Next.js App Router](#nextjs-app-router)
-    - [Nuxt](#nuxt)
-    - [SvelteKit](#sveltekit)
-    - [Astro](#astro)
-    - [TanStack Start](#tanstack-start)
+    - [Next.js / Nuxt / SvelteKit / Astro / TanStack Start](#18-full-stack-framework-integrations)
 19. [Benchmarking & Soak Testing](#19-benchmarking--soak-testing)
 20. [Migration Guides](#20-migration-guides)
 21. [Performance Tuning Guide](#21-performance-tuning-guide)
@@ -241,7 +237,7 @@ Always export the `app` instance so the compiler and CLI can inspect and build y
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.0.0!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.2.2!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "default",
@@ -270,7 +266,7 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# Output: <h1>Hello from Nelysia v1.0.0!</h1>
+# Output: <h1>Hello from Nelysia v1.2.2!</h1>
 
 curl "http://localhost:3000/users/42?filter=active"
 # Output: {"id":"42","filter":"active","timestamp":1726180000000}
@@ -291,10 +287,13 @@ const app = new Nelysia({
   // Maximum allowed body payload in bytes (default: 1,048,576 = 1 MB)
   bodyLimit: 5 * 1024 * 1024, // 5 MB
 
-  // Trust X-Forwarded-For header for clientIp resolution (default: false)
+  // Trust X-Forwarded-For header for clientIp resolution (default: false).
+  // WARNING: enable only behind a reverse proxy you control
+  // (Nginx/Cloudflare/ALB) — otherwise clients can spoof their IP.
   trustedProxy: true,
 
-  // Force Secure attribute on all setCookie calls (default: false)
+  // Force Secure attribute on all setCookie calls (default: false).
+  // Requires production HTTPS; Secure cookies are not sent over plain HTTP.
   secureCookies: true,
 
   // Request-ID handling (default: true). When true, the request ID is resolved
@@ -349,7 +348,7 @@ Nelysia provides chainable registration methods:
 ```ts
 app
   // Direct value without handler closure (optimized for zero-allocation compiled path)
-  .getStatic("/version", { version: "1.0.0", env: "production" })
+  .getStatic("/version", { version: "1.2.2", env: "production" })
 
   // Handler returning JSON object
   .post("/items", async ({ body }) => {
@@ -519,6 +518,10 @@ console.log(await res.text()) // Text content
 console.log(await res.bytes()) // Uint8Array
 ```
 
+Pass request bodies as objects (`body: { name: "Ada" }`); a raw JSON string
+body is not parsed by `inject()` and fails object-schema validation. Real
+network traffic is parsed normally.
+
 For a typed application, `inject()` checks the route map and
 `injectTyped()` provides path-specific response inference:
 
@@ -610,7 +613,7 @@ Handlers can mutate the HTTP status code and response headers directly using `co
 app.post("/users", ({ body, set }) => {
   set.status = 201 // Sets HTTP 201 Created
   set.headers["x-created-by"] = "nelysia"
-  set.headers["x-version"] = "1.0.0"
+  set.headers["x-version"] = "1.2.2"
 
   return { success: true, user: body }
 })
@@ -647,7 +650,7 @@ In v0.1.4+, Nelysia provides dedicated shorthands to return strongly typed respo
 
 ```ts
 app
-  .get("/landing", ({ html }) => html("<h1>Welcome to Nelysia v1.0.0</h1>"))
+  .get("/landing", ({ html }) => html("<h1>Welcome to Nelysia v1.2.2</h1>"))
   .get("/robots.txt", ({ text }) => text("User-agent: *\nDisallow: /private"))
   .get("/old-path", ({ redirect }) => redirect("/new-path", 301))
   .get("/api/ping", (ctx) => {
@@ -711,7 +714,9 @@ app.get("/stream", () => {
 The body-first response form is additive and keeps the positional form valid:
 
 ```ts
-import { error } from "@narudom96/nelysia"
+import { Nelysia } from "@narudom96/nelysia"
+
+const app = new Nelysia()
 
 app.get("/created", ({ response }) => response(
   { created: true },
@@ -1180,7 +1185,7 @@ const app = new Nelysia()
   })
   .use(openapi({
     title: "Production E-Commerce API",
-    version: "1.0.0",
+    version: "1.2.2", // API document version, not the package version
     path: "/openapi.json"
   }))
 ```
@@ -1344,6 +1349,8 @@ import { drizzleRoute } from "@narudom96/nelysia/drizzle"
 
 const sqlite = new Database("app.db")
 const db = drizzle(sqlite)
+// drizzle-orm table definition below — its text()/integer() are drizzle
+// column builders, not Nelysia's t.* schema builder.
 const users = sqliteTable("users", {
   id: integer("id").primaryKey(),
   name: text("name").notNull()
@@ -1398,9 +1405,12 @@ Nelysia includes an official, zero-dependency JWT authentication module built di
 import { Nelysia } from "@narudom96/nelysia"
 import { jwt, signJwt, verifyJwt } from "@narudom96/nelysia/jwt"
 
+const secret = process.env.JWT_SECRET
+if (!secret) throw new Error("JWT_SECRET is required")
+
 const app = new Nelysia()
   .use(jwt({
-    secret: process.env.JWT_SECRET || "super-secret-key",
+    secret,
     expiresIn: 3600 // 1 hour expiration in seconds
   }))
   // 1. Public route: Zero auth overhead
@@ -1792,7 +1802,7 @@ npm run benchmark:short
 # Historical v1.0 release-line verification gate (does not run the deferred 24-hour soak)
 npm run release:check:v1
 
-# Current v1.2.1 Win Matrix release gate (fails while blockers are pending)
+# Current v1.2.2 Win Matrix release gate (fails while blockers are pending)
 npm run benchmark:verify:win-matrix
 npm run release:check:win-matrix
 # If the default base port 4321 is occupied:

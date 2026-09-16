@@ -1,4 +1,4 @@
-import { createBunHandler } from "../../packages/runtime-bun/src/server.ts"
+import { createBunHandler } from "@narudom96/nelysia/runtime-bun"
 import { app } from "./app.ts"
 
 const runtime = globalThis as typeof globalThis & {

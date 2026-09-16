@@ -1,5 +1,7 @@
 # v0.5 Release-Set Benchmark Evidence — 2026-09-14
 
+> **Archived — v0.5.x evidence, not current.** Current package คือ `v1.2.1`; ดู evidence ล่าสุดที่ [benchmark-latest-readable-2026-09-16.md](./benchmark-latest-readable-2026-09-16.md).
+
 This report covers the v0.5.0 feature set as shipped in the v0.5.1 package and
 uses the new release runner with a warmup excluded from measurement,
 30 seconds per sample, 7 measured samples, concurrency 50, and `oha 1.16.0`.

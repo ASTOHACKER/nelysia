@@ -1,6 +1,6 @@
 # Nelysia Documentation Map
 
-> Current package line: `v1.2.1` · Node.js 22+ · Bun 1.4+
+> Current package line: `v1.2.2` · Node.js 22+ · Bun 1.4+
 
 หน้านี้เป็นจุดเริ่มต้นของเอกสารทั้งหมด เอกสารแบ่งตามคำถามที่ต้องการตอบ
 เพื่อไม่ให้คู่มือใช้งานปะปนกับ roadmap หรือ benchmark evidence
@@ -71,7 +71,7 @@
 - [P2 Roadmap](./p2-roadmap.md) — แผน compiler/optimization ที่เก็บไว้ต่อ
 
 หมายเหตุ: `v0.5.1`, `v0.6.0`, `v1.0.0` และ `v1.1.0` เป็น historical immutable
-releases; `v1.2.1` เป็น release ปัจจุบันที่ freeze public API แล้ว งาน runtime
+releases; `v1.2.2` เป็น release ปัจจุบันที่ freeze public API แล้ว งาน runtime
 win-matrix ใน workspace ยังเป็น unreleased และต้องผ่าน release-status gates ก่อน
 จะเป็น release claim
 

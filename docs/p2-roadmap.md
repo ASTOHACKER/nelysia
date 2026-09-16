@@ -1,7 +1,7 @@
 # Nelysia P2 Roadmap
 
 This is the historical milestone plan. The v0.2–v0.4 implementation status
-and the current v0.5.1 release gates are maintained in
+and the historical v0.5.1 release gates are maintained in
 [`docs/release-status.md`](./release-status.md); do not use this roadmap alone
 as a current checklist.
 

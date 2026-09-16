@@ -2,7 +2,7 @@
 
 Recorded 10-round compatibility snapshot from the v0.4.0 workspace. Each case
 used `oha 1.16.0`, 50 concurrent workers, 3 seconds per sample, 10 rounds, and
-zero failed requests. Values below are median throughput. The current v0.5
+zero failed requests. Values below are median throughput. The historical v0.5
 release-gate evidence is recorded separately in
 [`benchmark-oha-v05-2026-09-14.md`](./benchmark-oha-v05-2026-09-14.md).
 

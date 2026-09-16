@@ -1,4 +1,6 @@
 # Production image for a Nelysia app built with `npm run build -- ./examples/hello/app.ts`.
+# Prerequisite: `npm run package:build` first — examples import the
+# `@narudom96/nelysia` self-reference, which resolves to ./dist-package.
 # Build:  docker build -t nelysia:local .
 # Run:    docker run --rm -p 3000:3000 -e PORT=3000 nelysia:local
 FROM node:22-slim
@@ -8,13 +10,14 @@ ENV PORT=3000
 
 WORKDIR /srv/nelysia
 
-# Production dependencies only (ws, graphql). --ignore-scripts skips the
-# `prepare` hook (it needs dev-only tsc); the CLI artifact is prebuilt below.
+# Production dependencies only (ws, graphql). --ignore-scripts skips
+# lifecycle hooks; the CLI runs from source via --experimental-strip-types.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund && npm cache clean --force
 
-# Framework sources + example app entry (run with --experimental-strip-types,
-# no build step needed inside the image).
+# Framework package (self-reference target) + example app entry (run with
+# --experimental-strip-types, no build step needed inside the image).
+COPY dist-package ./dist-package
 COPY packages ./packages
 COPY examples ./examples
 

@@ -1,4 +1,6 @@
-import { createClient } from "../../packages/client/src/index.ts"
+import { createClient } from "@narudom96/nelysia/client"
+// Type-only import of your own app: replace with `import type { app } from "./app"`
+// from your project. The stub below keeps this example runnable without a server.
 import type { app } from "../hello/app.ts"
 
 // `typeof app` supplies the route map to the client without importing the

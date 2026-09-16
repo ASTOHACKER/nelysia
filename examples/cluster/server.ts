@@ -1,6 +1,6 @@
 import cluster from "node:cluster"
-import { Nelysia } from "../../packages/core/src/index.ts"
-import { serveClustered } from "../../packages/runtime-node/src/cluster.ts"
+import { Nelysia } from "@narudom96/nelysia"
+import { serveClustered } from "@narudom96/nelysia/runtime-node-cluster"
 
 // Smoke entry for multi-process serving (used by tests; not a library API).
 // PORT=0 picks an ephemeral port per worker; WORKERS controls fork count.

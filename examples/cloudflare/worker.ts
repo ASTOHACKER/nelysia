@@ -1,5 +1,5 @@
-import { Nelysia } from "../../packages/core/src/index.ts"
-import { createCloudflareWorker } from "../../packages/runtime-cloudflare/src/index.ts"
+import { Nelysia } from "@narudom96/nelysia"
+import { createCloudflareWorker } from "@narudom96/nelysia/runtime-cloudflare"
 
 const app = new Nelysia().get("/", ({ env, executionContext }) => ({
   runtime: "cloudflare",

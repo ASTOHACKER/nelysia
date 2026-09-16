@@ -1,9 +1,9 @@
 import assert from "node:assert/strict"
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from "graphql"
-import { Nelysia } from "../../packages/core/src/index.ts"
-import { drizzleRoute } from "../../packages/integrations-drizzle/src/index.ts"
-import { betterAuthPlugin } from "../../packages/integrations-better-auth/src/index.ts"
-import { graphqlPlugin } from "../../packages/integrations-graphql/src/index.ts"
+import { Nelysia } from "@narudom96/nelysia"
+import { drizzleRoute } from "@narudom96/nelysia/drizzle"
+import { betterAuthPlugin } from "@narudom96/nelysia/better-auth"
+import { graphqlPlugin } from "@narudom96/nelysia/graphql"
 
 // Drizzle: in-memory fake db, no sqlite dependency needed for the smoke.
 const drizzleApp = new Nelysia().use(drizzleRoute({

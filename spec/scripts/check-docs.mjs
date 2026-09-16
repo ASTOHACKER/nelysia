@@ -154,20 +154,19 @@ function textFor(file) {
 }
 
 function hasMarkdownAnchor(source, fragment) {
-  if (source.includes(`](#${fragment})`)) return true
   const headings = [...source.matchAll(/^#{1,6}\s+(.+)$/gm)]
   return headings.some(([, heading]) => markdownSlug(heading) === fragment)
 }
 
 function markdownSlug(value) {
+  // GitHub-style slug: strip code formatting, lowercase, drop every
+  // non-letter/non-number (including Thai vowel/tone marks), spaces to "-".
   return value
     .replace(/[`*_~]/g, "")
     .toLocaleLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .replace(/[^\p{L}\p{N} _-]/gu, "")
     .trim()
-    .replace(/\s+/g, "-")
+    .replace(/ /g, "-")
 }
 
 function escapeRegExp(value) {

@@ -10,15 +10,15 @@
 
 ## Install
 
-> **Current release:** `@narudom96/nelysia@1.2.1` is available as a GitHub Release
+> **Current release:** `@narudom96/nelysia@1.2.2` is available as a GitHub Release
 > tarball. The v1.0 API contract and v0.6–v0.9 verification gates are recorded; the separate
 > 24-hour production-readiness soak is intentionally deferred, and npm publication is pending.
 
 ```bash
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.1/narudom96-nelysia-1.2.1.tgz
-or
-curl -fL -o nelysia.tgz 'https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.1/narudom96-nelysia-1.2.1.tgz'
+# Download the release tarball (fails loudly on HTTP errors)
+curl -fL -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.2/narudom96-nelysia-1.2.2.tgz
 
+# Install from the local file
 npm install ./nelysia.tgz
 ```
 
@@ -26,13 +26,13 @@ After that, everything is identical — `import { Nelysia } from "@narudom96/nel
 works exactly as if installed from the registry:
 
 ```bash
-# registry install (when the v1.2.1 package is published)
+# registry install (when the v1.2.2 package is published)
 npm install @narudom96/nelysia
-# optional integrations — install only what you use
-npm install graphql          # for @narudom96/nelysia/graphql
-npm install drizzle-orm      # for @narudom96/nelysia/drizzle
-npm install @prisma/client   # for @narudom96/nelysia/prisma
-npm install better-auth      # for @narudom96/nelysia/better-auth
+# optional integrations — install only what you use, pinned to the tested ranges
+npm install drizzle-orm@^0.45.2      # for @narudom96/nelysia/drizzle
+npm install @prisma/client@^6.12.0   # for @narudom96/nelysia/prisma
+npm install better-auth@^1.7.4       # for @narudom96/nelysia/better-auth
+# graphql@^17 ships with the framework — no install needed for @narudom96/nelysia/graphql
 ```
 
 ### Install from GitHub Releases (no registry needed)
@@ -43,7 +43,7 @@ Use this while the package is not yet (or whenever it is not) on the npm registr
 
 ```bash
 # 1. Download the tarball from the release page
-curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.1/narudom96-nelysia-1.2.1.tgz
+curl -o nelysia.tgz https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.2/narudom96-nelysia-1.2.2.tgz
 
 # 2. Install from the local file (works even on locked-down npm setups)
 npm install ./nelysia.tgz
@@ -52,10 +52,10 @@ npm install ./nelysia.tgz
 On a standard npm setup the two steps collapse into one:
 
 ```bash
-npm install https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.1/narudom96-nelysia-1.2.1.tgz
+npm install https://github.com/ASTOHACKER/nelysia/releases/download/v1.2.2/narudom96-nelysia-1.2.2.tgz
 ```
 
-Replace `v1.2.1` / the filename with the latest release you see on the releases page.
+Replace `v1.2.2` / the filename with the latest release you see on the releases page.
 
 ```ts
 // app.ts
@@ -64,7 +64,7 @@ import { cors } from "@narudom96/nelysia/plugins"
 
 export const app = new Nelysia()
   .use(cors())
-  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.2.1!</h1>"))
+  .get("/", ({ html }) => html("<h1>Hello from Nelysia v1.2.2!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "all"
@@ -97,6 +97,9 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 - [Final Roadmap สู่ v1.0](./docs/roadmap-v1.md)
 - [Nelysia v1.0 Guide — Public Contract และสถานะ Release](./docs/v1.0.md)
 
+<details>
+<summary>Historical release notes (v0.4.0 / v0.5.1) — click to expand</summary>
+
 ### Historical v0.5.1 patch highlights
 - **Bun zero-argument route fast path**: static function routes now use `static-sync` in single- and multi-route dispatchers; `.getStatic()` remains the separate `static-prebuilt` tier.
 - **Native result parity**: `Response`, `ReadableStream`, response metadata, and handler errors are handled once without re-running the handler.
@@ -122,8 +125,10 @@ The recorded release evidence is available in the [core load report](./docs/benc
 - **`context.set` and `context.store`**: Status/header mutation and request-scoped state sharing.
 - **Built-in Plugins**: `cors()`, `securityHeaders()`, and `staticDirectory()`.
 - **Route Grouping**: `app.group(prefix, callback)` with nested hook inheritance.
-- **Custom 404 Handler**: `app.notFound(({ path }) => ...)` for tailored fallback responses.
+- **Custom 404 Handler**: `app.notFound(({ request }) => ...)` for tailored fallback responses.
 - **OpenAPI and Swagger UI**: `swaggerUi()` interactive documentation and route metadata.
+
+</details>
 
 ---
 
@@ -144,6 +149,8 @@ The recorded release evidence is available in the [core load report](./docs/benc
 
 ---
 
+<details>
+<summary>Historical release context (v0.5–v1.1) and evidence archive — click to expand</summary>
 
 The repository now contains the completed v0.5 feature set shipped in the v0.5.1
 GitHub Release, while the separate 24-hour production-readiness gate remains
@@ -197,7 +204,7 @@ import { health } from "@narudom96/nelysia/health"
 The CLI also provides `routes`, `doctor`, `create`, and `dev` in addition to
 `inspect`, `build`, `generate`, and `client`. These additive APIs were included
 in the historical v1.0.0 release; the public API contract is now frozen and
-future work remains additive on the current v1.2.1 package line.
+future work remains additive on the current v1.2.2 package line.
 
 Executable examples are available for [basic](./examples/hello/index.ts),
 [JWT](./examples/jwt/index.ts), [upload](./examples/upload/index.ts), and
@@ -211,11 +218,11 @@ Migration notes are documented in [`docs/migration.md`](./docs/migration.md).
 
 Open the complete static documentation at [`docs/index.html`](./docs/index.html), or serve it locally with `python3 -m http.server 8080 --directory docs`.
 
-Latest verified test and benchmark results: [`docs/benchmark-results.html`](./docs/benchmark-results.html).
+Latest verified test and benchmark results: [`docs/benchmark-latest-readable-2026-09-16.md`](./docs/benchmark-latest-readable-2026-09-16.md) (current Win Matrix evidence; historical v0.5.1 snapshot: [`docs/benchmark-results.html`](./docs/benchmark-results.html)).
 
 Historical v1.1.x runtime evidence: [`docs/benchmark-runtime-v11-2026-09-16.md`](./docs/benchmark-runtime-v11-2026-09-16.md),
 with [`docs/soak-v11-2026-09-16.md`](./docs/soak-v11-2026-09-16.md) for the 1M/10M request-count gates.
-The current v1.2.1 runtime workspace is tracked in the
+The current v1.2.2 runtime workspace is tracked in the
 [`Win Matrix evidence`](./docs/benchmark-latest-readable-2026-09-16.md);
 it is currently `BLOCKED`/`NO PERFORMANCE CLAIM` until Node, Fetch/Edge,
 memory, ecosystem, and 24-hour soak gates are recorded.
@@ -226,6 +233,8 @@ The separate compatibility snapshot is [`docs/benchmark-oha-2026-09-14.md`](./do
 Ten-round benchmark report: [`docs/benchmark-10-rounds.md`](./docs/benchmark-10-rounds.md).
 One-hundred-round benchmark report: [`docs/benchmark-100-rounds.md`](./docs/benchmark-100-rounds.md).
 
+</details>
+
 ## Run
 
 ```bash
@@ -234,7 +243,7 @@ npm run typecheck
 npm run example
 ```
 
-Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The historical v1.0.0 release introduced the runnable full-stack framework fixtures; the current fixture gate is part of the v1.2.1 Win Matrix.
+Node 22+ is required for the Node test and example commands. Bun 1.4+ is supported by the Bun adapter. The historical v1.0.0 release introduced the runnable full-stack framework fixtures; the current fixture gate is part of the v1.2.2 Win Matrix.
 
 With Bun installed, run the Bun target:
 
@@ -360,7 +369,7 @@ npm run benchmark:oha:release
 BENCH_ENTRYPOINT=listen npm run benchmark:oha:bun:listen
 npm run benchmark:oha:node
 
-# Current v1.2.1 Win Matrix verifier (fails while release blockers are pending)
+# Current v1.2.2 Win Matrix verifier (fails while release blockers are pending)
 npm run benchmark:verify:win-matrix
 npm run release:check:win-matrix
 

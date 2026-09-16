@@ -9,6 +9,21 @@ claims.
 Future work remains reserved for completing the Win Matrix and 24-hour soak.
 No performance or production-readiness claim is implied.
 
+## [1.2.2] — 2026-09-17
+
+Documentation-truth patch on the v1.2.x line. No runtime code changes.
+
+- Archived/historical labels across versioned docs and benchmark evidence.
+- Fixed stale version strings, broken ToC anchors, and the `notFound` README
+  example (`context` has no `path` field; use `request`).
+- Replaced the insecure JWT-secret fallback in docs with fail-fast guidance,
+  corrected the CORS allowlist example, and added `trustedProxy` warnings.
+- Switched quickstart examples to consumer `@narudom96/nelysia` imports and
+  documented example prerequisites (secrets, run commands, limits).
+
+The Win Matrix remains `BLOCKED` / `NO PERFORMANCE CLAIM` and the 24-hour
+soak remains deferred, same as v1.2.1.
+
 ## [1.2.1] — 2026-09-17
 
 This GitHub-only release contains the documentation-truth pass and the Win

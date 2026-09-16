@@ -1,7 +1,7 @@
 {
   "schema": "nelysia.win-matrix.v1",
   "generatedAt": "2026-09-16T14:20:12.098Z",
-  "packageVersion": "1.2.1",
+  "packageVersion": "1.2.2",
   "status": "BLOCKED",
   "baseline": {
     "name": "Elysia",
