@@ -1119,9 +1119,12 @@ Contracts and limitations:
   unsafe methods. Use `exclude()` for explicitly public endpoints.
 - `cache()` caches successful `GET` responses, adds weak ETags, and returns
   `304` for a matching `If-None-Match`. Native `Response` and streams are not
-  cached by this in-memory contract.
+  cached by this in-memory contract. There are no `HIT`/`MISS` headers —
+  observe caching by repeating the request and comparing the response body.
 - `health()` exposes `/health` and `/ready` by default, runs named checks, and
-  returns a degraded status or `503` readiness response when appropriate.
+  returns a degraded status or `503` readiness response when appropriate. The
+  readiness endpoint answers the same health-shaped payload
+  (`{ status, checks }`), not a separate ready shape.
 - `upload()` accepts Web `FormData`/`File`, limits file size/count/fields, and
   supports memory, disk, or custom storage adapters. Storage failures invoke
   cleanup for already stored files.
@@ -1448,6 +1451,15 @@ app.use(betterAuthPlugin(auth)) // default prefix: /api/auth
 - Custom prefix: `betterAuthPlugin(auth, "/auth")`
 - Method, headers, and body are forwarded to `auth.handler` untouched, and its `Response` (including `Set-Cookie`) is returned unmodified
 - You install and configure `better-auth` yourself (database, secret, trusted origins) — this plugin is only the bridge
+- The instance form above is handler-only. For route-level session auth, pass `getSession` so the plugin registers the `session` strategy (see [Better Auth](./auth/better-auth.md)):
+
+```ts
+app.use(betterAuthPlugin({
+  handler: (request) => auth.handler(request),
+  getSession: (request) => auth.api.getSession({ headers: request.headers })
+}))
+app.get("/me", ({ auth }) => auth, { auth: "session" })
+```
 
 JWT claims can be typed without changing the runtime contract:
 

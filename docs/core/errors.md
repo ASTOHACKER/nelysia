@@ -19,6 +19,11 @@ app.get("/account", ({ auth }) => {
 same error response path; use throwing when a helper must stop the current
 handler. The body is preserved as the error payload.
 
+Framework-raised failures (schema validation, malformed JSON, body limits)
+are constructed as `HttpError(status, message)` with no body attached, so
+`err.body` is `undefined` inside `onError` — build the public error shape
+from `err.status` and `err.message` yourself (see the status table below).
+
 ### Status behavior
 
 | Status | Typical source |
@@ -55,6 +60,10 @@ are not declared still use the normal status path.
 เช่น `throw error(401, { error: "Unauthorized" })` หรือ `return error(403,
 { error: "Forbidden" })` โดย body จะถูกใช้เป็น payload ของ response เดียวกัน
 `HttpError` รับ `(status, message, body?)` โดยตรงได้เช่นกัน
+
+error ที่ framework โยนเอง (validation ตก, JSON ผิดรูป, body เกิน limit) สร้าง
+แบบ `HttpError(status, message)` โดยไม่มี body — ใน `onError` จะเห็น `err.body`
+เป็น `undefined` ต้องปั้น shape จาก `err.status`/`err.message` เอง
 
 `400` มาจาก validation ของ request, `401` คือยังไม่มีหรือ credential ไม่ถูกต้อง,
 `403` คือผ่าน authentication แล้วแต่ role/permission ไม่ผ่าน, `404` คือไม่พบ

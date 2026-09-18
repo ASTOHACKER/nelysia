@@ -21,6 +21,25 @@ plugin registers the `session` auth provider so `auth: "session"` can protect a
 route. Without it, the integration is handler-only; do not claim route-level
 session authentication.
 
+Two call shapes exist — pick the right one:
+
+```ts
+// Handler-only: mounts every Better Auth endpoint, no route-level session auth.
+app.use(betterAuthPlugin(auth))
+
+// Full: catch-all PLUS the "session" strategy for { auth: "session" } routes.
+app.use(betterAuthPlugin({
+  handler: (request) => auth.handler(request),
+  getSession: (request) => auth.api.getSession({ headers: request.headers })
+}))
+```
+
+A bare Better Auth instance has `.handler()` but no `.getSession(request)`,
+so the first form never registers the `session` strategy. The guard resolves
+the session with a synthetic `GET` request carrying only the headers (no
+body); a missing or expired session returns `401` with body
+`{ error: "Unauthorized" }`, and a valid one is exposed as `context.auth`.
+
 ## ภาษาไทย
 
 integration นี้มีหน้าที่รับ `handler(request)` แล้ว mount เป็น catch-all route
@@ -30,6 +49,24 @@ integration นี้มีหน้าที่รับ `handler(request)` แ
 หากส่ง `getSession(request)` มาด้วย plugin จะลงทะเบียน `session` provider ทำให้
 route ที่ใช้ `auth: "session"` ตรวจ session ได้ ถ้าไม่ส่ง `getSession` จะเป็น
 handler-only integration และห้ามอ้างว่าใช้ route-level session auth ได้
+
+มีสองท่าเรียก — เลือกให้ถูกงาน:
+
+```ts
+// Handler-only: mount ทุก endpoint ของ Better Auth แต่ไม่มี session guard
+app.use(betterAuthPlugin(auth))
+
+// เต็ม: catch-all บวก strategy "session" สำหรับ route { auth: "session" }
+app.use(betterAuthPlugin({
+  handler: (request) => auth.handler(request),
+  getSession: (request) => auth.api.getSession({ headers: request.headers })
+}))
+```
+
+instance ของ Better Auth มี `.handler()` แต่ไม่มี `.getSession(request)` ดังนั้น
+ท่าแรกจะไม่ลงทะเบียน strategy `session` ให้ guard resolve session ด้วย request
+`GET` จำลองที่มีแค่ headers (ไม่มี body) ถ้า session หายหรือหมดอายุจะตอบ `401`
+พร้อม body `{ error: "Unauthorized" }` ถ้าผ่านจะได้ค่าอยู่ใน `context.auth`
 
 ```ts
 const auth = betterAuthPlugin({

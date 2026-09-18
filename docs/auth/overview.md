@@ -17,6 +17,13 @@ without the required role/permission returns `403`. `auth: "optional"` allows
 anonymous access only when exactly one provider is active; a supplied but invalid
 credential is still rejected, not converted to anonymous.
 
+Guard rejections carry a minimal, fixed body: `401` with `{ error:
+"Unauthorized" }` (some guards, like JWT, add a `message` field). Unlike thrown
+`HttpError`s (which reach `onError` for normalizing), a guard rejection is
+returned directly and bypasses `onError` — verified by runtime test, so its
+shape cannot be rewrapped there. Design your API contract around this fixed
+shape.
+
 Providers are registered by plugins. A named strategy without a provider fails
 at route registration and identifies the strategy. The core does not import
 Better Auth or a session store, so routes that do not declare auth add no auth
@@ -41,6 +48,12 @@ Authentication ตอบว่า “ผู้เรียกคือใคร�
 credential ที่ขาดหรือไม่ถูกต้องคือ `401`; ผู้ใช้ที่ยืนยันตัวตนแล้วแต่ role หรือ
 permission ไม่ผ่านคือ `403`; `auth: "optional"` ใช้ได้เมื่อมี provider ที่ active
 เพียงหนึ่งตัว และ credential ที่ส่งมาแต่ผิดยังต้อง reject
+
+guard ในตัวตอบ `401` ด้วย body ตายตัวแบบ minimal คือ `{ error: "Unauthorized" }`
+(guard บางตัวอย่าง JWT มี `message` เพิ่มให้) และต่างจาก `HttpError` ที่ throw
+เอง (ซึ่งผ่าน `onError` ให้ normalize ได้) — guard rejection ถูกส่งกลับตรง
+โดยไม่ผ่าน `onError` (เทสจริงยืนยัน) จึงเปลี่ยน shape ตรงนั้นไม่ได้
+ต้องออกแบบ contract ให้รับ shape นี้มาตั้งแต่ต้น
 
 plugin เป็นผู้ลงทะเบียน provider ถ้า route ระบุ strategy ที่ยังไม่มี จะ fail ตอน
 registration พร้อมชื่อ strategy ส่วน public route ที่ไม่ประกาศ auth จะไม่อ่าน

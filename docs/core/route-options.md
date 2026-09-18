@@ -51,7 +51,9 @@ registration with the route and feature name; they do not fall back silently.
 `params`, `query`, `body`, and `headers` validate the matching request data.
 `response` may be a single contract or a status map; `responses` adds status
 contracts and is normalized with the existing response behavior. Validation
-failures use the framework's `400` error path. No new automatic query/body
+failures use the framework's `400` error path — raised as `HttpError(400,
+message)` with no body, so `onError` receives `err.body === undefined`
+(see [Errors](./errors.md)). No new automatic query/body
 coercion is implied.
 
 `summary`, `description`, and `tags` are descriptive metadata used by OpenAPI
@@ -104,7 +106,9 @@ Route options ของ v1.0.0 มี `params`, `query`, `body`, `headers`, `res
 ### Validation และผลต่อ performance
 
 schema ของ params/query/body/headers ตรวจข้อมูลส่วนนั้นๆ และ failure ใช้ status
-`400` ตาม generic path โดยไม่มีการเพิ่ม query/body coercion อัตโนมัติ
+`400` ตาม generic path โดยโยนเป็น `HttpError(400, message)` แบบไม่มี body —
+ใน `onError` จะเห็น `err.body === undefined` (ดู [Errors](./errors.md))
+โดยไม่มีการเพิ่ม query/body coercion อัตโนมัติ
 `summary`, `description`, `tags` เป็น metadata สำหรับ OpenAPI/tooling
 
 schema subset ที่ compiler พิสูจน์ได้อาจเข้า compiled/specialized lane แต่

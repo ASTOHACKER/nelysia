@@ -1096,8 +1096,10 @@ const app = new Nelysia()
   methods ใช้ `exclude()` สำหรับ endpoint ที่ตั้งใจเปิดสาธารณะ
 - `cache()` cache เฉพาะ `GET` ที่สำเร็จ เพิ่ม weak ETag และตอบ `304` เมื่อ
   `If-None-Match` ตรงกัน โดย contract memory นี้ไม่ cache native `Response`/stream
+  และไม่มี header `HIT`/`MISS` — ดูว่า cache ทำงานโดยยิง request ซ้ำแล้วเทียบ body
 - `health()` มี `/health` และ `/ready` เป็นค่าเริ่มต้น รัน named checks และตอบ
-  degraded หรือ `503` สำหรับ readiness ที่ไม่พร้อม
+  degraded หรือ `503` สำหรับ readiness ที่ไม่พร้อม โดย endpoint readiness ตอบ
+  payload ทรงเดียวกับ health (`{ status, checks }`) ไม่ใช่ shape แยก
 - `upload()` รับ Web `FormData`/`File` จำกัดขนาด จำนวนไฟล์ และ field พร้อม
   memory/disk/custom storage; หาก storage ล้มเหลวจะ cleanup ไฟล์ที่บันทึกไปแล้ว
 - `logger()` เพิ่ม `context.logger` แบบ typed ตั้ง level/sink ได้ และ redact
@@ -1363,6 +1365,15 @@ app.use(betterAuthPlugin(auth)) // ค่าเริ่มต้น prefix: /ap
 - เปลี่ยน prefix ได้: `betterAuthPlugin(auth, "/auth")`
 - Request method, headers และ body จะถูก forward ไปยัง `auth.handler` ตรงๆ และ `Response` (รวม `Set-Cookie`) จะถูกส่งกลับโดยไม่ดัดแปลง
 - ต้องติดตั้งและตั้งค่า `better-auth` เอง (ฐานข้อมูล, secret, trusted origins) — ปลั๊กอินนี้ทำหน้าที่เป็นสะพานเชื่อมเท่านั้น
+- ท่า instance ข้างบนเป็น handler-only ถ้าอยากได้ session guard ราย route ต้องส่ง `getSession` เพื่อให้ plugin ลงทะเบียน strategy `session` (ดู [Better Auth](./auth/better-auth.md)):
+
+```ts
+app.use(betterAuthPlugin({
+  handler: (request) => auth.handler(request),
+  getSession: (request) => auth.api.getSession({ headers: request.headers })
+}))
+app.get("/me", ({ auth }) => auth, { auth: "session" })
+```
 
 สามารถกำหนด type ของ JWT claims ได้โดยไม่เปลี่ยน runtime contract:
 
