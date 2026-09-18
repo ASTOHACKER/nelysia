@@ -96,6 +96,7 @@ Works on Node.js 22+, Bun 1.4+, Deno, Cloudflare Workers, and Vercel. See `@naru
 - [Roadmap หลัง v0.5.1](./docs/roadmap-after-v051.md)
 - [Final Roadmap สู่ v1.0](./docs/roadmap-v1.md)
 - [Nelysia v1.0 Guide — Public Contract และสถานะ Release](./docs/v1.0.md)
+- https://nelysia-docs-lxytjkdu8-astohackers-projects.vercel.app/
 
 <details>
 <summary>Historical release notes (v0.4.0 / v0.5.1) — click to expand</summary>
