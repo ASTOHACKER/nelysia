@@ -5147,6 +5147,21 @@ app.<span class="fn">use</span>(<span class="fn">betterAuthPlugin</span>(auth, <
           </div>
 
           <div class="callout info">
+            <b>Handler-only vs session guard</b>
+            <span data-lang="en">The instance form above mounts every endpoint but registers no <code>session</code> strategy. Pass <code>getSession</code> to protect routes with <code>{ auth: "session" }</code> — the guard resolves it with a synthetic <code>GET</code> request carrying only headers, answers <code>401</code> with <code>{ error: "Unauthorized" }</code> when the session is missing, and exposes a valid one as <code>context.auth</code>. Full contract: <a href="auth/better-auth.md">auth/better-auth.md ↗</a>.</span>
+            <span data-lang="th">ท่า instance ข้างบน mount ทุก endpoint แต่ไม่ลงทะเบียน strategy <code>session</code> ถ้าอยากกัน route ด้วย <code>{ auth: "session" }</code> ต้องส่ง <code>getSession</code> — guard จะ resolve ด้วย request <code>GET</code> จำลองที่มีแค่ headers ถ้า session หายตอบ <code>401</code> พร้อม <code>{ error: "Unauthorized" }</code> ถ้าผ่านจะอยู่ใน <code>context.auth</code> อ่าน contract เต็มที่ <a href="auth/better-auth.md">auth/better-auth.md ↗</a>.</span>
+          </div>
+
+          <div class="code">
+            <div class="code-bar"><div class="code-bar-left"><span class="code-dots"><span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span></span><span>Session-guarded route</span></div><button><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> copy</button></div>
+            <pre><code>app.<span class="fn">use</span>(<span class="fn">betterAuthPlugin</span>({
+  handler: (request) =&gt; auth.<span class="fn">handler</span>(request),
+  getSession: (request) =&gt; auth.api.<span class="fn">getSession</span>({ headers: request.headers })
+}))
+app.<span class="fn">get</span>(<span class="str">"/me"</span>, ({ auth }) =&gt; auth, { auth: <span class="str">"session"</span> })</code></pre>
+          </div>
+
+          <div class="callout info">
             <b>Your Responsibility</b>
             <span data-lang="en">Install and configure <code>better-auth</code> yourself (database, secret, trusted origins) — this plugin is only the bridge.</span>
             <span data-lang="th">ต้องติดตั้งและตั้งค่า <code>better-auth</code> เอง (ฐานข้อมูล, secret, trusted origins) — ปลั๊กอินนี้เป็นเพียงสะพานเชื่อม</span>
