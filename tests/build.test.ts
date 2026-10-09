@@ -121,6 +121,12 @@ test("generated validators preserve TypeBox-style constraint parity", async () =
   await assert.rejects(async () => await schema.validate({ count: 2, tags: ["Ada", "Ada"] }), /unique/)
 })
 
+test("generated validators keep the Never constructor fail-closed", () => {
+  const schema = t.Never()
+  const sourceValidator = new Function(`${generateValidatorSource(schema).replace("export function", "function")}\nreturn validateGenerated`)() as (value: unknown) => unknown
+  assert.throws(() => sourceValidator(undefined), /never/)
+})
+
 test("generated validators match the canonical IR for tuple, record, Unicode, and extra properties", async () => {
   const schema = t.Object({
     tuple: t.Tuple([t.String(), t.Integer()] as const),
@@ -141,6 +147,16 @@ test("generated validators match the canonical IR for tuple, record, Unicode, an
   const operations = lowerSchemaIR(normalizeSchemaIR(schema))
   assert.ok(operations.some((operation) => operation.kind === "tuple"))
   assert.ok(operations.some((operation) => operation.kind === "record"))
+})
+
+test("generated validators apply nested additional-property schemas", async () => {
+  const schema = t.Object({ fixed: t.String() }, { additionalProperties: t.Number({ minimum: 1 }) })
+  const generated = new Function(`${generateValidatorSource(schema).replace("export function", "function")}\nreturn validateGenerated`)() as (value: unknown) => unknown
+  const valid = { fixed: "ok", score: 2 }
+
+  assert.deepEqual(generated(valid), await schema.validate(valid))
+  assert.throws(() => generated({ fixed: "ok", score: "2" }), /number/)
+  await assert.rejects(async () => await schema.validate({ fixed: "ok", score: 0 }), /minimum/)
 })
 
 test("static-only builds emit a standalone handler without the generic router", () => {

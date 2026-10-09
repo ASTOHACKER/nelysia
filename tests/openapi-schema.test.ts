@@ -77,6 +77,17 @@ test("supports JSON Schema output and keeps tuple, record, defaults, and flags",
   assert.deepEqual(schemaToJSONSchema(normalizeSchemaIR(t.Any())), {})
 })
 
+test("converts object additional-property schemas", () => {
+  const schema = t.Object({ fixed: t.String() }, { additionalProperties: t.Number({ minimum: 1 }) })
+
+  assert.deepEqual(schemaToJSONSchema(normalizeSchemaIR(schema)), {
+    additionalProperties: { minimum: 1, type: "number" },
+    properties: { fixed: { type: "string" } },
+    required: ["fixed"],
+    type: "object",
+  })
+})
+
 test("supports OpenAPI 3.0 nullable and tuple compatibility mode", () => {
   const schema = t.Object({ value: t.Nullable(t.String()), pair: t.Tuple([t.String(), t.Number()] as const) })
   const output = schemaToOpenAPI(normalizeSchemaIR(schema), { dialect: "openapi-3.0" })

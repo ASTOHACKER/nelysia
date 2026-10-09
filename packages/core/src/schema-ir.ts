@@ -13,6 +13,7 @@ export interface SchemaIRNode {
   readonly optional?: boolean
   readonly id?: string
   readonly ref?: string
+  readonly additionalProperties?: SchemaIRNode | boolean
 }
 
 export interface SchemaIR {
@@ -31,6 +32,7 @@ type SchemaWithChildren = Schema & {
   readonly items?: readonly Schema[]
   readonly inner?: Schema
   readonly templateParts?: readonly (string | Schema)[]
+  readonly additionalProperties?: boolean | Schema
 }
 
 const compiledKinds = new Set([
@@ -119,6 +121,7 @@ function normalizeNode(schema: Schema, definitions: Map<string, SchemaIRNode>, a
       optional: schema.optional,
       id: readString(definition.$id),
       ref: readString(definition.$ref),
+      additionalProperties: normalizeAdditionalSchema(schema, definitions, active),
     })
   }
 
@@ -126,16 +129,18 @@ function normalizeNode(schema: Schema, definitions: Map<string, SchemaIRNode>, a
   const definition = normalizeDefinition(schema.definition ?? { type: schema.kind })
   const childInfo = getChildSchemas(schema)
   const children = childInfo.schemas.map((child) => normalizeNode(child, definitions, active))
+  const additionalProperties = normalizeAdditionalSchema(schema, definitions, active)
   const node = freezeValue({
     kind: schema.kind,
     definition,
     children,
     childKeys: childInfo.keys,
     options: normalizeOptions(definition),
-    capability: classifyCapability(schema.kind, definition, children),
+    capability: classifyCapability(schema.kind, definition, children, additionalProperties),
     optional: schema.optional,
     id: readString(definition.$id),
     ref: readString(definition.$ref),
+    additionalProperties,
   })
   active.delete(schema)
   if (node.id) definitions.set(node.id, node)
@@ -155,12 +160,21 @@ function getChildSchemas(schema: Schema): { readonly schemas: readonly Schema[];
   return { schemas: [], keys: [] }
 }
 
-function classifyCapability(kind: string, definition: Readonly<Record<string, unknown>>, children: readonly SchemaIRNode[]): SchemaCapability {
+function classifyCapability(kind: string, definition: Readonly<Record<string, unknown>>, children: readonly SchemaIRNode[], additionalProperties?: SchemaIRNode | boolean): SchemaCapability {
   if (kind === "standard" || referenceKinds.has(kind)) return "reference"
   if (!compiledKinds.has(kind) || definition.$custom !== undefined) return "unsupported"
   if (children.some((child) => child.capability === "unsupported")) return "unsupported"
   if (children.some((child) => child.capability === "reference")) return "reference"
+  if (additionalProperties && typeof additionalProperties === "object" && additionalProperties.capability === "unsupported") return "unsupported"
+  if (additionalProperties && typeof additionalProperties === "object" && additionalProperties.capability === "reference") return "reference"
   return "compiled"
+}
+
+function normalizeAdditionalSchema(schema: Schema, definitions: Map<string, SchemaIRNode>, active: Set<Schema>): SchemaIRNode | boolean | undefined {
+  const additionalProperties = (schema as SchemaWithChildren).additionalProperties
+  if (typeof additionalProperties === "boolean") return additionalProperties
+  if (additionalProperties && typeof additionalProperties === "object") return normalizeNode(additionalProperties, definitions, active)
+  return undefined
 }
 
 function normalizeDefinition(value: Record<string, unknown>): Readonly<Record<string, unknown>> {

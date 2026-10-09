@@ -209,7 +209,8 @@ function validateObject(value: unknown, node: SchemaIRNode, path: string, state:
   const properties = isRecord(definition.properties) ? definition.properties : {}
   const required = new Set(Array.isArray(definition.required) ? definition.required.map(String) : [])
   const extraKeys = keys.filter((key) => !Object.prototype.hasOwnProperty.call(properties, key))
-  if (definition.additionalProperties === false && extraKeys.length > 0) fail(path, "an object without additional properties")
+  const additionalProperties = node.additionalProperties ?? definition.additionalProperties
+  if (additionalProperties === false && extraKeys.length > 0) fail(path, "an object without additional properties")
   const output: Record<string, unknown> = {}
   for (let index = 0; index < node.childKeys.length; index++) {
     const key = node.childKeys[index]
@@ -220,8 +221,12 @@ function validateObject(value: unknown, node: SchemaIRNode, path: string, state:
     if (!present && required.has(key)) fail(`${path}.${key}`, "a value")
     setSafeProperty(output, key, evaluate(value[key], child, `${path}.${key}`, state))
   }
-  if (definition.additionalProperties === true) {
+  if (additionalProperties === true) {
     for (const key of extraKeys) setSafeProperty(output, key, value[key])
+  }
+  if (typeof additionalProperties === "object" && additionalProperties !== null && "children" in additionalProperties) {
+    const additionalSchema = additionalProperties as SchemaIRNode
+    for (const key of extraKeys) setSafeProperty(output, key, evaluate(value[key], additionalSchema, `${path}.${key}`, state))
   }
   return output
 }

@@ -841,6 +841,13 @@ test("required and readonly preserve transformed object contracts", async () => 
   assert.equal(source.definition?.readOnly, undefined)
 })
 
+test("object transformations preserve additional-property policy", async () => {
+  const source = t.Object({ id: t.String(), name: t.Optional(t.String()) }, { additionalProperties: false })
+  const transformed = [t.Partial(source), t.Pick(source, ["id"] as const), t.Omit(source, ["name"] as const), t.Required(source), t.Readonly(source)]
+
+  for (const schema of transformed) await assert.rejects(async () => await schema.validate({ id: "1", extra: true }), /additional/)
+})
+
 test("composite merges object properties", async () => {
   const composite = t.Composite([
     t.Object({ id: t.String() }),

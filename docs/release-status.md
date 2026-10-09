@@ -38,11 +38,14 @@ claims.
 
 - [x] Immutable execution plans, conservative context inference, and shared sync/async executor are implemented in the current workspace
 - [x] Bun three-seed parity evidence is recorded with zero failures and zero status/body mismatches
+- [x] TypeBox `1.3.30` schema compatibility matrix covers 29 constructors, 13 cases, four runtimes, OpenAPI/JSON Schema, and explicit fallback diagnostics
+- [x] Deterministic schema fuzz, generated/reference differential checks, and validation-cost evidence are recorded without a performance claim
+- [x] Local full verification passes typecheck, 262 tests, Bun tests, package consumer/import checks, 5/5 framework fixtures, integrations, and docs checks
 - [ ] Hybrid AOT dispatcher reaches the full Bun, Node, Fetch, memory, latency, and stability gates
 - [ ] Node and Fetch throughput/latency matrix is recorded against its declared baselines
 - [ ] 25 package exports, five framework fixtures, and integration smoke are attached to the same workspace evidence set
 - [ ] 24-hour soak records zero failures, zero unhandled errors, and stable RSS/heap
-- [ ] Documentation truth checker reports no current-version contradiction
+- [x] Documentation truth checker reports no current-version contradiction
 
 Until every unchecked item in this section passes, the workspace status is
 `BLOCKED` / `NO PERFORMANCE CLAIM`; it must not be described as production-ready
@@ -62,7 +65,7 @@ or as universally faster than Elysia.
 | Lifecycle | hooks, auth, schemas, errors, mounts, WebSocket, HEAD/OPTIONS/405, cleanup | `PENDING` — release-gate evidence bundle not recorded |
 | Ecosystem | package exports 25/25, framework fixtures 5/5, integration smoke | `PENDING` — not attached to this manifest |
 | Long-running | 24-hour soak, zero failures/unhandled errors, no abnormal memory growth | `PENDING` — not run |
-| DX | typecheck, tests, typed client, OpenAPI, CLI, consumer, docs | `PENDING` — release command is intentionally fail-closed |
+| DX | typecheck, tests, typed client, OpenAPI, CLI, consumer, docs | `PARTIAL` — local checks pass; the release command remains fail-closed behind the Win Matrix and soak |
 
 The checked-in manifest and fail-closed verifier are
 [`benchmark-win-matrix-2026-09-16.json`](./benchmark-win-matrix-2026-09-16.json)

@@ -13,6 +13,7 @@ export interface Schema<T = unknown> {
   readonly items?: readonly Schema[]
   readonly inner?: Schema
   readonly templateParts?: readonly (string | Schema)[]
+  readonly additionalProperties?: boolean | Schema
 }
 
 export interface StandardSchema<T = unknown> {
@@ -50,7 +51,7 @@ export interface StringOptions extends SchemaOptions {
 }
 
 export interface ObjectOptions extends SchemaOptions {
-  readonly additionalProperties?: boolean
+  readonly additionalProperties?: boolean | Schema
   readonly maxProperties?: number
   readonly minProperties?: number
 }
@@ -91,7 +92,7 @@ type ShapeInfer<Shape extends Record<string, Schema>> = {
   [K in keyof Shape as Shape[K]["optional"] extends true ? K : never]?: Infer<Shape[K]>
 }
 
-type ObjectSchema<Shape extends Record<string, Schema>> = Schema<ShapeInfer<Shape>> & { readonly shape: Shape }
+type ObjectSchema<Shape extends Record<string, Schema>> = Schema<ShapeInfer<Shape>> & { readonly shape: Shape; readonly additionalProperties?: boolean | Schema }
 
 type TupleInfer<Items extends readonly Schema[]> = { -readonly [K in keyof Items]: Infer<Items[K]> }
 
@@ -187,6 +188,7 @@ export const t = {
     const schema: ObjectSchema<Shape> = {
       kind: "object",
       shape,
+      additionalProperties: options.additionalProperties,
       definition: { ...schemaDefinition("object", options), properties: Object.fromEntries(Object.entries(shape).map(([key, schema]) => [key, schema.definition ?? { type: schema.kind }]),), required: Object.entries(shape).filter(([, schema]) => !schema.optional).map(([key]) => key) },
       async validate(value, path = "body") {
         if (normalized.capability === "compiled") return await validateSchemaAsync(value, normalized, { path }) as ShapeInfer<Shape>
@@ -204,6 +206,9 @@ export const t = {
           setSafeProperty(output, key, await schema.validate(field, `${path}.${key}`))
         }
         if (options.additionalProperties === true) for (const key of extraKeys) setSafeProperty(output, key, input[key])
+        if (isSchemaValue(options.additionalProperties)) {
+          for (const key of extraKeys) setSafeProperty(output, key, await options.additionalProperties.validate(input[key], `${path}.${key}`))
+        }
         return output as ShapeInfer<Shape>
       }
     }
@@ -302,16 +307,16 @@ export const t = {
   },
   Partial: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>, options?: ObjectOptions): Schema<Partial<ShapeInfer<Shape>>> => {
     const shape = Object.fromEntries(Object.entries(schema.shape).map(([key, item]) => [key, t.Optional(item)])) as Shape
-    return t.Object(shape, options) as Schema<Partial<ShapeInfer<Shape>>>
+    return t.Object(shape, objectOptionsFromSchema(schema, options)) as Schema<Partial<ShapeInfer<Shape>>>
   },
   Pick: <Shape extends Record<string, Schema>, Keys extends readonly (keyof Shape)[]>(schema: ObjectSchema<Shape>, keys: Keys, options?: ObjectOptions): Schema<Pick<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>> => {
     const shape = Object.fromEntries(keys.map((key) => [key, schema.shape[key]])) as Pick<Shape, Keys[number]>
-    return t.Object(shape, options) as unknown as Schema<Pick<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
+    return t.Object(shape, objectOptionsFromSchema(schema, options)) as unknown as Schema<Pick<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
   },
   Omit: <Shape extends Record<string, Schema>, Keys extends readonly (keyof Shape)[]>(schema: ObjectSchema<Shape>, keys: Keys, options?: ObjectOptions): Schema<Omit<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>> => {
     const excluded = new Set(keys)
     const shape = Object.fromEntries(Object.entries(schema.shape).filter(([key]) => !excluded.has(key))) as Omit<Shape, Keys[number]>
-    return t.Object(shape, options) as unknown as Schema<Omit<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
+    return t.Object(shape, objectOptionsFromSchema(schema, options)) as unknown as Schema<Omit<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
   },
   Intersect: <Items extends readonly Schema[]>(items: Items, options?: SchemaOptions): Schema<UnionToIntersection<Infer<Items[number]>>> & { readonly items: Items } => ({
     kind: "intersect",
@@ -346,11 +351,10 @@ export const t = {
   },
   Required: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>, options: ObjectOptions = {}): ObjectSchema<RequiredShape<Shape>> => {
     const shape = Object.fromEntries(Object.entries(schema.shape).map(([key, item]) => [key, unwrapOptional(item)])) as RequiredShape<Shape>
-    return t.Object(shape, { ...schemaOptionsFromDefinition(schema.definition), ...options }) as ObjectSchema<RequiredShape<Shape>>
+    return t.Object(shape, objectOptionsFromSchema(schema, options)) as ObjectSchema<RequiredShape<Shape>>
   },
   Readonly: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>, options: ObjectOptions = {}): Schema<Readonly<ShapeInfer<Shape>>> => {
-    const definition = schemaOptionsFromDefinition(schema.definition)
-    return t.Object(schema.shape, { ...definition, ...options, readOnly: true }) as Schema<Readonly<ShapeInfer<Shape>>>
+    return t.Object(schema.shape, { ...objectOptionsFromSchema(schema, options), readOnly: true }) as Schema<Readonly<ShapeInfer<Shape>>>
   },
   Composite: <Items extends readonly ObjectSchema<Record<string, Schema>>[]>(items: Items, options: ObjectOptions = {}): Schema<CompositeInfer<Items>> => {
     const shape: Record<string, Schema> = {}
@@ -377,10 +381,16 @@ function applySchemaOptions(definition: Record<string, unknown>, options: Schema
     } else if (key === "pattern" && value instanceof RegExp) {
       definition[key] = value.source
       definition["x-patternFlags"] = value.flags
+    } else if (key === "additionalProperties" && isSchemaValue(value)) {
+      definition[key] = value.definition ?? { type: value.kind }
     } else {
       definition[key] = value
     }
   }
+}
+
+function isSchemaValue(value: unknown): value is Schema {
+  return typeof value === "object" && value !== null && typeof (value as Schema).kind === "string" && typeof (value as Schema).validate === "function"
 }
 
 function schemaOptionsFromDefinition(definition: Record<string, unknown> | undefined): SchemaOptions {
@@ -391,6 +401,14 @@ function schemaOptionsFromDefinition(definition: Record<string, unknown> | undef
     if (!structural.has(key) && !key.startsWith("x-")) options[key] = value
   }
   return options
+}
+
+function objectOptionsFromSchema(schema: ObjectSchema<Record<string, Schema>>, options?: ObjectOptions): ObjectOptions {
+  return {
+    ...schemaOptionsFromDefinition(schema.definition),
+    ...(schema.additionalProperties !== undefined ? { additionalProperties: schema.additionalProperties } : {}),
+    ...(options ?? {}),
+  }
 }
 
 function unwrapOptional(schema: Schema): Schema {

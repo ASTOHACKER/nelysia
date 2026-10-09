@@ -339,6 +339,7 @@ function validate(value, schema, path) {
     throw invalid(path + " does not match any allowed value: " + errors.join("; "))
   }
   if (Array.isArray(schema.allOf)) { let output = value; for (const branch of schema.allOf) { const validated = validate(output, branch, path); output = output && typeof output === "object" && validated && typeof validated === "object" ? { ...output, ...validated } : validated } return output }
+  if (schema.type === "never") throw invalid(path + " must be never")
   if (schema.type === "null") { if (value !== null) throw invalid(path + " must be null"); return value }
   if (schema.type === "string") {
     if (typeof value !== "string") throw invalid(path + " must be string")
@@ -401,7 +402,7 @@ function validate(value, schema, path) {
     if (schema.additionalProperties === false) for (const key of Object.keys(value)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) throw invalid(path + " must not contain additional properties")
     for (const [key, child] of Object.entries(schema.properties || {})) if (input[key] !== undefined) setSafe(output, key, validate(input[key], child, path + "." + key))
     if (schema.additionalProperties === true) for (const [key, entry] of Object.entries(input)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) setSafe(output, key, entry)
-    if (!schema.properties && schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) setSafe(output, key, validate(entry, schema.additionalProperties, path + "." + key))
+    if (schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) setSafe(output, key, validate(entry, schema.additionalProperties, path + "." + key))
     return output
   }
   return value

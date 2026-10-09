@@ -87,6 +87,14 @@ test("validates object required and additional-property rules with stable paths"
   assert.deepEqual(validateSchema({ id: "1", extra: 2 }, keepExtra), { id: "1", extra: 2 })
 })
 
+test("validates nested additional property schemas", async () => {
+  const schema = normalizeSchemaIR(t.Object({ fixed: t.String() }, { additionalProperties: t.Number({ minimum: 1 }) }))
+
+  assert.deepEqual(await validateSchemaAsync({ fixed: "ok", score: 2 }, schema), { fixed: "ok", score: 2 })
+  await assert.rejects(async () => await validateSchemaAsync({ fixed: "ok", score: "2" }, schema), /number/)
+  await assert.rejects(async () => await validateSchemaAsync({ fixed: "ok", score: 0 }, schema), /minimum/)
+})
+
 test("validates unions, intersections, and safe object keys", () => {
   const union = normalizeSchemaIR(t.Union([t.String(), t.Integer()] as const))
   assert.equal(validateSchema("ok", union), "ok")

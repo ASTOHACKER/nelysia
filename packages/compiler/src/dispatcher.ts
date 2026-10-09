@@ -421,6 +421,7 @@ function validateGeneratedValue(value: unknown, schema: Record<string, unknown>,
     }
     return output
   }
+  if (schema.type === "never") throw invalidGenerated(path + " must be never")
   if (schema.type === "null") { if (value !== null) throw invalidGenerated(path + " must be null"); return value }
   if (schema.type === "string") {
     if (typeof value !== "string") throw invalidGenerated(path + " must be string")
@@ -483,7 +484,7 @@ function validateGeneratedValue(value: unknown, schema: Record<string, unknown>,
     const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties) ? schema.properties as Record<string, unknown> : undefined
     if (properties !== undefined) for (const [key, child] of Object.entries(properties)) if (input[key] !== undefined) setSafe(output, key, validateGeneratedValue(input[key], child as Record<string, unknown>, path + "." + key))
     if (schema.additionalProperties === true) for (const [key, entry] of Object.entries(input)) if (properties === undefined || !Object.prototype.hasOwnProperty.call(properties, key)) setSafe(output, key, entry)
-    if (properties === undefined && schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) setSafe(output, key, validateGeneratedValue(entry, schema.additionalProperties as Record<string, unknown>, path + "." + key))
+    if (schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) if (properties === undefined || !Object.prototype.hasOwnProperty.call(properties, key)) setSafe(output, key, validateGeneratedValue(entry, schema.additionalProperties as Record<string, unknown>, path + "." + key))
     return output
   }
   return value
