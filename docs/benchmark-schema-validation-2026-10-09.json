@@ -1,0 +1,41 @@
+{
+  "schema": "nelysia.schema-validation.v1",
+  "generatedAt": "2026-10-09T15:22:58.245Z",
+  "packageVersion": "1.2.2",
+  "target": {
+    "typebox": "1.3.30",
+    "seed": 20261009,
+    "workload": "object+array+record primitive constraints"
+  },
+  "environment": {
+    "node": "v26.10.0",
+    "platform": "linux 6.18.55-1-cachyos-lts",
+    "cpu": "AMD Ryzen 5 5600 6-Core Processor",
+    "cpuCount": 12
+  },
+  "iterations": 20000,
+  "correctness": {
+    "genericRejectedInvalid": true,
+    "aotRejectedInvalid": true,
+    "mismatches": 0,
+    "failures": 0
+  },
+  "generic": {
+    "elapsedMs": 38.964,
+    "validationsPerSecond": 513299,
+    "nsPerValidation": 1948.18,
+    "heapDeltaBytes": -256832,
+    "rssDeltaBytes": 1191936
+  },
+  "aot": {
+    "elapsedMs": 58.392,
+    "validationsPerSecond": 342514,
+    "nsPerValidation": 2919.59,
+    "heapDeltaBytes": -886832,
+    "rssDeltaBytes": 1703936
+  },
+  "performance": {
+    "overheadPercent": 49.86
+  },
+  "claim": "directional validation-cost evidence only; not a release or universal performance claim"
+}

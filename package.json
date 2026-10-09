@@ -48,6 +48,8 @@
     "benchmark:jwt": "bun run benchmarks/run-jwt.ts",
     "benchmark:short": "node --experimental-strip-types benchmarks/verify-short.ts",
     "benchmark:runtime": "node --experimental-strip-types benchmarks/verify-runtime.ts",
+    "benchmark:validate:schema": "node --experimental-strip-types benchmarks/validate-schema.ts",
+    "benchmark:verify:schema": "node spec/scripts/check-schema-validation.mjs",
     "benchmark:jwt:release": "BENCH_PORT=4385 BENCH_DURATION_SEC=30 BENCH_CONCURRENCY=50 BENCH_ROUNDS=7 bun run benchmarks/run-jwt.ts",
     "benchmark:teb": "bun run benchmarks/run-techempower.ts",
     "benchmark:teb:verify": "bun run benchmarks/verify-techempower.ts",

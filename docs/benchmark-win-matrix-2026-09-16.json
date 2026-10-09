@@ -48,5 +48,22 @@
     "ecosystem": { "status": "PENDING", "reason": "25/25 exports, 5/5 framework fixtures, and integration smoke are not bundled into this artifact" },
     "soak24h": { "status": "PENDING", "reason": "24-hour soak has not been run" },
     "dx": { "status": "PENDING", "reason": "The release command remains blocked until all matrix axes are recorded" }
+  },
+  "schemaCompatibilityEvidence": {
+    "status": "PASS",
+    "manifest": "docs/schema-compatibility.json",
+    "targetTypeBox": "1.3.30",
+    "constructors": 29,
+    "cases": 13,
+    "runtimes": ["generic", "bun", "node", "fetch"],
+    "fallbacks": "explicit",
+    "command": "npm run schema:verify"
+  },
+  "validationEvidence": {
+    "status": "PASS",
+    "manifest": "docs/benchmark-schema-validation-2026-10-09.json",
+    "correctnessMismatches": 0,
+    "claim": "directional evidence only; not a release or universal performance claim",
+    "command": "npm run benchmark:verify:schema"
   }
 }

@@ -25,6 +25,33 @@ Fastify schemas map to Nelysia route options. Validation runs before the handler
 
 Nelysia was designed with a familiar chainable DX inspired by Elysia, but with key architectural distinctions for AOT optimization, V8 Monomorphic shape stability, and zero-polyfill dual-runtime (Node.js & Bun) performance.
 
+### TypeBox-compatible schema options
+
+Nelysia's built-in `t` constructors accept the common TypeBox/JSON Schema
+constraint options directly. This keeps the migration source-compatible for
+runtime validation and OpenAPI generation:
+
+```ts
+const User = t.Object({
+  age: t.Number({ minimum: 1, maximum: 120, multipleOf: 1 }),
+  name: t.String({ minLength: 1, maxLength: 80, pattern: /^[A-Z]/ }),
+  tags: t.Array(t.String(), { minItems: 1, maxItems: 5, uniqueItems: true })
+}, { additionalProperties: false })
+```
+
+The same options are checked by the reference validator and the generated
+validator for deterministic built-in schemas. `t.Tuple`, `t.Record`,
+`t.BigInt`, `t.TemplateLiteral`, `t.Date`, `t.Enum`, `t.Union`,
+`t.Intersect`, `t.Nullable`, `t.Optional`, `t.Partial`, `t.Pick`, `t.Omit`,
+`t.Required`, `t.Readonly`, and `t.Composite` are included in the checked
+constructor matrix. TypeBox type-only utilities, custom transforms, and
+opaque Standard Schema behavior remain runtime/reference features; they do not
+silently claim AOT support and use the documented fallback path.
+
+For machine-readable evidence, run `npm run schema:verify` and
+`npm run benchmark:verify:schema`. The compatibility matrix is recorded in
+[`schema-compatibility.json`](./schema-compatibility.json).
+
 ### Quick Syntax & Architecture Comparison
 
 | Feature / Pattern | ElysiaJS | Nelysia | Why Nelysia Differs |

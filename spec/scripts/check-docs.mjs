@@ -18,6 +18,10 @@ const documentationFiles = [
   "docs/roadmap-v1.md",
   "docs/v1.0.md",
   "docs/compatibility.md",
+  "docs/migration.md",
+  "docs/elysia-parity.md",
+  "docs/schema-compatibility.json",
+  "docs/benchmark-schema-validation-2026-10-09.json",
   "docs/benchmark-latest-readable-2026-09-16.md",
   "docs/index.html",
   "docs/reference/versioning.md",
@@ -57,6 +61,13 @@ const docsDeclareBlocked = currentBenchmark.includes("BLOCKED") && currentBenchm
 if (winMatrixResult.ok === docsDeclareBlocked) {
   failures.push(`Win Matrix documentation status does not match verifier: verifier=${winMatrixResult.ok ? "PASS" : "BLOCKED"}, docs=${docsDeclareBlocked ? "BLOCKED" : "PASS"}`)
 }
+const schemaCompatibility = JSON.parse(textFor("docs/schema-compatibility.json"))
+const validationEvidence = JSON.parse(textFor("docs/benchmark-schema-validation-2026-10-09.json"))
+if (schemaCompatibility.schema !== "nelysia.schema-compatibility.v1" || schemaCompatibility.status !== "PASS") failures.push("schema compatibility evidence is not marked PASS")
+if (schemaCompatibility.target?.typebox !== "1.3.30" || schemaCompatibility.constructors?.length !== 29) failures.push("schema compatibility evidence is missing the pinned TypeBox constructor matrix")
+if (validationEvidence.schema !== "nelysia.schema-validation.v1" || validationEvidence.correctness?.failures !== 0 || validationEvidence.correctness?.mismatches !== 0) failures.push("schema validation evidence is missing a zero-mismatch correctness result")
+if (!text.includes("schema:verify") || !text.includes("benchmark:verify:schema") || !textFor("docs/migration.md").includes("TypeBox-compatible")) failures.push("schema compatibility commands or migration guidance are missing")
+if (!textFor("docs/elysia-parity.md").includes("TypeBox-style constraints")) failures.push("Elysia parity page is missing the TypeBox constraint status")
 
 for (const exportPath of Object.keys(packageJson.exports)) {
   const specifier = exportPath === "." ? packageJson.name : `${packageJson.name}${exportPath.slice(1)}`

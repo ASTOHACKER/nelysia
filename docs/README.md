@@ -11,6 +11,7 @@
 2. [คู่มือภาษาไทย](./DOCUMENTATION_TH.md) — API และตัวอย่างแบบละเอียด
 3. [English Documentation](./DOCUMENTATION_EN.md) — complete technical reference
 4. [Migration Guide](./migration.md) — ความต่างจาก Express, Fastify และ Elysia
+5. [Schema Compatibility Matrix](./schema-compatibility.json) — TypeBox-style constructors, runtimes, AOT lanes, and explicit fallbacks
 
 ในหน้าเว็บ ให้เริ่มจาก [Quick Start](./index.html#quickstart) แล้วไปต่อที่
 [Testing](./index.html#testing), [Typed Client](./index.html#client),
@@ -103,6 +104,7 @@ win-matrix ใน workspace ยังเป็น unreleased และต้อ�
 - [Runtime Contract Evidence](./benchmark-runtime-contract-2026-09-15.md) — inject/network parity, fuzz and memory bursts
 - [Original Soak Report](./soak-v05-2026-09-14.md)
 - [Compatibility Snapshot](./benchmark-oha-2026-09-14.md)
+- [Schema validation evidence](./benchmark-schema-validation-2026-10-09.json) — correctness, validation cost, heap, and RSS with no release claim
 
 กติกาการอ่านผล: benchmark ต้องระบุ runner, fixture, runtime, hardware,
 concurrency, duration และ failures ให้ครบ ห้ามรวมตัวเลขจากคนละ harness เป็น

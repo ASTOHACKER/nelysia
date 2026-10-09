@@ -753,6 +753,36 @@ const app = new Nelysia().post("/users", ({ body }) => {
 })
 ```
 
+### TypeBox-compatible constraints and execution lanes
+
+The built-in constructors accept the common TypeBox/JSON Schema options at
+runtime, not only at the type level:
+
+```ts
+const User = t.Object({
+  age: t.Number({ minimum: 1, maximum: 120, multipleOf: 1 }),
+  name: t.String({ minLength: 1, maxLength: 80, pattern: /^[A-Z]/ }),
+  tags: t.Array(t.String(), { minItems: 1, maxItems: 5, uniqueItems: true })
+}, { additionalProperties: false })
+```
+
+The checked constructor matrix includes `String`, `Number`, `Integer`,
+`Boolean`, `BigInt`, `Null`, `Never`, `Ref`, `Cyclic`, `Object`, `Array`,
+`Tuple`, `Literal`, `Union`, `Nullable`, `Optional`, `Any`, `Unknown`,
+`Date`, `TemplateLiteral`, `Partial`, `Pick`, `Omit`, `Intersect`, `Enum`,
+`Record`, `Required`, `Readonly`, and `Composite`. Reference validation,
+generated validation, and OpenAPI/JSON Schema conversion share one immutable
+canonical IR. If a schema or transform is opaque (for example custom
+Standard Schema behavior), Nelysia keeps the reference path and emits an
+explicit fallback diagnostic instead of silently claiming AOT support.
+
+Run `npm run schema:verify` for constructor/runtime/adapter evidence and
+`npm run benchmark:verify:schema` for directional validation-cost evidence.
+The latter reports correctness, latency, heap, and RSS separately and is not a
+release or universal performance claim; see
+[`schema-compatibility.json`](./schema-compatibility.json) and
+[`benchmark-schema-validation-2026-10-09.json`](./benchmark-schema-validation-2026-10-09.json).
+
 ### Standard Schema Integration (Zod, Valibot, ArkType)
 
 Nelysia natively supports the **Standard Schema (v1)** specification. Libraries supporting `~standard` (such as Zod 3.24+, Valibot, and ArkType) can be plugged in directly:
@@ -1817,6 +1847,11 @@ npm run release:check:v1
 # Current v1.2.2 Win Matrix release gate (fails while blockers are pending)
 npm run benchmark:verify:win-matrix
 npm run release:check:win-matrix
+
+# Schema compatibility and validation-cost evidence
+npm run schema:verify
+SCHEMA_BENCH_OUTPUT=docs/benchmark-schema-validation-YYYY-MM-DD.json npm run benchmark:validate:schema
+npm run benchmark:verify:schema
 # If the default base port 4321 is occupied:
 BENCH_PORT=4341 npm run benchmark:oha
 

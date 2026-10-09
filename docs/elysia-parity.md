@@ -1,6 +1,6 @@
 # Elysia Feature Parity Roadmap
 
-> **Archived — wishlist/roadmap, not a status report.** Current package คือ `v1.2.1`; ดูสถานะปัจจุบันที่ [release-status.md](./release-status.md).
+> **Archived — wishlist/roadmap, not a status report.** Current package คือ `v1.2.2`; ดูสถานะปัจจุบันที่ [release-status.md](./release-status.md).
 
 This is a prioritised roadmap based on Elysia's public documentation. Nelysia should match the useful developer experience, not copy implementation details or claims.
 
@@ -27,6 +27,8 @@ This is a prioritised roadmap based on Elysia's public documentation. Nelysia sh
 | Path parameter inference | Basic / Parsed in Context params | P0 |
 | Schema body validation | Implemented (`t.Object`, standard schemas) | P0 |
 | Schema composition | Implemented (`Array`, `Union`, `Intersect`, `Partial`, `Pick`, `Omit`, `Enum`, `Nullable`) | P1 |
+| TypeBox-style constraints | Implemented (`minimum`, `maximum`, `exclusiveMinimum`, `multipleOf`, `minLength`, `pattern`, `format`, array/object bounds) | P0 |
+| Canonical schema IR | Implemented for reference validation, generated validation, OpenAPI 3.1, JSON Schema 2020-12, and explicit fallback diagnostics | P0 |
 | Params/query/header schemas | Implemented (Runtime validation) | P0 |
 | Response schemas | Implemented (Runtime validation & serialization) | P1 |
 | Standard Schema adapters | Implemented (Zod, Valibot, ArkType Standard Schema v1) | P1 |

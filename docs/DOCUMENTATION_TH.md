@@ -748,6 +748,35 @@ const app = new Nelysia().post("/users", ({ body }) => {
 })
 ```
 
+### ตัวเลือก Schema แบบ TypeBox และ execution lanes
+
+ตัวสร้าง `t` ในตัวรองรับ option ของ TypeBox/JSON Schema ที่ใช้บ่อยในตอน
+runtime จริง ไม่ได้มีไว้แค่ช่วย infer type:
+
+```ts
+const User = t.Object({
+  age: t.Number({ minimum: 1, maximum: 120, multipleOf: 1 }),
+  name: t.String({ minLength: 1, maxLength: 80, pattern: /^[A-Z]/ }),
+  tags: t.Array(t.String(), { minItems: 1, maxItems: 5, uniqueItems: true })
+}, { additionalProperties: false })
+```
+
+matrix ที่ตรวจแล้วครอบคลุม `String`, `Number`, `Integer`, `Boolean`, `BigInt`,
+`Null`, `Never`, `Ref`, `Cyclic`, `Object`, `Array`, `Tuple`, `Literal`,
+`Union`, `Nullable`, `Optional`, `Any`, `Unknown`, `Date`, `TemplateLiteral`,
+`Partial`, `Pick`, `Omit`, `Intersect`, `Enum`, `Record`, `Required`,
+`Readonly` และ `Composite` โดย reference validation, generated validation และ
+OpenAPI/JSON Schema ใช้ canonical IR เดียวกัน ถ้า schema หรือ transform เป็น
+opaque เช่น Standard Schema แบบ custom ระบบจะคง reference path และออก
+fallback diagnostic ชัดเจน จะไม่อ้างว่าเป็น AOT แบบเงียบๆ
+
+ใช้ `npm run schema:verify` เพื่อตรวจ constructor/runtime/adapter และใช้
+`npm run benchmark:verify:schema` เพื่อตรวจหลักฐานต้นทุน validation แบบทิศทาง
+เท่านั้น benchmark จะแยก correctness, latency, heap และ RSS และไม่ใช่ release
+claim หรือ universal performance claim ดูรายละเอียดได้ที่
+[`schema-compatibility.json`](./schema-compatibility.json) และ
+[`benchmark-schema-validation-2026-10-09.json`](./benchmark-schema-validation-2026-10-09.json)
+
 ### การเชื่อมต่อกับ Standard Schema (Zod, Valibot, ArkType)
 
 Nelysia รองรับมาตรฐาน **Standard Schema (v1)** โดยอัตโนมัติ ทำให้คุณสามารถนำ Zod 3.24+, Valibot หรือ ArkType มาใช้ได้ทันที:
@@ -1683,6 +1712,11 @@ npm run benchmark:oha:release
 
 # short regression matrix สำหรับ route count 1/10/100/500
 npm run benchmark:short
+
+# ตรวจ compatibility ของ schema และหลักฐานต้นทุน validation
+npm run schema:verify
+SCHEMA_BENCH_OUTPUT=docs/benchmark-schema-validation-YYYY-MM-DD.json npm run benchmark:validate:schema
+npm run benchmark:verify:schema
 # ถ้า port เริ่มต้น 4321 ถูกใช้งานอยู่:
 BENCH_PORT=4341 npm run benchmark:oha
 
