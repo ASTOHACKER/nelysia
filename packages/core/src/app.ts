@@ -3,6 +3,7 @@ import { fromStandardSchema, type Schema, type StandardSchema } from "./schema.t
 import { HttpError, responseMarker, type AddRoute, type AfterHook, type AfterResponseHook, type ApplyGuard, type AuthStrategyDescriptor, type AuthStrategySetting, type AuthStrategyProvider, type Context, type ContextExtension, type CookieOptions, type DecorationOptions, type ErrorHandler, type FetchHandler, type GuardOptions, type Handler, type Hook, type HookOptions, type HookScope, type InjectOptions, type InjectResponse, type InjectResponseBodyFor, type InjectResponseStatusesFor, type MacroDefinition, type MapResponseHook, type MergeRouteMaps, type ModelValues, type ModuleGraphNode, type NormalizedRouteMetadata, type NelysiaOptions, type NelysiaPlugin, type ParseHook, type ParsedQuery, type RateLimitRouteOptions, type RequestData, type RequestHook, type ResponseData, type ResponseOptions, type RouteContext, type RouteFeatureProvider, type RouteGraph, type RouteGuard, type RouteMap, type RouteMetadataOptions, type RouteOptions, type RouteRecord, type SchemaInput, type ServerInfo, type Telemetry, type TransformHook, type TypedInjectOptions, type WebSocketHandlers } from "./types.ts"
 import { createExecutionPlan, isThenable, registerRuntimeExecutor, type ExecutionPlan, type PreparedRequest, type RuntimeExecutor } from "./execution.ts"
 import { createBunServer } from "../../runtime-bun/src/server.ts"
+import { classifyRouteLane, type ExecutionLane } from "../../compiler/src/dispatcher.ts"
 
 const asHeaders = (headers?: Headers): Headers => headers ?? new Headers()
 const defaultSignal = new AbortController().signal
@@ -175,6 +176,7 @@ function assignContextRoute(context: Context, route: RouteRecord): void {
 }
 
 type PluginCallback = (app: Nelysia<any, any, any>) => Nelysia<any, any, any> | void | Promise<Nelysia<any, any, any> | void>
+type StartupHook = (info: ServerInfo) => void | Promise<void>
 type Plugin = Nelysia<any, any, any> | PluginCallback | NelysiaPlugin<any>
 type LazyPlugin = Plugin | Promise<Plugin | { default?: Plugin; app?: Plugin }>
 type NativeRequestInput = Pick<RequestData, "method" | "url" | "requestId" | "headers"> & { preflight?: RequestData["preflight"] }
@@ -252,6 +254,7 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   private readonly namedPlugins = new Map<string, string>()
   private readonly moduleDependencies = new Set<Nelysia<any, any, any>>()
   private readonly modulePromises: Promise<void>[] = []
+  private readonly startHooks: StartupHook[] = []
   private moduleCompletion?: Promise<void>
   private moduleState: "loaded" | "pending" | "rejected" = "loaded"
   private moduleLoadError?: unknown
@@ -270,6 +273,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   private readonly routeGuardRegistrations: Array<{ guard: RouteGuard; applies: (auth: RouteRecord["auth"]) => boolean }> = []
   private readonly authStrategyProviders = new Map<string, AuthStrategyProvider>()
   private readonly routeFeatureProviders = new Map<string, RouteFeatureProvider>()
+  /** Non-fatal configuration findings retained for `nelysia doctor`. */
+  private readonly configurationDiagnostics: string[] = []
   private readonly appliedRouteFeatures = new WeakMap<RouteRecord, Set<string>>()
   private readonly routeFeatureHooks = new WeakMap<RouteRecord, { guards: RouteGuard[]; after: AfterHook[] }>()
   private readonly appliedAuthorization = new WeakSet<RouteRecord>()
@@ -550,6 +555,19 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     return this
   }
 
+  onStart(hook: StartupHook): this {
+    this.startHooks.push(hook)
+    return this
+  }
+
+  routeDiagnostics(): Array<{ method: string; path: string; lane: ExecutionLane }> {
+    return this.graph.routes.map((route) => ({
+      method: route.method,
+      path: route.path,
+      lane: classifyRouteLane(route, route.contextFree === true)
+    }))
+  }
+
   state<K extends string, Value>(name: K, value: Value): Nelysia<Extensions & { store: Record<K, Value> } & Record<K, Value>, Routes, Models, MacroNames> {
     this.invalidateExecutionPlans()
     this.stateValues.set(name, value)
@@ -793,6 +811,8 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       return this
     }
     const child = childOrHandler
+    for (const hook of child.startHooks) if (!this.startHooks.includes(hook)) this.startHooks.push(hook)
+    for (const diagnostic of child.configurationDiagnostics) if (!this.configurationDiagnostics.includes(diagnostic)) this.configurationDiagnostics.push(diagnostic)
     const base = prefix === "/" ? "" : prefix.replace(/\/$/, "")
     // Macro definitions are compile-time keys, but their runtime hooks and
     // schemas are still needed by routes added to the parent after mounting.
@@ -955,12 +975,14 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       const server = createBunServer(this, actualPort, { hostname }) as { port: number; hostname?: string }
       const resolvedHost = server.hostname ?? hostname ?? "localhost"
       const info: ServerInfo = {
+        runtime: "bun",
         port: server.port,
         hostname: resolvedHost,
         url: `http://${resolvedHost}:${server.port}`,
         server,
         stop: () => (server as { stop?: (closeActiveConnections?: boolean) => void }).stop?.(true)
       }
+      this.runStartHooks(info)
       if (callback) callback(info)
       return server
     }
@@ -971,26 +993,41 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
     const start = async () => {
       const { createNodeServer } = await import("../../runtime-node/src/server.ts")
       const nodeServer = createNodeServer(this)
+      const serverInfo = (): ServerInfo => {
+        const addr = nodeServer.address()
+        const p = typeof addr === "object" && addr ? addr.port : actualPort
+        const h = hostname ?? "localhost"
+        return {
+          runtime: "node",
+          port: p,
+          hostname: h,
+          url: `http://${h}:${p}`,
+          server: nodeServer,
+          stop: () => new Promise<void>((resolve, reject) => nodeServer.close((error) => error ? reject(error) : resolve()))
+        }
+      }
       if (callback) {
         nodeServer.listen(actualPort, hostname, () => {
-          const addr = nodeServer.address()
-          const p = typeof addr === "object" && addr ? addr.port : actualPort
-          const h = hostname ?? "localhost"
-          const info: ServerInfo = {
-            port: p,
-            hostname: h,
-            url: `http://${h}:${p}`,
-            server: nodeServer,
-            stop: () => new Promise<void>((resolve, reject) => nodeServer.close((error) => error ? reject(error) : resolve()))
-          }
+          const info = serverInfo()
+          void this.runStartHooks(info)
           callback(info)
         })
         return nodeServer
       }
+      nodeServer.once("listening", () => this.runStartHooks(serverInfo()))
       return nodeServer.listen(actualPort, hostname)
     }
     const pending = this.modulePromises.length > 0 ? this.waitForModules().then(start) : start()
     return attachServerControls(pending)
+  }
+
+  private runStartHooks(info: ServerInfo): void {
+    for (const hook of this.startHooks) {
+      try {
+        const result = hook(info)
+        if (result && typeof (result as Promise<void>).then === "function") void Promise.resolve(result).catch(() => undefined)
+      } catch { /* startup diagnostics cannot break a bound server */ }
+    }
   }
 
   async inject<Options extends TypedInjectOptions<Routes> = TypedInjectOptions<Routes>>(options: Options = {} as Options): Promise<InjectResponse<InjectResponseBodyFor<Routes, Options>, InjectResponseStatusesFor<Routes, Options>>> {
@@ -1063,6 +1100,10 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
   }
 
   route(method: string, path: string, handler: Handler<any>, options: RouteOptions<Models, MacroNames> = {}): this {
+    const knownRouteOptions = new Set(["summary", "description", "tags", "body", "params", "query", "headers", "response", "responses", "auth", "role", "permissions", "rateLimit", "cache", "timeout", "features", ...this.macros.keys()])
+    for (const key of Object.keys(options as Record<string, unknown>)) {
+      if (!knownRouteOptions.has(key)) this.configurationDiagnostics.push(`Unknown route option "${key}" on ${method.toUpperCase()} ${path}`)
+    }
     const effectivePath = joinPrefix(this.prefix, path)
     const effectiveMetadata = mergeRouteMetadata(this.routeOptions, options)
     const metadata = compilePath(effectivePath)

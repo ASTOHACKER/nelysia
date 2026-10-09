@@ -64,6 +64,9 @@
 ## สถานะและแผนงาน
 
 - [Release Status](./release-status.md) — checklist และ gate ที่ผ่าน/ยังค้าง
+- Runtime diagnostics: `app.routeDiagnostics()` แสดง `{ method, path, lane }`
+  และ `app.onStart()` ทำงานหลัง bind สำเร็จ; logger plugin รองรับ startup,
+  route, request และ error events แบบ opt-in
 - [Historical Roadmap สู่ v1.0](./roadmap-v1.md) — milestone v0.6–v0.9 และ API freeze
 - [API Freeze Checklist](./api-freeze-checklist.md) — contract ที่ต้องตรวจและ freeze ก่อน v1.0
 - [v1.0 Guide](./v1.0.md) — public contract, ตัวอย่าง, workflow, gates และสถานะ release ในไฟล์เดียว

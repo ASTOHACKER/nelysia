@@ -11,6 +11,11 @@ export interface LogEntry {
 
 export interface LoggerOptions {
   level?: LogLevel
+  format?: "auto" | "pretty" | "json"
+  startup?: boolean
+  routes?: boolean
+  requests?: boolean
+  errors?: boolean
   sink?: (entry: LogEntry) => void | Promise<void>
   redact?: (key: string, value: unknown) => unknown
 }
@@ -20,8 +25,10 @@ export type LoggerPlugin = NelysiaPlugin<{ logger: Logger }>
 const levelOrder: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 }
 const sensitiveKey = /authorization|cookie|secret|token|password|api[-_]?key/i
 
-function defaultSink(entry: LogEntry): void {
-  const line = JSON.stringify(entry)
+function defaultSink(entry: LogEntry, format: "pretty" | "json"): void {
+  const line = format === "json"
+    ? JSON.stringify(entry)
+    : `[Nelysia] ${entry.level.toUpperCase()} ${entry.message}${entry.fields === undefined ? "" : ` ${JSON.stringify(entry.fields)}`}`
   if (entry.level === "error") console.error(line)
   else if (entry.level === "warn") console.warn(line)
   else console.log(line)
@@ -58,7 +65,9 @@ function redactSensitiveText(value: string): string {
 
 export function logger(options: LoggerOptions = {}): LoggerPlugin {
   const minimum = options.level ?? "info"
-  const sink = options.sink ?? defaultSink
+  const production = typeof process !== "undefined" && process.env?.NODE_ENV === "production"
+  const format = options.format === "auto" || options.format === undefined ? (production ? "json" : "pretty") : options.format
+  const sink = options.sink ?? ((entry: LogEntry) => defaultSink(entry, format))
   const redact = options.redact ?? ((_key, value) => value)
   if (!(minimum in levelOrder)) throw new Error("logger level must be debug, info, warn, or error")
 
@@ -79,7 +88,7 @@ export function logger(options: LoggerOptions = {}): LoggerPlugin {
     }
     try {
       const result = sink(entry)
-      if (result instanceof Promise) void result.catch(() => undefined)
+      if (result && typeof (result as Promise<void>).then === "function") void Promise.resolve(result).catch(() => undefined)
     } catch {
       // Logging must never change application behavior.
     }
@@ -87,21 +96,33 @@ export function logger(options: LoggerOptions = {}): LoggerPlugin {
 
   return ((app: Nelysia<any, any, any>) => {
     app.decorate("logger", instance)
-    app.onAfterHandle((context, response) => {
+    const started = new WeakMap<object, number>()
+    if (options.requests !== false || options.errors !== false) {
+      app.onBeforeHandle((context) => { started.set(context, performance.now()) })
+    }
+    if (options.requests !== false) app.onAfterHandle((context, response) => {
       instance.info("request.complete", {
         method: context.request.method,
+        path: context.route?.path ?? new URL(context.request.url).pathname,
         url: context.request.url,
         requestId: context.requestId,
-        status: response.status
+        status: response.status,
+        durationMs: Math.round((performance.now() - (started.get(context) ?? performance.now())) * 1000) / 1000
       })
     })
-    app.onError((error, context) => {
+    if (options.errors !== false) app.onError((error, context) => {
       instance.error("request.error", {
         method: context.request.method,
+        path: context.route?.path ?? new URL(context.request.url).pathname,
         url: context.request.url,
         requestId: context.requestId,
+        status: typeof error === "object" && error !== null && "status" in error ? (error as { status?: number }).status : context.set.status ?? 500,
         error: error instanceof Error ? error.message : String(error)
       })
+    })
+    if (options.startup !== false || options.routes !== false) app.onStart((info) => {
+      if (options.startup !== false) instance.info("server.started", { runtime: info.runtime, url: info.url, routeCount: app.routeDiagnostics().length })
+      if (options.routes !== false) for (const route of app.routeDiagnostics()) instance.info("route.registered", route)
     })
     return app
   }) as LoggerPlugin

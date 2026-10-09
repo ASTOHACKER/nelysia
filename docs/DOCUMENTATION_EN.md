@@ -441,6 +441,7 @@ In v0.1.4+, `app.listen()` provides a uniform API across both Bun and Node.js ru
 
 ```ts
 interface ServerInfo {
+  runtime: "bun" | "node" // Runtime that successfully bound the server
   port: number        // Actually bound listening port
   hostname: string    // Bound hostname (e.g. "localhost")
   url: string         // Full accessible base URL (e.g. "http://localhost:3000")
@@ -1128,7 +1129,7 @@ const app = new Nelysia()
   }))
   .use(csrf())
   .use(cache({ ttlMs: 30_000 }))
-  .use(logger({ level: "info" }))
+  .use(logger({ level: "info", format: "auto", routes: true }))
   .use(timeout({ timeoutMs: 5_000 }))
   .use(health({ checks: { database: async () => true } }))
   .use(upload({ maxFileSize: 2 * 1024 * 1024, maxFiles: 1 }))
@@ -1160,7 +1161,14 @@ Contracts and limitations:
   cleanup for already stored files.
 - `logger()` exposes typed `context.logger`, configurable levels/sinks, and
   redacts authorization, cookie, secret, token, password, and API-key fields
-  by default. Sink failures never change the request result.
+  by default. Sink failures never change the request result. It emits
+  `server.started`, `route.registered`, `request.complete`, and
+  `request.error`; use `startup`, `routes`, `requests`, and `errors` to disable
+  individual event groups. `format: "auto"` uses pretty output in development
+  and JSON when `NODE_ENV=production`.
+- `app.routeDiagnostics()` returns `{ method, path, lane }` for every route;
+  lanes are `COMPILED`, `SPECIALIZED`, or `GENERIC`. `app.onStart()` runs after
+  a successful Bun or Node bind, including routes loaded by lazy modules.
 - `timeout()` exposes a request deadline through `context.signal` and defaults
   to `504`. It clears timers on every completion path and cannot interrupt
   synchronous JavaScript that is already running.
@@ -1588,7 +1596,7 @@ Additional DX commands:
 
 ```bash
 nelysia routes ./src/app.ts   # method, path, public lane, compiler reason
-nelysia doctor ./src/app.ts   # runtime, TypeScript, exports, duplicates
+nelysia doctor ./src/app.ts [--strict] # runtime, TypeScript, exports, routes, providers, lanes
 nelysia create my-api         # scaffold a project
 nelysia dev ./src/app.ts --port 3000
 ```

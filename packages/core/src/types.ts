@@ -425,6 +425,7 @@ export interface ResponseSetContext {
 }
 
 export interface ServerInfo {
+  runtime: "bun" | "node"
   port: number
   hostname: string
   url: string

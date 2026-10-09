@@ -441,6 +441,7 @@ const app = new Nelysia()
 
 ```ts
 interface ServerInfo {
+  runtime: "bun" | "node" // runtime ที่ bind สำเร็จ
   port: number        // หมายเลข Port ที่เปิดรับจริง
   hostname: string    // Hostname เช่น "localhost"
   url: string         // URL สมบูรณ์ เช่น "http://localhost:3000"
@@ -1107,7 +1108,7 @@ const app = new Nelysia()
   }))
   .use(csrf())
   .use(cache({ ttlMs: 30_000 }))
-  .use(logger({ level: "info" }))
+  .use(logger({ level: "info", format: "auto", routes: true }))
   .use(timeout({ timeoutMs: 5_000 }))
   .use(health({ checks: { database: async () => true } }))
   .use(upload({ maxFileSize: 2 * 1024 * 1024, maxFiles: 1 }))
@@ -1133,7 +1134,13 @@ const app = new Nelysia()
   memory/disk/custom storage; หาก storage ล้มเหลวจะ cleanup ไฟล์ที่บันทึกไปแล้ว
 - `logger()` เพิ่ม `context.logger` แบบ typed ตั้ง level/sink ได้ และ redact
   authorization, cookie, secret, token, password และ API key เป็นค่าเริ่มต้น
-  ความล้มเหลวของ sink จะไม่เปลี่ยนผลลัพธ์ของ request
+  ความล้มเหลวของ sink จะไม่เปลี่ยนผลลัพธ์ของ request โดยจะ emit event
+  `server.started`, `route.registered`, `request.complete` และ `request.error`
+  และปิดเป็นกลุ่มได้ด้วย `startup`, `routes`, `requests`, `errors` ส่วน
+  `format: "auto"` ใช้ pretty ใน development และ JSON เมื่อ `NODE_ENV=production`
+- `app.routeDiagnostics()` คืน `{ method, path, lane }` ของทุก route โดย lane
+  คือ `COMPILED`, `SPECIALIZED` หรือ `GENERIC` และ `app.onStart()` จะทำงานหลัง
+  Bun/Node bind สำเร็จ รวมถึง route จาก lazy module
 - `timeout()` เพิ่ม deadline ผ่าน `context.signal` ค่าเริ่มต้น `504` และ clear
   timer ทุกเส้นทางการจบงาน แต่ไม่สามารถหยุด synchronous JavaScript ที่กำลังรันอยู่ได้
 
@@ -1503,7 +1510,7 @@ npm run build -- ./src/app.ts --target node
 
 ```bash
 nelysia routes ./src/app.ts   # method, path, lane และ compiler reason
-nelysia doctor ./src/app.ts   # runtime, TypeScript, exports, duplicate routes
+nelysia doctor ./src/app.ts [--strict] # runtime, TypeScript, exports, routes, providers, lanes
 nelysia create my-api         # สร้าง project scaffold
 nelysia dev ./src/app.ts --port 3000
 ```

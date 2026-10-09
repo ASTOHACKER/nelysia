@@ -247,6 +247,19 @@ export function isStaticFastPathRoute(route: RouteRecord): boolean {
     && route.responseSchemas === undefined
 }
 
+export type ExecutionLane = "COMPILED" | "SPECIALIZED" | "GENERIC"
+
+/** Public diagnostic mirror of the compiler's route lane selection. */
+export function classifyRouteLane(route: RouteRecord, contextFree = false): ExecutionLane {
+  const eligible = isCompilableRoute(route)
+  const compiled = eligible && isStaticFastPathRoute(route) && contextFree
+  const zeroArg = eligible && isStaticFastPathRoute(route) && route.handler.length === 0
+  const paramsOnly = eligible && !route.static && isParamsOnlyHandler(route.handler) && route.hooks.length === 0
+  const generatedSchema = eligible && [route.bodySchema, route.paramsSchema, route.querySchema, route.headersSchema, route.responseSchema]
+    .some((schema) => schema !== undefined && canGenerateSchema(schema))
+  return compiled || zeroArg ? "COMPILED" : eligible && (route.static || paramsOnly || generatedSchema) ? "SPECIALIZED" : "GENERIC"
+}
+
 export function serializeStaticValue(value: unknown): SerializedBody | undefined {
   try {
     // Native responses and streams carry status/headers or a live body. They

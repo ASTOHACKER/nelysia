@@ -129,6 +129,52 @@ test("routes and doctor commands expose public execution lanes", async () => {
   assert.match(report.output, /2 total/)
 })
 
+test("doctor strict turns generic fallback diagnostics into a failure", async () => {
+  const app = new Nelysia().post("/opaque", async ({ body }) => body)
+  const report = await doctor(app, { strict: true })
+  assert.equal(report.ok, false)
+  assert.match(report.output, /GENERIC fallback/)
+})
+
+test("doctor reports unknown route options", async () => {
+  const app = new Nelysia().get("/bad", () => "ok", { mystery: true } as any)
+  const report = await doctor(app)
+  assert.equal(report.ok, false)
+  assert.match(report.output, /ERROR Unknown route option "mystery"/)
+})
+
+test("doctor load diagnostics identify missing auth providers", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nelysia-doctor-provider-"))
+  const entry = join(root, "app.ts")
+  const cli = join(process.cwd(), "packages/cli/src/index.ts")
+  await writeFile(entry, `import { Nelysia } from ${JSON.stringify(join(process.cwd(), "packages/core/src/index.ts"))}\nexport const app = new Nelysia().get("/admin", () => "ok", { auth: "session" })\n`)
+  await assert.rejects(
+    () => execFileAsync(process.execPath, ["--experimental-strip-types", cli, "doctor", entry, "--strict"], { cwd: root }),
+    (error: unknown) => {
+      assert.equal((error as { code?: number }).code, 1)
+      assert.match(String((error as { stdout?: string; stderr?: string }).stdout) + String((error as { stderr?: string }).stderr), /No auth provider registered.*session/i)
+      return true
+    }
+  )
+  await rm(root, { recursive: true, force: true })
+})
+
+test("doctor reports syntax and import failures with a diagnostic", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nelysia-doctor-failure-"))
+  const entry = join(root, "broken.ts")
+  const cli = join(process.cwd(), "packages/cli/src/index.ts")
+  await writeFile(entry, "export const app =")
+  await assert.rejects(
+    () => execFileAsync(process.execPath, ["--experimental-strip-types", cli, "doctor", entry, "--strict"], { cwd: root }),
+    (error: unknown) => {
+      assert.equal((error as { code?: number }).code, 1)
+      assert.match(String((error as { stdout?: string; stderr?: string }).stdout) + String((error as { stderr?: string }).stderr), /Nelysia Doctor[\s\S]*(load|syntax|import)/i)
+      return true
+    }
+  )
+  await rm(root, { recursive: true, force: true })
+})
+
 test("create command scaffolds an isolated project", async () => {
   const root = await mkdtemp(join(tmpdir(), "nelysia-create-cli-"))
   const files = await createProject("demo-api", root)

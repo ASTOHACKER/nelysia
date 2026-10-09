@@ -78,6 +78,21 @@ app.listen(3000, ({ port, url }) => {
 })
 ```
 
+The normalized `ServerInfo` callback also includes `runtime: "bun" | "node"`.
+For structured diagnostics, opt in to the logger plugin:
+
+```ts
+import { logger } from "@narudom96/nelysia/logger"
+
+const app = new Nelysia()
+  .use(logger({ level: "info", format: "auto", routes: true }))
+  .onStart(({ runtime, url }) => console.log(`started on ${runtime}: ${url}`))
+```
+
+`app.routeDiagnostics()` exposes each route's `COMPILED`, `SPECIALIZED`, or
+`GENERIC` lane. Run `nelysia doctor ./src/app.ts --strict` to make generic
+fallbacks and framework/config diagnostics fail CI.
+
 ```bash
 node app.js          # Node 22+
 bun run app.ts       # Bun 1.4+

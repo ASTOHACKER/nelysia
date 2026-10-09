@@ -3,7 +3,7 @@ import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 import { realpathSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { compile, generateBuildArtifact, inspect } from "../../compiler/src/index.ts"
+import { compile, generateBuildArtifact, inspect, unsupportedRouteDiagnostic } from "../../compiler/src/index.ts"
 import { generateClientTypes } from "../../openapi/src/index.ts"
 import type { ServerInfo } from "../../core/src/types.ts"
 
@@ -30,7 +30,7 @@ async function main(): Promise<void> {
         ? new Set(["--dir"])
         : command === "client" ? new Set(["--out", "--force"])
           : command === "dev" ? new Set(["--target", "--port"])
-            : command === "create" ? new Set(["--dir"]) : new Set<string>()
+      : command === "create" ? new Set(["--dir"]) : command === "doctor" ? new Set(["--strict"]) : new Set<string>()
   const optionError = validateOptions(args, allowedOptions)
   const supportedCommands = ["inspect", "build", "generate", "client", "routes", "doctor", "create", "dev"]
 
@@ -64,10 +64,15 @@ async function main(): Promise<void> {
     const app = await loadApplication(entry)
     console.log(formatRoutes(app))
   } else if (command === "doctor") {
-    const app = await loadApplication(entry)
-    const report = await doctor(app)
-    console.log(report.output)
-    if (!report.ok) process.exitCode = 1
+    try {
+      const app = await loadApplication(entry)
+      const report = await doctor(app, { strict: args.includes("--strict") })
+      console.log(report.output)
+      if (!report.ok) process.exitCode = 1
+    } catch (error) {
+      console.error(["Nelysia Doctor", "", `✗ Failed to load ${entry}: ${error instanceof Error ? error.message : String(error)}`].join("\n"))
+      process.exitCode = 1
+    }
   } else if (command === "dev") {
     const app = await loadApplication(entry)
     const portValue = args.includes("--port") ? args[args.indexOf("--port") + 1] : "3000"
@@ -176,7 +181,7 @@ export function formatRoutes(app: { graph: { routes: readonly { method: string; 
   return ["METHOD  PATH                         LANE        COMPILER REASON", ...rows].join("\n")
 }
 
-export async function doctor(app: { graph: { routes: readonly { method: string; path: string }[] } }): Promise<{ ok: boolean; output: string }> {
+export async function doctor(app: { graph: { routes: readonly { method: string; path: string }[] } }, options: { strict?: boolean } = {}): Promise<{ ok: boolean; output: string }> {
   const packageJson = await readPackageMetadata()
   const hasTsconfig = await access(resolve("tsconfig.json")).then(() => true, () => false)
   const routes = app.graph.routes
@@ -185,19 +190,50 @@ export async function doctor(app: { graph: { routes: readonly { method: string; 
   const compiled = compile(app as any)
   const counts: Record<string, number> = {}
   for (const route of compiled.analyses) counts[route.lane] = (counts[route.lane] ?? 0) + 1
+  const internals = app as unknown as {
+    authStrategyProviders?: Map<string, unknown>
+    routeFeatureProviders?: Map<string, unknown>
+    configurationDiagnostics?: readonly string[]
+  }
+  const authProviders = internals.authStrategyProviders?.size ?? 0
+  const featureProviders = internals.routeFeatureProviders?.size ?? 0
+  const configurationDiagnostics = internals.configurationDiagnostics ?? []
+  const routeWarnings = compiled.analyses.filter((route) => route.lane === "GENERIC")
+  const routeErrors = routes.flatMap((route) => {
+    const detailed = route as typeof route & { auth?: unknown; features?: Record<string, unknown> }
+    const auth = detailed.auth
+    const authStrategy = typeof auth === "string" ? auth : auth && typeof auth === "object" && "strategy" in auth ? (auth as { strategy?: string }).strategy : undefined
+    const features = detailed.features && typeof detailed.features === "object" ? Object.keys(detailed.features) : []
+    const missingAuth = authStrategy !== undefined && !internals.authStrategyProviders?.has(authStrategy)
+    const missingFeatures = features.filter((name) => !internals.routeFeatureProviders?.has(name))
+    return [
+      ...(missingAuth ? [`${route.method} ${route.path} requires auth provider "${authStrategy}"`] : []),
+      ...missingFeatures.map((name) => `${route.method} ${route.path} requires feature provider "${name}"`)
+    ]
+  })
   const checks = [
     `✓ Node ${process.version}`,
     `✓ Nelysia version ${packageJson.version ?? "unknown"}`,
     `${hasTsconfig ? "✓" : "⚠"} TypeScript configuration ${hasTsconfig ? "detected" : "not found"}`,
-    `✓ Package exports declared: ${Object.keys(packageJson.exports ?? {}).length}`,
+    `${Object.keys(packageJson.exports ?? {}).length === 25 ? "✓" : "⚠"} Package exports: ${Object.keys(packageJson.exports ?? {}).length}`,
     `${duplicates.length === 0 ? "✓" : "✗"} No duplicate routes`,
     "",
     `Routes: ${routes.length} total`,
+    `Providers: ${authProviders} auth, ${featureProviders} feature`,
     `✓ ${counts.COMPILED ?? 0} compiled`,
     `✓ ${counts.SPECIALIZED ?? 0} specialized`,
-    `${(counts.GENERIC ?? 0) > 0 ? "⚠" : "✓"} ${counts.GENERIC ?? 0} generic`
+    `${(counts.GENERIC ?? 0) > 0 ? "⚠" : "✓"} ${counts.GENERIC ?? 0} generic${(counts.GENERIC ?? 0) > 0 ? " (GENERIC fallback)" : ""}`,
+    ...routeWarnings.map((route) => `WARN ${route.method} ${route.path} uses generic lane because ${route.reason}`),
+    ...routeWarnings.map((route) => {
+      const source = routes.find((candidate) => candidate.method === route.method && candidate.path === route.path)
+      return source === undefined ? `WARN ${route.method} ${route.path} uses generic lane` : `WARN ${unsupportedRouteDiagnostic(source as any).code} ${unsupportedRouteDiagnostic(source as any).reason}`
+    }),
+    ...configurationDiagnostics.map((diagnostic) => `ERROR ${diagnostic}`),
+    ...routeErrors.map((diagnostic) => `ERROR ${diagnostic}`)
   ]
-  return { ok: duplicates.length === 0 && hasTsconfig, output: ["Nelysia Doctor", "", ...checks].join("\n") }
+  const errors = configurationDiagnostics.length + routeErrors.length + (Object.keys(packageJson.exports ?? {}).length === 25 ? 0 : 1)
+  const ok = duplicates.length === 0 && hasTsconfig && errors === 0 && (!options.strict || (counts.GENERIC ?? 0) === 0)
+  return { ok, output: ["Nelysia Doctor", "", ...checks].join("\n") }
 }
 
 async function readPackageMetadata(): Promise<{ version?: string; exports?: Record<string, string> }> {

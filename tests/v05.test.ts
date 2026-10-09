@@ -97,6 +97,58 @@ test("logger plugin emits request metadata and redacts sensitive fields", async 
   assert.equal(urlEntry?.fields?.message, "Bearer [REDACTED]")
 })
 
+test("logger exposes route diagnostics, startup events, and request timing", async (t) => {
+  const entries: Array<{ message: string; fields?: Record<string, unknown> }> = []
+  const app = new Nelysia()
+    .use(logger({ sink: (entry) => { entries.push(entry) } }))
+    .get("/health", () => "ok")
+    .get("/users/:id", ({ params }) => params.id)
+    .post("/opaque", async ({ body }) => body)
+
+  assert.deepEqual(app.routeDiagnostics().map((route) => route.lane), ["GENERIC", "GENERIC", "GENERIC"])
+  assert.equal(entries.some((entry) => entry.message === "server.started"), false)
+  assert.equal((await app.inject({ method: "GET", path: "/health" })).status, 200)
+  assert.equal(entries.some((entry) => entry.message === "server.started"), false)
+
+  const info = await new Promise<{ stop(): void | Promise<void> }>((resolve) => {
+    app.listen(0, (value) => resolve(value))
+  })
+  t.after(async () => { await info.stop() })
+  assert.equal(entries.filter((entry) => entry.message === "server.started").length, 1)
+  assert.equal(entries.filter((entry) => entry.message === "route.registered").length, 3)
+  const complete = entries.find((entry) => entry.message === "request.complete")
+  assert.equal(complete?.fields?.path, "/health")
+  assert.equal(typeof complete?.fields?.durationMs, "number")
+})
+
+test("logger sink thenables cannot affect request handling", async () => {
+  const app = new Nelysia().use(logger({ sink: () => ({ then: (_resolve: () => void, reject: (error: Error) => void) => reject(new Error("sink failed")) } as unknown as Promise<void>) })).get("/ok", () => "ok")
+  assert.equal((await app.inject({ method: "GET", path: "/ok" })).status, 200)
+})
+
+test("logger auto format follows the environment and event groups are configurable", async () => {
+  const originalLog = console.log
+  const lines: string[] = []
+  console.log = (value?: unknown) => { lines.push(String(value)) }
+  const previous = process.env.NODE_ENV
+  try {
+    process.env.NODE_ENV = "development"
+    await new Nelysia().use(logger({ format: "auto", startup: false, routes: false })).get("/pretty", () => "ok").inject({ method: "GET", path: "/pretty" })
+    assert.match(lines.at(-1) ?? "", /^\[Nelysia\] INFO request\.complete /)
+    lines.length = 0
+    process.env.NODE_ENV = "production"
+    await new Nelysia().use(logger({ format: "auto", startup: false, routes: false })).get("/json", () => "ok").inject({ method: "GET", path: "/json" })
+    assert.equal(JSON.parse(lines.at(-1) ?? "").message, "request.complete")
+    lines.length = 0
+    await new Nelysia().use(logger({ requests: false, startup: false, routes: false })).get("/disabled", () => "ok").inject({ method: "GET", path: "/disabled" })
+    assert.equal(lines.length, 0)
+  } finally {
+    console.log = originalLog
+    if (previous === undefined) delete process.env.NODE_ENV
+    else process.env.NODE_ENV = previous
+  }
+})
+
 test("upload plugin exposes multipart files and enforces storage contract", async () => {
   const app = new Nelysia()
     .use(upload({ storage: memoryStorage(), maxFileSize: 100, maxFiles: 2 }))
