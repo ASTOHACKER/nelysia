@@ -2,11 +2,24 @@
 
 This file is the finite progress board for work after v0.1. A checkbox is marked complete only when code, tests, and a runnable example exist.
 
-> Current package: `1.2.2`. The `v0.5.1`, `v0.6.0`, `v1.0.0`, `v1.1.0`,
-> `v1.2.0`, `v1.2.1`, and `v1.2.2` tags/releases are immutable. The Win Matrix gates
+> Current package: `1.2.3`. The `v0.5.1`, `v0.6.0`, `v1.0.0`, `v1.1.0`,
+> `v1.2.0`, `v1.2.1`, `v1.2.2`, and `v1.2.3` tags/releases are immutable. The Win Matrix gates
 > below remain evidence blockers, not a performance claim.
 
-## v1.2.2 Current GitHub Release
+## v1.2.3 Current GitHub Release
+
+- [x] Logger startup/route/request/error diagnostics shipped as additive APIs
+- [x] `app.onStart()`, `app.routeDiagnostics()`, and `ServerInfo.runtime` shipped
+- [x] `nelysia doctor --strict` provider, option, fallback, and load diagnostics shipped
+- [x] Node/Bun tests, typecheck, package build/imports, packed consumer, framework/deployment smoke, docs check, and audit passed
+- [x] GitHub release/tag `v1.2.3` created
+- [ ] npm publication when the registry account is authenticated
+- [ ] 24-hour soak before any production-readiness announcement
+
+The Win Matrix remains `BLOCKED` / `NO PERFORMANCE CLAIM`; this patch does not
+declare universal performance parity or production readiness.
+
+## v1.2.2 Historical GitHub Release
 
 - [x] Documentation-truth patch on the v1.2.x line with no runtime code changes
 - [x] Archived/historical labels, stale version strings, broken ToC anchors, and insecure doc patterns fixed
@@ -78,7 +91,7 @@ and `npm run benchmark:verify:win-matrix`.
 - [ ] 24-hour soak before any production-readiness announcement
 
 The v1.2.0 benchmark evidence is retained as historical evidence; v1.2.1 is
-a historical release and v1.2.2 is the current GitHub release.
+a historical release and v1.2.3 is the current GitHub release.
 
 ## v1.1.0 Historical Release
 
@@ -319,7 +332,7 @@ they are not a new release claim until their milestone gates pass:
 - [x] v0.7–v0.9 gates incorporated into the `v1.0.0` release; separate milestone tags are not required
 - [ ] Future 30m/1h/6h/24-hour evidence, if production-evidence work is approved later (not a historical v1.0 gate)
 
-The current package is `1.2.2`; the existing v0.5.1/v0.6.0/v1.0.0/v1.1.0/v1.2.0/v1.2.1
+The current package is `1.2.3`; the existing v0.5.1/v0.6.0/v1.0.0/v1.1.0/v1.2.0/v1.2.1/v1.2.2
 tags remain immutable. The v1.0.0 release contains the frozen API contract.
 No production-readiness announcement is made for the deferred 24-hour soak gate.
 

@@ -1,13 +1,13 @@
 # คู่มือการใช้งานอย่างละเอียด Nelysia (ภาษาไทย)
 
-> **เวอร์ชัน:** 1.2.2 (package และ GitHub Release ปัจจุบัน)
+> **เวอร์ชัน:** 1.2.3 (package และ GitHub Release ปัจจุบัน)
 > **รันไทม์ที่รองรับ:** Bun 1.4+, Node.js 22+, และ Web Fetch Standard (Vercel, Cloudflare, Deno)  
 > **ภาษา:** TypeScript / JavaScript (ESM)
 
 เริ่มจาก [แผนผังเอกสาร](./README.md) เพื่อเลือกคู่มือ, สถานะ release หรือ
 รายงาน benchmark ที่ต้องการได้เร็วขึ้น
 
-package ปัจจุบันคือ `v1.2.2` ส่วน workspace งาน runtime parity รุ่นถัดไปอยู่ใน
+package ปัจจุบันคือ `v1.2.3` ส่วน workspace งาน runtime parity รุ่นถัดไปอยู่ใน
 [หลักฐาน Win Matrix](./benchmark-latest-readable-2026-09-16.md) และยังเป็นสถานะ
 `BLOCKED` / `NO PERFORMANCE CLAIM` จนกว่าจะมีหลักฐานครบทุก release blocker
 
@@ -16,21 +16,21 @@ Reference แบบแยกหมวดที่เปิดอ่าน offlin
 [ภาพรวม authentication](./auth/overview.md), [JWT](./auth/jwt.md),
 [Better Auth](./auth/better-auth.md), [session](./auth/session.md),
 [roles และ permissions](./auth/roles-permissions.md) และ [การเขียน plugin](./plugins/authoring-plugins.md)
-โดยแต่ละหน้ารวมภาษาอังกฤษและไทยของ contract v1.0 ที่ freeze แล้ว การแก้ไขแบบ additive ใน v1.1.x และงาน reuse route-preflight/runtime parity ใน v1.2.2
+โดยแต่ละหน้ารวมภาษาอังกฤษและไทยของ contract v1.0 ที่ freeze แล้ว การแก้ไขแบบ additive ใน v1.1.x และงาน logger/diagnostics ใน v1.2.3
 
 สำหรับเส้นทาง version ตั้งแต่ v0.6 ถึง v1.0 และ public contract ที่เตรียม freeze
 ให้ดู [Nelysia v1.0 Guide](./v1.0.md) ซึ่งแยกสถานะ workspace ที่ตรวจผ่านออกจาก
 สถานะ package/release ที่ publish แล้วอย่างชัดเจน
 
 ฟีเจอร์ additive หลัง v0.5.1 รวมอยู่ใน release v1.0.0 แล้ว และ v1.1.0 เพิ่มการแก้
-runtime correctness/stabilization แบบไม่ทำลาย compatibility ส่วน v1.2.2 เพิ่ม
-การ reuse route-preflight ของ generic Bun โดย public API ยังคง
+runtime correctness/stabilization แบบไม่ทำลาย compatibility ส่วน v1.2.3 เพิ่ม
+logger/startup diagnostics และ strict framework checks โดย public API ยังคง
 freeze แล้ว ส่วนประวัติแผนงานอยู่ที่
 [`roadmap-after-v051.md`](./roadmap-after-v051.md) โดย worktree ปัจจุบันมี
 subpath สำหรับ production contract ได้แก่ `@narudom96/nelysia/session`,
 `@narudom96/nelysia/roles`, `@narudom96/nelysia/csrf`,
 `@narudom96/nelysia/cache` และ `@narudom96/nelysia/health` แล้ว แต่ยังคง
-package line เป็น v1.2.2
+package line เป็น v1.2.3
 
 ตัวอย่างที่รันได้: [basic](../examples/hello/index.ts),
 [JWT](../examples/jwt/index.ts), [upload](../examples/upload/index.ts) และ
@@ -240,7 +240,7 @@ Route และ Schema ถูกแปลงเป็น **OpenAPI 3.1** โด�
 import { Nelysia } from "@narudom96/nelysia"
 
 export const app = new Nelysia()
-  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v1.2.2!</h1>"))
+  .get("/", ({ html }) => html("<h1>สวัสดีจาก Nelysia v1.2.3!</h1>"))
   .get("/users/:id", ({ params, query }) => ({
     id: params.id,
     filter: query.filter ?? "default",
@@ -269,7 +269,7 @@ bun run src/app.ts
 
 ```bash
 curl http://localhost:3000/
-# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v1.2.2!</h1>
+# ผลลัพธ์: <h1>สวัสดีจาก Nelysia v1.2.3!</h1>
 
 curl "http://localhost:3000/users/42?filter=active"
 # ผลลัพธ์: {"id":"42","filter":"active","timestamp":1726180000000}

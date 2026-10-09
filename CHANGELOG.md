@@ -9,6 +9,20 @@ claims.
 Future work remains reserved for completing the Win Matrix and 24-hour soak.
 No performance or production-readiness claim is implied.
 
+## [1.2.3] — 2026-10-09
+
+Logger and framework diagnostics patch.
+
+- Added structured startup, route, request, and error diagnostics through
+  `@narudom96/nelysia/logger`.
+- Added `app.onStart()`, `app.routeDiagnostics()`, and `ServerInfo.runtime`.
+- Extended `nelysia doctor --strict` with route fallback, provider, option, and
+  load diagnostics.
+- Updated the English, Thai, README, and portal documentation.
+
+The Win Matrix remains `BLOCKED` / `NO PERFORMANCE CLAIM`; this patch does not
+declare production readiness or universal performance parity.
+
 ## [1.2.2] — 2026-09-17
 
 Documentation-truth patch on the v1.2.x line. No runtime code changes.
