@@ -81,6 +81,12 @@ export function schemaCapability(ir: SchemaIR | SchemaIRNode): SchemaCapability 
   return "root" in ir ? ir.root.capability : ir.capability
 }
 
+/** Return a normalized object-property child without exposing mutable schema internals. */
+export function schemaIRChild(node: SchemaIRNode, key: string): SchemaIRNode | undefined {
+  const index = node.childKeys.indexOf(key)
+  return index < 0 ? undefined : node.children[index]
+}
+
 export function resolveSchemaReference(id: string, registry: SchemaReferenceRegistry): SchemaIRNode {
   const value = lookupReference(id, registry)
   if (!value) throw new HttpError(400, `Unknown schema reference: ${id}`)
