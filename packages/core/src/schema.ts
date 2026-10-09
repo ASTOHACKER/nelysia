@@ -1,4 +1,7 @@
 import { HttpError } from "./types.ts"
+import { validateSchemaOptions } from "./schema-validator.ts"
+import { normalizeSchemaIR, type SchemaIR } from "./schema-ir.ts"
+import { validateSchema, validateSchemaAsync } from "./schema-validator.ts"
 
 export interface Schema<T = unknown> {
   readonly kind: string
@@ -69,62 +72,80 @@ type ShapeInfer<Shape extends Record<string, Schema>> = {
 
 type ObjectSchema<Shape extends Record<string, Schema>> = Schema<ShapeInfer<Shape>> & { readonly shape: Shape }
 
-const primitive = <T>(kind: string, check: (value: unknown) => value is T, options: SchemaOptions = {}): Schema<T> => ({
-  kind,
-  definition: schemaDefinition(kind, options),
-  validate(value, path = "body") {
-    if (!check(value)) throw new HttpError(400, `${path} must be ${kind}`)
-    validatePrimitiveOptions(kind, value, options, path)
-    return value
+const primitive = <T>(kind: string, check: (value: unknown) => value is T, options: SchemaOptions = {}): Schema<T> => {
+  validateSchemaOptions(options, kind)
+  const schema: Schema<T> = {
+    kind,
+    definition: schemaDefinition(kind, options),
+    validate(value, path = "body") {
+      if (!check(value)) throw new HttpError(400, `${path} must be ${kind}`)
+      return validateSchema(value, normalized, { path }) as T
+    }
   }
-})
+  const normalized = normalizeSchemaIR(schema)
+  return schema
+}
 
 export const t = {
   String: (options?: StringOptions) => primitive("string", (value): value is string => typeof value === "string", options),
   Number: (options?: NumberOptions) => primitive("number", (value): value is number => typeof value === "number" && Number.isFinite(value), options),
   Integer: (options?: NumberOptions) => primitive("integer", (value): value is number => typeof value === "number" && Number.isInteger(value), options),
   Boolean: () => primitive("boolean", (value): value is boolean => typeof value === "boolean"),
-  Object: <Shape extends Record<string, Schema>>(shape: Shape, options: ObjectOptions = {}): ObjectSchema<Shape> => ({
-    kind: "object",
-    shape,
-    definition: { ...schemaDefinition("object", options), properties: Object.fromEntries(Object.entries(shape).map(([key, schema]) => [key, schema.definition ?? { type: schema.kind }]),), required: Object.entries(shape).filter(([, schema]) => !schema.optional).map(([key]) => key) },
-    async validate(value, path = "body") {
-      if (typeof value !== "object" || value === null || Array.isArray(value)) throw new HttpError(400, `${path} must be object`)
-      const input = value as Record<string, unknown>
-      const keys = Object.keys(input)
-      if (typeof options.minProperties === "number" && keys.length < options.minProperties) throw new HttpError(400, `${path} must have at least ${options.minProperties} properties`)
-      if (typeof options.maxProperties === "number" && keys.length > options.maxProperties) throw new HttpError(400, `${path} must have at most ${options.maxProperties} properties`)
-      const extraKeys = keys.filter((key) => !Object.prototype.hasOwnProperty.call(shape, key))
-      if (options.additionalProperties === false && extraKeys.length > 0) throw new HttpError(400, `${path} must not contain additional properties`)
-      const output: Record<string, unknown> = {}
-      for (const [key, schema] of Object.entries(shape)) {
-        const field = input[key]
-        if (field === undefined && schema.optional) continue
-        setSafeProperty(output, key, await schema.validate(field, `${path}.${key}`))
-      }
-      if (options.additionalProperties === true) for (const key of extraKeys) setSafeProperty(output, key, input[key])
-      return output as ShapeInfer<Shape>
-    }
-  }),
-  Array: <Item extends Schema>(item: Item, options: ArrayOptions = {}): Schema<Infer<Item>[]> & { readonly item: Item } => ({
-    kind: "array",
-    item,
-    definition: { ...schemaDefinition("array", options), items: item.definition ?? { type: item.kind } },
-    async validate(value, path = "body") {
-      if (!Array.isArray(value)) throw new HttpError(400, `${path} must be array`)
-      if (typeof options.minItems === "number" && value.length < options.minItems) throw new HttpError(400, `${path} has too few items; minimum is ${options.minItems}`)
-      if (typeof options.maxItems === "number" && value.length > options.maxItems) throw new HttpError(400, `${path} has too many items; maximum is ${options.maxItems}`)
-      if (options.uniqueItems === true) {
-        const seen = new Set<string>()
-        for (const entry of value) {
-          const identity = JSON.stringify(entry) ?? String(entry)
-          if (seen.has(identity)) throw new HttpError(400, `${path} must contain unique items`)
-          seen.add(identity)
+  Object: <Shape extends Record<string, Schema>>(shape: Shape, options: ObjectOptions = {}): ObjectSchema<Shape> => {
+    validateSchemaOptions(options, "object")
+    let normalized: SchemaIR
+    const schema: ObjectSchema<Shape> = {
+      kind: "object",
+      shape,
+      definition: { ...schemaDefinition("object", options), properties: Object.fromEntries(Object.entries(shape).map(([key, schema]) => [key, schema.definition ?? { type: schema.kind }]),), required: Object.entries(shape).filter(([, schema]) => !schema.optional).map(([key]) => key) },
+      async validate(value, path = "body") {
+        if (normalized.capability === "compiled") return await validateSchemaAsync(value, normalized, { path }) as ShapeInfer<Shape>
+        if (typeof value !== "object" || value === null || Array.isArray(value)) throw new HttpError(400, `${path} must be object`)
+        const input = value as Record<string, unknown>
+        const keys = Object.keys(input)
+        if (typeof options.minProperties === "number" && keys.length < options.minProperties) throw new HttpError(400, `${path} must have at least ${options.minProperties} properties`)
+        if (typeof options.maxProperties === "number" && keys.length > options.maxProperties) throw new HttpError(400, `${path} must have at most ${options.maxProperties} properties`)
+        const extraKeys = keys.filter((key) => !Object.prototype.hasOwnProperty.call(shape, key))
+        if (options.additionalProperties === false && extraKeys.length > 0) throw new HttpError(400, `${path} must not contain additional properties`)
+        const output: Record<string, unknown> = {}
+        for (const [key, schema] of Object.entries(shape)) {
+          const field = input[key]
+          if (field === undefined && schema.optional) continue
+          setSafeProperty(output, key, await schema.validate(field, `${path}.${key}`))
         }
+        if (options.additionalProperties === true) for (const key of extraKeys) setSafeProperty(output, key, input[key])
+        return output as ShapeInfer<Shape>
       }
-      return Promise.all(value.map((entry, index) => item.validate(entry, `${path}.${index}`))) as Promise<Infer<Item>[]>
     }
-  }),
+    normalized = normalizeSchemaIR(schema)
+    return schema
+  },
+  Array: <Item extends Schema>(item: Item, options: ArrayOptions = {}): Schema<Infer<Item>[]> & { readonly item: Item } => {
+    validateSchemaOptions(options, "array")
+    let normalized: SchemaIR
+    const schema: Schema<Infer<Item>[]> & { readonly item: Item } = {
+      kind: "array",
+      item,
+      definition: { ...schemaDefinition("array", options), items: item.definition ?? { type: item.kind } },
+      async validate(value, path = "body") {
+        if (normalized.capability === "compiled") return await validateSchemaAsync(value, normalized, { path }) as Infer<Item>[]
+        if (!Array.isArray(value)) throw new HttpError(400, `${path} must be array`)
+        if (typeof options.minItems === "number" && value.length < options.minItems) throw new HttpError(400, `${path} has too few items; minimum is ${options.minItems}`)
+        if (typeof options.maxItems === "number" && value.length > options.maxItems) throw new HttpError(400, `${path} has too many items; maximum is ${options.maxItems}`)
+        if (options.uniqueItems === true) {
+          const seen = new Set<string>()
+          for (const entry of value) {
+            const identity = JSON.stringify(entry) ?? String(entry)
+            if (seen.has(identity)) throw new HttpError(400, `${path} must contain unique items`)
+            seen.add(identity)
+          }
+        }
+        return Promise.all(value.map((entry, index) => item.validate(entry, `${path}.${index}`))) as Promise<Infer<Item>[]>
+      }
+    }
+    normalized = normalizeSchemaIR(schema)
+    return schema
+  },
   Literal: <T extends string | number | boolean | null>(value: T): Schema<T> => ({
     kind: "literal",
     definition: { const: value },
@@ -224,7 +245,12 @@ function schemaDefinition(kind: string, options: SchemaOptions): Record<string, 
   const definition: Record<string, unknown> = { type: kind }
   for (const [key, value] of Object.entries(options)) {
     if (value === undefined) continue
-    definition[key] = key === "pattern" && value instanceof RegExp ? value.source : value
+    if (key === "pattern" && value instanceof RegExp) {
+      definition[key] = value.source
+      definition["x-patternFlags"] = value.flags
+    } else {
+      definition[key] = value
+    }
   }
   return definition
 }

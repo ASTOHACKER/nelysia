@@ -6,8 +6,10 @@ export interface SchemaIRNode {
   readonly kind: string
   readonly definition: Readonly<Record<string, unknown>>
   readonly children: readonly SchemaIRNode[]
+  readonly childKeys: readonly string[]
   readonly options: Readonly<Record<string, unknown>>
   readonly capability: SchemaCapability
+  readonly optional?: boolean
   readonly id?: string
   readonly ref?: string
 }
@@ -91,8 +93,10 @@ function normalizeNode(schema: Schema, definitions: Map<string, SchemaIRNode>, a
       kind: schema.kind,
       definition,
       children: [],
+      childKeys: [],
       options: normalizeOptions(definition),
       capability: "reference",
+      optional: schema.optional,
       id: readString(definition.$id),
       ref: readString(definition.$ref),
     })
@@ -100,14 +104,16 @@ function normalizeNode(schema: Schema, definitions: Map<string, SchemaIRNode>, a
 
   active.add(schema)
   const definition = normalizeDefinition(schema.definition ?? { type: schema.kind })
-  const childSchemas = getChildSchemas(schema)
-  const children = childSchemas.map((child) => normalizeNode(child, definitions, active))
+  const childInfo = getChildSchemas(schema)
+  const children = childInfo.schemas.map((child) => normalizeNode(child, definitions, active))
   const node = freezeValue({
     kind: schema.kind,
     definition,
     children,
+    childKeys: childInfo.keys,
     options: normalizeOptions(definition),
     capability: classifyCapability(schema.kind, definition, children),
+    optional: schema.optional,
     id: readString(definition.$id),
     ref: readString(definition.$ref),
   })
@@ -116,13 +122,16 @@ function normalizeNode(schema: Schema, definitions: Map<string, SchemaIRNode>, a
   return node
 }
 
-function getChildSchemas(schema: Schema): readonly Schema[] {
+function getChildSchemas(schema: Schema): { readonly schemas: readonly Schema[]; readonly keys: readonly string[] } {
   const source = schema as SchemaWithChildren
-  if (source.shape && isRecord(source.shape)) return Object.values(source.shape)
-  if (source.items && Array.isArray(source.items)) return source.items
-  if (source.item) return [source.item]
-  if (source.inner) return [source.inner]
-  return []
+  if (source.shape && isRecord(source.shape)) {
+    const keys = Object.keys(source.shape).sort()
+    return { schemas: keys.map((key) => source.shape?.[key]).filter((child): child is Schema => child !== undefined), keys }
+  }
+  if (source.items && Array.isArray(source.items)) return { schemas: source.items, keys: [] }
+  if (source.item) return { schemas: [source.item], keys: [] }
+  if (source.inner) return { schemas: [source.inner], keys: [] }
+  return { schemas: [], keys: [] }
 }
 
 function classifyCapability(kind: string, definition: Readonly<Record<string, unknown>>, children: readonly SchemaIRNode[]): SchemaCapability {
