@@ -829,6 +829,21 @@ test("validates record values and options", async () => {
   await assert.rejects(async () => await record.validate({ first: 1, second: 2, third: 3 }))
 })
 
+test("supports TypeBox-style keyed records and enum objects", async () => {
+  const record = t.Record(t.String(), t.Number({ minimum: 1 }))
+  assert.deepEqual(await record.validate({ first: 1 }), { first: 1 })
+  await assert.rejects(async () => await record.validate({ first: 0 }), /minimum/)
+  await assert.rejects(async () => await record.validate({ first: "1" }), /number/)
+
+  const keyed = t.Record(t.Literal("id"), t.Number())
+  assert.deepEqual(await keyed.validate({ id: 1 }), { id: 1 })
+  await assert.rejects(async () => await keyed.validate({ other: 1 }), /required|additional|value/)
+
+  const roles = t.Enum({ Admin: "admin", User: "user" } as const)
+  assert.equal(await roles.validate("admin"), "admin")
+  await assert.rejects(async () => await roles.validate("owner"), /one of/)
+})
+
 test("required and readonly preserve transformed object contracts", async () => {
   const source = t.Object({ id: t.String(), name: t.Optional(t.String()) })
   const required = t.Required(source)
@@ -857,11 +872,23 @@ test("composite merges object properties", async () => {
   await assert.rejects(async () => await composite.validate({ id: "1" }))
 })
 
+test("supports TypeBox-style binary Composite", async () => {
+  const composite = t.Composite(t.Object({ id: t.String() }), t.Object({ active: t.Boolean() }))
+  assert.deepEqual(await composite.validate({ id: "1", active: true }), { id: "1", active: true })
+  await assert.rejects(async () => await composite.validate({ id: "1" }))
+})
+
 test("template literal validates its generated pattern", async () => {
   const template = t.TemplateLiteral([t.Literal("user-"), t.Integer()] as const)
   assert.equal(await template.validate("user-42"), "user-42")
   await assert.rejects(async () => await template.validate("user-ada"))
   await assert.rejects(async () => await template.validate("admin-42"))
+})
+
+test("supports TypeBox-style template literal strings", async () => {
+  const template = t.TemplateLiteral("user-${number}")
+  assert.equal(await template.validate("user-42"), "user-42")
+  await assert.rejects(async () => await template.validate("user-nope"))
 })
 
 test("accepts metadata options across schema constructors", () => {

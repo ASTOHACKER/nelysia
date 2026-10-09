@@ -329,6 +329,7 @@ function setSafe(output, key, value) {
 const invalid = (message) => Object.assign(new Error(message), { status: 400 })
 function validate(value, schema, path) {
   if (!schema || Object.keys(schema).length === 0) return value
+  if (schema["x-nelysia-optional"] === true && value === undefined) return undefined
   if ("const" in schema && value !== schema.const) throw invalid(path + " must equal " + String(schema.const))
   if (Array.isArray(schema.enum) && !schema.enum.some((entry) => Object.is(entry, value))) throw invalid(path + " must be an allowed value")
   if (Array.isArray(schema.anyOf)) {
@@ -399,10 +400,16 @@ function validate(value, schema, path) {
     const output = {}
     if (schema.minProperties !== undefined && Object.keys(value).length < schema.minProperties) throw invalid(path + " must have at least " + schema.minProperties + " properties")
     if (schema.maxProperties !== undefined && Object.keys(value).length > schema.maxProperties) throw invalid(path + " must have at most " + schema.maxProperties + " properties")
-    if (schema.additionalProperties === false) for (const key of Object.keys(value)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) throw invalid(path + " must not contain additional properties")
     for (const [key, child] of Object.entries(schema.properties || {})) if (input[key] !== undefined) setSafe(output, key, validate(input[key], child, path + "." + key))
-    if (schema.additionalProperties === true) for (const [key, entry] of Object.entries(input)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) setSafe(output, key, entry)
-    if (schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) setSafe(output, key, validate(entry, schema.additionalProperties, path + "." + key))
+    const patternFor = (key) => { for (const [pattern, child] of Object.entries(schema.patternProperties || {})) { try { if (new RegExp(pattern).test(key)) return child } catch {} } }
+    if (schema.additionalProperties === false) for (const key of Object.keys(value)) if ((!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) && !patternFor(key)) throw invalid(path + " must not contain additional properties")
+    for (const [key, entry] of Object.entries(input)) {
+      if (schema.properties && Object.prototype.hasOwnProperty.call(schema.properties, key)) continue
+      const pattern = patternFor(key)
+      if (pattern) setSafe(output, key, validate(entry, pattern, path + "." + key))
+      else if (schema.additionalProperties === true || schema.patternProperties) setSafe(output, key, entry)
+      else if (schema.additionalProperties && typeof schema.additionalProperties === "object") setSafe(output, key, validate(entry, schema.additionalProperties, path + "." + key))
+    }
     return output
   }
   return value
@@ -447,7 +454,7 @@ const match = (route, pathname) => { const pattern = route.path.split("/").filte
 const isData = (value) => value && typeof value === "object" && value.__nelysiaResponse === true
 const data = (status, body, headers) => ({ status, body, headers: new Headers(headers), __nelysiaResponse: true })
 const toResponse = (value, context, status = context.set.status || 200) => { if (value instanceof Response) return value; if (isData(value)) { if (value.body instanceof Response) return value.body; const headers = mergeHeaders(context.responseHeaders, value.headers); if (value.body === undefined || value.body === null) return new Response(null, { status: value.status, headers }); if (value.body instanceof ReadableStream) return new Response(value.body, { status: value.status, headers }); if (typeof value.body === "string" || value.body instanceof Uint8Array) { if (!headers.has("content-type")) headers.set("content-type", "text/plain; charset=utf-8"); return new Response(value.body, { status: value.status, headers }) } if (!headers.has("content-type")) headers.set("content-type", "application/json; charset=utf-8"); return new Response(JSON.stringify(value.body), { status: value.status, headers }) } if (value === undefined || value === null) return new Response(null, { status, headers: context.responseHeaders }); if (typeof value === "string" || value instanceof Uint8Array) return new Response(value, { status, headers: mergeHeaders(context.responseHeaders, { "content-type": "text/plain; charset=utf-8" }) }); return new Response(JSON.stringify(value), { status, headers: mergeHeaders(context.responseHeaders, { "content-type": "application/json; charset=utf-8" }) }) }
-const validate = (value, schema, path) => { if (!schema || Object.keys(schema).length === 0) return value; if ("const" in schema && value !== schema.const) throw Object.assign(new Error(path + " must equal " + String(schema.const)), { status: 400 }); if (Array.isArray(schema.enum) && !schema.enum.some((entry) => Object.is(entry, value))) throw Object.assign(new Error(path + " must be an allowed value"), { status: 400 }); if (Array.isArray(schema.anyOf)) { const errors = []; for (const branch of schema.anyOf) { try { return validate(value, branch, path) } catch (error) { errors.push(String(error && error.message || error)) } } throw Object.assign(new Error(path + " does not match any allowed value: " + errors.join("; ")), { status: 400 }) } if (Array.isArray(schema.allOf)) return schema.allOf.reduce((current, branch) => validate(current, branch, path), value); if (schema.type === "null") { if (value !== null) throw Object.assign(new Error(path + " must be null"), { status: 400 }); return value } if (schema.type === "string") { if (typeof value !== "string") throw Object.assign(new Error(path + " must be string"), { status: 400 }); if (schema.minLength !== undefined && value.length < schema.minLength) throw Object.assign(new Error(path + " is too short"), { status: 400 }); if (schema.maxLength !== undefined && value.length > schema.maxLength) throw Object.assign(new Error(path + " is too long"), { status: 400 }); if (schema.pattern !== undefined && !(new RegExp(schema.pattern)).test(value)) throw Object.assign(new Error(path + " has an invalid format"), { status: 400 }); if (schema.format === "date-time" && Number.isNaN(Date.parse(value))) throw Object.assign(new Error(path + " must be a date-time"), { status: 400 }); return value } if (schema.type === "number" || schema.type === "integer") { if (typeof value !== "number" || !Number.isFinite(value) || (schema.type === "integer" && !Number.isInteger(value))) throw Object.assign(new Error(path + " must be " + schema.type), { status: 400 }); if (schema.minimum !== undefined && value < schema.minimum) throw Object.assign(new Error(path + " is below minimum"), { status: 400 }); if (schema.maximum !== undefined && value > schema.maximum) throw Object.assign(new Error(path + " is above maximum"), { status: 400 }); return value } if (schema.type === "boolean") { if (typeof value !== "boolean") throw Object.assign(new Error(path + " must be boolean"), { status: 400 }); return value } if (schema.type === "array") { if (!Array.isArray(value)) throw Object.assign(new Error(path + " must be array"), { status: 400 }); if (schema.minItems !== undefined && value.length < schema.minItems) throw Object.assign(new Error(path + " has too few items"), { status: 400 }); if (schema.maxItems !== undefined && value.length > schema.maxItems) throw Object.assign(new Error(path + " has too many items"), { status: 400 }); if (Array.isArray(schema.prefixItems)) { if (value.length !== schema.prefixItems.length) throw Object.assign(new Error(path + " has an invalid tuple length"), { status: 400 }); return value.map((entry, index) => validate(entry, schema.prefixItems[index], path + "." + index)) } return schema.items === undefined ? value : value.map((entry, index) => validate(entry, schema.items, path + "." + index)) } if (schema.type === "object") { if (value === null || typeof value !== "object" || Array.isArray(value)) throw Object.assign(new Error(path + " must be object"), { status: 400 }); const output = {}; for (const key of schema.required || []) if (value[key] === undefined) throw Object.assign(new Error(path + "." + key + " is required"), { status: 400 }); for (const [key, child] of Object.entries(schema.properties || {})) if (value[key] !== undefined) Object.defineProperty(output, key, { value: validate(value[key], child, path + "." + key), enumerable: true, configurable: true, writable: true }); if (!schema.properties && schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(value)) Object.defineProperty(output, key, { value: validate(entry, schema.additionalProperties, path + "." + key), enumerable: true, configurable: true, writable: true }); return output } return value }
+const validate = ${standaloneValidatorSource()}
 const parseBody = async (request) => { if (request.method === "GET" || request.method === "HEAD") return undefined; const text = await request.text(); if (!text) return undefined; if (request.headers.get("content-type")?.includes("application/json")) { try { return JSON.parse(text) } catch { throw Object.assign(new Error("Malformed JSON body"), { status: 400 }) } } return text }
 const makeContext = (request, params, body, url) => { const responseHeaders = new Headers({ "x-request-id": request.headers.get("x-request-id") || "" }); const context = { request: { method: request.method, url: request.url, headers: request.headers, body }, requestId: request.headers.get("x-request-id") || "", params, query: new URLSearchParams(url.search), body, headers: request.headers, cookies: {}, set: { status: undefined, headers: {} }, store: {}, responseHeaders, response: (bodyOrStatus, optionsOrBody, extraHeaders) => { const bodyFirst = typeof bodyOrStatus !== "number" || (extraHeaders === undefined && optionsOrBody && typeof optionsOrBody === "object" && ("status" in optionsOrBody || "headers" in optionsOrBody)); if (!bodyFirst) return data(bodyOrStatus, optionsOrBody, mergeHeaders(responseHeaders, extraHeaders)); const options = optionsOrBody || {}; return data(options.status || 200, bodyOrStatus, mergeHeaders(responseHeaders, options.headers)); }, html: (value, status = 200) => data(status, value, mergeHeaders(responseHeaders, { "content-type": "text/html; charset=utf-8" })), text: (value, status = 200) => data(status, value, mergeHeaders(responseHeaders, { "content-type": "text/plain; charset=utf-8" })), json: (value, status = 200) => data(status, value, mergeHeaders(responseHeaders, { "content-type": "application/json; charset=utf-8" })), redirect: (value, status = 302) => data(status, undefined, mergeHeaders(responseHeaders, { location: value })), header: (name, value) => { context.set.headers[name.toLowerCase()] = value; return context }, setCookie: (name, value) => responseHeaders.append("set-cookie", name + "=" + encodeURIComponent(value) + "; Path=/"), deleteCookie: (name) => responseHeaders.append("set-cookie", name + "=; Max-Age=0; Path=/") }; return context }
 const allowFor = (pathname) => [...new Set(routes.filter((route) => match(route, pathname) !== undefined).map((route) => route.method === "GET" ? ["GET", "HEAD"] : [route.method]).flat())].concat(["OPTIONS"]).join(", ")
@@ -455,6 +462,113 @@ export const handle = async (request) => { const url = new URL(request.url); con
 `
   if (options.target === "bun") return `${handler}\nconst port = Number(process.env.PORT ?? 3000)\nconst server = Bun.serve({ port, fetch: handle })\nconsole.log(\`Nelysia standalone Bun server listening on http://localhost:\${server.port}\`)\n`
   return `import http from "node:http"\n${handler}\nconst port = Number(process.env.PORT ?? 3000)\nhttp.createServer(async (request, response) => { const chunks = []; for await (const chunk of request) chunks.push(chunk); const body = chunks.length > 0 ? Buffer.concat(chunks) : undefined; const result = await handle(new Request(\`http://localhost\${request.url}\`, { method: request.method, headers: request.headers as HeadersInit, body: body?.length ? new Uint8Array(body) : undefined })); response.writeHead(result.status, Object.fromEntries(result.headers)); response.end(new Uint8Array(await result.arrayBuffer())) }).listen(port, () => console.log(\`Nelysia standalone Node server listening on http://localhost:\${port}\`))\n`
+}
+
+function standaloneValidatorSource(): string {
+  return String.raw`(value, schema, path) => {
+  const invalid = (message) => Object.assign(new Error(message), { status: 400 })
+  const setSafe = (output, key, entry) => {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") Object.defineProperty(output, key, { value: entry, enumerable: true, configurable: true, writable: true })
+    else output[key] = entry
+  }
+  const validate = (current, definition, location) => {
+    if (!definition || Object.keys(definition).length === 0) return current
+    if (definition["x-nelysia-optional"] === true && current === undefined) return undefined
+    if ("const" in definition && current !== definition.const) throw invalid(location + " must equal " + String(definition.const))
+    if (Array.isArray(definition.enum) && !definition.enum.some((entry) => Object.is(entry, current))) throw invalid(location + " must be an allowed value")
+    if (Array.isArray(definition.anyOf)) {
+      const errors = []
+      for (const branch of definition.anyOf) {
+        try { return validate(current, branch, location) } catch (error) { errors.push(String(error && error.message || error)) }
+      }
+      throw invalid(location + " does not match any allowed value: " + errors.join("; "))
+    }
+    if (Array.isArray(definition.allOf)) {
+      let output = current
+      for (const branch of definition.allOf) {
+        const validated = validate(output, branch, location)
+        output = output && typeof output === "object" && validated && typeof validated === "object" ? { ...output, ...validated } : validated
+      }
+      return output
+    }
+    if (definition.type === "never") throw invalid(location + " must be never")
+    if (definition.type === "null") { if (current !== null) throw invalid(location + " must be null"); return current }
+    if (definition.type === "string") {
+      if (typeof current !== "string") throw invalid(location + " must be string")
+      if (typeof definition.minLength === "number" && Array.from(current).length < definition.minLength) throw invalid(location + " is too short")
+      if (typeof definition.maxLength === "number" && Array.from(current).length > definition.maxLength) throw invalid(location + " is too long")
+      if (typeof definition.pattern === "string" && !(new RegExp(definition.pattern, typeof definition["x-patternFlags"] === "string" ? definition["x-patternFlags"] : "")).test(current)) throw invalid(location + " has an invalid format")
+      if (definition.format === "date-time" && Number.isNaN(Date.parse(current))) throw invalid(location + " must be a date-time")
+      if (definition.format === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(current) || Number.isNaN(Date.parse(current + "T00:00:00Z")))) throw invalid(location + " has an invalid format")
+      if (definition.format === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(current)) throw invalid(location + " has an invalid format")
+      if (definition.format === "uuid" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(current)) throw invalid(location + " has an invalid format")
+      if (definition.format === "url" || definition.format === "uri") { try { new URL(current) } catch { throw invalid(location + " has an invalid format") } }
+      if (definition.format === "ipv4" && !/^(?:0|[1-9]\d{0,2})(?:\.(?:0|[1-9]\d{0,2})){3}$/.test(current)) throw invalid(location + " has an invalid format")
+      if (definition.format === "ipv6" && !current.includes(":")) throw invalid(location + " has an invalid format")
+      if (definition.format === "hostname" && !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/.test(current)) throw invalid(location + " has an invalid format")
+      return current
+    }
+    if (definition["x-nelysia-kind"] === "bigint") {
+      if (typeof current !== "bigint") throw invalid(location + " must be bigint")
+      const option = (key) => typeof definition[key] === "string" && /^-?\d+$/.test(definition[key]) ? BigInt(definition[key]) : undefined
+      const minimum = option("minimum")
+      const maximum = option("maximum")
+      const exclusiveMinimum = option("exclusiveMinimum")
+      const exclusiveMaximum = option("exclusiveMaximum")
+      const multipleOf = option("multipleOf")
+      if (minimum !== undefined && current < minimum) throw invalid(location + " is below minimum")
+      if (maximum !== undefined && current > maximum) throw invalid(location + " is above maximum")
+      if (exclusiveMinimum !== undefined && current <= exclusiveMinimum) throw invalid(location + " is below exclusive minimum")
+      if (exclusiveMaximum !== undefined && current >= exclusiveMaximum) throw invalid(location + " is above exclusive maximum")
+      if (multipleOf !== undefined && current % multipleOf !== 0n) throw invalid(location + " must be a multiple of " + multipleOf)
+      return current
+    }
+    if (definition.type === "number" || definition.type === "integer") {
+      if (typeof current !== "number" || !Number.isFinite(current) || (definition.type === "integer" && !Number.isInteger(current))) throw invalid(location + " must be " + definition.type)
+      if (typeof definition.minimum === "number" && current < definition.minimum) throw invalid(location + " is below minimum")
+      if (typeof definition.maximum === "number" && current > definition.maximum) throw invalid(location + " is above maximum")
+      if (typeof definition.exclusiveMinimum === "number" && current <= definition.exclusiveMinimum) throw invalid(location + " is below exclusive minimum")
+      if (typeof definition.exclusiveMaximum === "number" && current >= definition.exclusiveMaximum) throw invalid(location + " is above exclusive maximum")
+      if (typeof definition.multipleOf === "number" && definition.multipleOf > 0) { const quotient = current / definition.multipleOf; if (Math.abs(quotient - Math.round(quotient)) > Number.EPSILON * Math.max(1, Math.abs(quotient))) throw invalid(location + " must be a multiple of " + definition.multipleOf) }
+      return current
+    }
+    if (definition.type === "boolean") { if (typeof current !== "boolean") throw invalid(location + " must be boolean"); return current }
+    if (definition.type === "array") {
+      if (!Array.isArray(current)) throw invalid(location + " must be array")
+      if (typeof definition.minItems === "number" && current.length < definition.minItems) throw invalid(location + " has too few items")
+      if (typeof definition.maxItems === "number" && current.length > definition.maxItems) throw invalid(location + " has too many items")
+      if (definition.uniqueItems === true && new Set(current.map((entry) => JSON.stringify(entry) ?? String(entry))).size !== current.length) throw invalid(location + " must contain unique items")
+      if (Array.isArray(definition.prefixItems)) {
+        if (current.length !== definition.prefixItems.length) throw invalid(location + " has an invalid tuple length")
+        return current.map((entry, index) => validate(entry, definition.prefixItems[index], location + "." + index))
+      }
+      return definition.items === undefined ? current : current.map((entry, index) => validate(entry, definition.items, location + "." + index))
+    }
+    if (definition.type === "object") {
+      if (current === null || typeof current !== "object" || Array.isArray(current)) throw invalid(location + " must be object")
+      const input = current
+      const output = {}
+      if (typeof definition.minProperties === "number" && Object.keys(input).length < definition.minProperties) throw invalid(location + " must have at least " + definition.minProperties + " properties")
+      if (typeof definition.maxProperties === "number" && Object.keys(input).length > definition.maxProperties) throw invalid(location + " must have at most " + definition.maxProperties + " properties")
+      for (const key of definition.required || []) if (input[key] === undefined) throw invalid(location + "." + key + " is required")
+      const properties = definition.properties && typeof definition.properties === "object" && !Array.isArray(definition.properties) ? definition.properties : undefined
+      const patterns = definition.patternProperties && typeof definition.patternProperties === "object" && !Array.isArray(definition.patternProperties) ? definition.patternProperties : undefined
+      const patternFor = (key) => { for (const [pattern, child] of Object.entries(patterns || {})) { try { if (new RegExp(pattern).test(key)) return child } catch {} } }
+      if (definition.additionalProperties === false) for (const key of Object.keys(input)) if ((!properties || !Object.prototype.hasOwnProperty.call(properties, key)) && !patternFor(key)) throw invalid(location + " must not contain additional properties")
+      if (properties) for (const [key, child] of Object.entries(properties)) if (input[key] !== undefined) setSafe(output, key, validate(input[key], child, location + "." + key))
+      for (const [key, entry] of Object.entries(input)) {
+        if (properties && Object.prototype.hasOwnProperty.call(properties, key)) continue
+        const pattern = patternFor(key)
+        if (pattern) setSafe(output, key, validate(entry, pattern, location + "." + key))
+        else if (definition.additionalProperties === true || patterns) setSafe(output, key, entry)
+        else if (definition.additionalProperties && typeof definition.additionalProperties === "object") setSafe(output, key, validate(entry, definition.additionalProperties, location + "." + key))
+      }
+      return output
+    }
+    return current
+  }
+  return validate(value, schema, path)
+}`
 }
 
 function isStandaloneRoute(route: RouteRecord): boolean {

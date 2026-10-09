@@ -239,9 +239,24 @@ function validateRecord(value: unknown, node: SchemaIRNode, path: string, state:
   if (typeof definition.maxProperties === "number" && keys.length > definition.maxProperties) reject(path, `must have at most ${definition.maxProperties} properties`)
   const child = node.children[0]
   if (!child) return { ...value }
+  const patterns = isRecord(definition.patternProperties)
+    ? Object.keys(definition.patternProperties).map((pattern) => ({ pattern, regex: safeRegExp(pattern) })).filter((entry): entry is { pattern: string; regex: RegExp } => entry.regex !== undefined)
+    : []
+  const additionalProperties = definition.additionalProperties
   const output: Record<string, unknown> = {}
-  for (const [key, entry] of Object.entries(value)) setSafeProperty(output, key, evaluate(entry, child, `${path}.${key}`, state))
+  for (const [key, entry] of Object.entries(value)) {
+    if (patterns.length > 0 && !patterns.some(({ regex }) => regex.test(key))) {
+      if (additionalProperties === false) fail(`${path}.${key}`, "an allowed record key")
+      setSafeProperty(output, key, entry)
+      continue
+    }
+    setSafeProperty(output, key, evaluate(entry, child, `${path}.${key}`, state))
+  }
   return output
+}
+
+function safeRegExp(pattern: string): RegExp | undefined {
+  try { return new RegExp(pattern) } catch { return undefined }
 }
 
 function toBigInt(value: unknown): bigint | undefined {

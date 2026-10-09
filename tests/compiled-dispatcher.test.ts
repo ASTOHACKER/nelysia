@@ -422,6 +422,14 @@ test("generated schema routes execute on Fetch and Node adapters", async (testCo
   assert.equal(invalid.status, 400)
 })
 
+test("generated validators preserve top-level Optional semantics", () => {
+  const schema = t.Optional(t.String())
+  const generated = createGeneratedValidator(createSchemaIR(schema)!)
+  assert.equal(generated.validate(undefined), undefined)
+  assert.equal(generated.validate("ok"), "ok")
+  assert.throws(() => generated.validate(1), /string/)
+})
+
 test("Node and Fetch static function paths do not execute native handlers twice", async (t) => {
   let nodeCalls = 0
   const nodeApp = new Nelysia({ requestId: false })

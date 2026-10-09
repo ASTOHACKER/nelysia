@@ -355,7 +355,7 @@ function supportedDefinition(definition: Record<string, unknown>): boolean {
   const allowed = new Set([
     "type", "properties", "required", "additionalProperties", "items", "prefixItems",
     "enum", "const", "anyOf", "allOf", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength",
-    "pattern", "x-patternFlags", "format", "minItems", "maxItems", "uniqueItems", "minProperties", "maxProperties", "description", "default", "examples", "$id", "$schema", "title", "readOnly", "writeOnly", "x-templateLiteral", "x-nelysia-kind", "x-minimumType", "x-maximumType", "x-exclusiveMinimumType", "x-exclusiveMaximumType", "x-multipleOfType"
+    "pattern", "patternProperties", "x-patternFlags", "x-nelysia-optional", "format", "minItems", "maxItems", "uniqueItems", "minProperties", "maxProperties", "description", "default", "examples", "$id", "$schema", "title", "readOnly", "writeOnly", "x-templateLiteral", "x-nelysia-kind", "x-minimumType", "x-maximumType", "x-exclusiveMinimumType", "x-exclusiveMaximumType", "x-multipleOfType"
   ])
   for (const key of Object.keys(definition)) if (!allowed.has(key)) return false
   if (definition.format !== undefined && !["date-time", "date", "email", "uuid", "url", "uri", "ipv4", "ipv6", "hostname"].includes(String(definition.format))) return false
@@ -368,6 +368,10 @@ function supportedDefinition(definition: Record<string, unknown>): boolean {
   if (definition.properties !== undefined) {
     if (typeof definition.properties !== "object" || definition.properties === null || Array.isArray(definition.properties)) return false
     for (const item of Object.values(definition.properties)) if (!isSupportedDefinition(item)) return false
+  }
+  if (definition.patternProperties !== undefined) {
+    if (typeof definition.patternProperties !== "object" || definition.patternProperties === null || Array.isArray(definition.patternProperties)) return false
+    for (const item of Object.values(definition.patternProperties)) if (!isSupportedDefinition(item)) return false
   }
   return true
 }
@@ -386,7 +390,7 @@ export function createSchemaIR(schema: Schema | undefined): SchemaIR | undefined
 }
 
 function firstUnsupportedKeyword(definition: Readonly<Record<string, unknown>>): string | undefined {
-  const supported = new Set(["type", "properties", "required", "additionalProperties", "items", "prefixItems", "enum", "const", "anyOf", "allOf", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength", "pattern", "x-patternFlags", "format", "minItems", "maxItems", "uniqueItems", "minProperties", "maxProperties", "description", "default", "examples", "$id", "$schema", "title", "readOnly", "writeOnly", "x-templateLiteral", "x-nelysia-kind", "x-minimumType", "x-maximumType", "x-exclusiveMinimumType", "x-exclusiveMaximumType", "x-multipleOfType"])
+  const supported = new Set(["type", "properties", "required", "additionalProperties", "patternProperties", "items", "prefixItems", "enum", "const", "anyOf", "allOf", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength", "pattern", "x-patternFlags", "x-nelysia-optional", "format", "minItems", "maxItems", "uniqueItems", "minProperties", "maxProperties", "description", "default", "examples", "$id", "$schema", "title", "readOnly", "writeOnly", "x-templateLiteral", "x-nelysia-kind", "x-minimumType", "x-maximumType", "x-exclusiveMinimumType", "x-exclusiveMaximumType", "x-multipleOfType"])
   return Object.keys(definition).find((key) => !supported.has(key))
 }
 
@@ -403,6 +407,7 @@ function stableDefinition(value: Readonly<Record<string, unknown>>): SchemaIR {
 
 function validateGeneratedValue(value: unknown, schema: Record<string, unknown>, path: string): unknown {
   if (Object.keys(schema).length === 0) return value
+  if (schema["x-nelysia-optional"] === true && value === undefined) return undefined
   if ("const" in schema && value !== schema.const) throw invalidGenerated(path + " must equal " + String(schema.const))
   if (Array.isArray(schema.enum) && !schema.enum.some((entry) => Object.is(entry, value))) throw invalidGenerated(path + " must be an allowed value")
   if (Array.isArray(schema.anyOf)) {
@@ -478,13 +483,24 @@ function validateGeneratedValue(value: unknown, schema: Record<string, unknown>,
     const input = value as Record<string, unknown>
     if (typeof schema.minProperties === "number" && Object.keys(input).length < schema.minProperties) throw invalidGenerated(path + " must have at least " + schema.minProperties + " properties")
     if (typeof schema.maxProperties === "number" && Object.keys(input).length > schema.maxProperties) throw invalidGenerated(path + " must have at most " + schema.maxProperties + " properties")
-    if (schema.additionalProperties === false) for (const key of Object.keys(input)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) throw invalidGenerated(path + " must not contain additional properties")
     for (const key of Array.isArray(schema.required) ? schema.required : []) if (input[key] === undefined) throw invalidGenerated(path + "." + key + " is required")
     const output: Record<string, unknown> = {}
     const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties) ? schema.properties as Record<string, unknown> : undefined
+    const patterns = schema.patternProperties && typeof schema.patternProperties === "object" && !Array.isArray(schema.patternProperties) ? schema.patternProperties as Record<string, unknown> : undefined
+    const patternFor = (key: string): Record<string, unknown> | undefined => {
+      for (const [pattern, child] of Object.entries(patterns ?? {})) {
+        try { if (new RegExp(pattern).test(key)) return child as Record<string, unknown> } catch { /* invalid patterns are rejected by capability checks */ }
+      }
+    }
+    if (schema.additionalProperties === false) for (const key of Object.keys(input)) if ((!properties || !Object.prototype.hasOwnProperty.call(properties, key)) && !patternFor(key)) throw invalidGenerated(path + " must not contain additional properties")
     if (properties !== undefined) for (const [key, child] of Object.entries(properties)) if (input[key] !== undefined) setSafe(output, key, validateGeneratedValue(input[key], child as Record<string, unknown>, path + "." + key))
-    if (schema.additionalProperties === true) for (const [key, entry] of Object.entries(input)) if (properties === undefined || !Object.prototype.hasOwnProperty.call(properties, key)) setSafe(output, key, entry)
-    if (schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) if (properties === undefined || !Object.prototype.hasOwnProperty.call(properties, key)) setSafe(output, key, validateGeneratedValue(entry, schema.additionalProperties as Record<string, unknown>, path + "." + key))
+    for (const [key, entry] of Object.entries(input)) {
+      if (properties && Object.prototype.hasOwnProperty.call(properties, key)) continue
+      const pattern = patternFor(key)
+      if (pattern) setSafe(output, key, validateGeneratedValue(entry, pattern, path + "." + key))
+      else if (schema.additionalProperties === true || patterns) setSafe(output, key, entry)
+      else if (schema.additionalProperties && typeof schema.additionalProperties === "object") setSafe(output, key, validateGeneratedValue(entry, schema.additionalProperties as Record<string, unknown>, path + "." + key))
+    }
     return output
   }
   return value

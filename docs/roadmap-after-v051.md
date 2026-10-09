@@ -1,6 +1,6 @@
 # Nelysia Roadmap หลัง v0.5.1
 
-> **Archived — historical record, not current.** Current package คือ `v1.2.1`; ดูสถานะปัจจุบันที่ [release-status.md](./release-status.md).
+> **Archived — historical record, not current.** Current package คือ `v1.2.2`; ดูสถานะปัจจุบันที่ [release-status.md](./release-status.md).
 
 > แผนฉบับเต็มที่เป็น source of truth อยู่ที่ [Final Roadmap สู่ v1.0](./roadmap-v1.md)
 

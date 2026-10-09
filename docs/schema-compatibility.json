@@ -41,7 +41,7 @@
     { "name": "Optional", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
     { "name": "Any", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
     { "name": "Unknown", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
-    { "name": "Date", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Date", "status": "supported", "reference": "pass", "aot": "reference", "coveredBy": ["generic", "bun", "node", "fetch"] },
     { "name": "TemplateLiteral", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
     { "name": "Partial", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
     { "name": "Pick", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },

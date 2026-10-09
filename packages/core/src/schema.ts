@@ -10,6 +10,7 @@ export interface Schema<T = unknown> {
   readonly definition?: Record<string, unknown>
   readonly shape?: Readonly<Record<string, Schema>>
   readonly item?: Schema
+  readonly key?: Schema
   readonly items?: readonly Schema[]
   readonly inner?: Schema
   readonly templateParts?: readonly (string | Schema)[]
@@ -104,6 +105,13 @@ type RequiredShape<Shape extends Record<string, Schema>> = {
 
 type CompositeInfer<Items extends readonly Schema[]> = UnionToIntersection<Infer<Items[number]>>
 
+type EnumInput = readonly (string | number)[] | Readonly<Record<string, string | number>>
+type EnumInfer<Input extends EnumInput> = Input extends readonly (infer Value)[]
+  ? Extract<Value, string | number>
+  : Input extends Readonly<Record<string, infer Value>> ? Extract<Value, string | number> : never
+type RecordKeyInfer<Key extends Schema> = Extract<Infer<Key>, string | number>
+type RecordOutput<Key extends Schema, Item extends Schema> = Schema<Record<RecordKeyInfer<Key>, Infer<Item>>> & { readonly key: Key; readonly item: Item }
+
 let cyclicSchemaId = 0
 
 const primitive = <T>(kind: string, check: (value: unknown) => value is T, options: SchemaOptions = {}): Schema<T> => {
@@ -136,6 +144,68 @@ function schemaWithOptions(definition: Record<string, unknown>, options: SchemaO
   const output = { ...definition }
   applySchemaOptions(output, options)
   return output
+}
+
+function createRecord<Item extends Schema>(item: Item, options?: RecordOptions): Schema<Record<string, Infer<Item>>> & { readonly item: Item }
+function createRecord<Key extends Schema, Item extends Schema>(key: Key, item: Item, options?: RecordOptions): RecordOutput<Key, Item>
+function createRecord(first: Schema, second?: Schema | RecordOptions, third: RecordOptions = {}): Schema {
+  const keyed = isSchemaValue(second)
+  const key = keyed ? first : undefined
+  const item = (keyed ? second : first) as Schema
+  const options = (keyed ? third : second ?? {}) as RecordOptions
+  validateSchemaOptions(options, "record")
+
+  const literalKeys = key ? recordLiteralKeys(key) : undefined
+  if (literalKeys && literalKeys.length > 0) {
+    const shape = Object.fromEntries(literalKeys.map((value) => [String(value), item])) as Record<string, Schema>
+    const object = t.Object(shape, options)
+    return { ...object, key, item } as RecordOutput<Schema, Schema>
+  }
+
+  const valueDefinition = item.definition ?? { type: item.kind }
+  const keyPattern = key ? recordKeyPattern(key) : undefined
+  const definition = {
+    ...schemaDefinition("object", options),
+    ...(keyPattern ? { patternProperties: { [keyPattern]: valueDefinition } } : { additionalProperties: valueDefinition }),
+  }
+  return runtimeSchema({ kind: "record", ...(key ? { key } : {}), item, definition })
+}
+
+function recordLiteralKeys(schema: Schema): Array<string | number> | undefined {
+  if (schema.kind === "literal") {
+    const value = schema.definition?.const
+    return typeof value === "string" || typeof value === "number" ? [value] : undefined
+  }
+  if (schema.kind === "enum" && Array.isArray(schema.definition?.enum)) {
+    const values = schema.definition.enum.filter((value): value is string | number => typeof value === "string" || typeof value === "number")
+    return values.length === schema.definition.enum.length ? values : undefined
+  }
+  if (schema.kind === "union" && Array.isArray(schema.items)) {
+    const values = schema.items.flatMap((item) => recordLiteralKeys(item) ?? [])
+    return values.length === schema.items.length ? values : undefined
+  }
+  return undefined
+}
+
+function recordKeyPattern(schema: Schema): string | undefined {
+  if (schema.kind === "integer") return "^-?(?:0|[1-9][0-9]*)$"
+  if (schema.kind === "number") return "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+  if (schema.kind === "template-literal") return typeof schema.definition?.pattern === "string" ? schema.definition.pattern : "^.*$"
+  if (schema.kind === "string") return typeof schema.definition?.pattern === "string" ? schema.definition.pattern : "^.*$"
+  return undefined
+}
+
+function createComposite<Items extends readonly ObjectSchema<any>[]>(items: Items, options?: ObjectOptions): Schema<CompositeInfer<Items>>
+function createComposite<Left extends ObjectSchema<any>, Right extends ObjectSchema<any>>(left: Left, right: Right): Schema<Infer<Left> & Infer<Right>>
+function createComposite(first: ObjectSchema<any> | readonly ObjectSchema<any>[], second?: ObjectSchema<any> | ObjectOptions): Schema {
+  const items = Array.isArray(first) ? first : [first, second as ObjectSchema<any>]
+  const options = Array.isArray(first) ? (second as ObjectOptions | undefined) ?? {} : {}
+  const shape: Record<string, Schema> = {}
+  for (const item of items) {
+    if (!item?.shape) throw new TypeError("Composite requires object schemas")
+    for (const [key, value] of Object.entries(item.shape) as [string, Schema][]) shape[key] = value
+  }
+  return t.Object(shape, options)
 }
 
 export const t = {
@@ -283,7 +353,7 @@ export const t = {
     kind: item.kind,
     optional: true,
     inner: item,
-    definition: schemaWithOptions(item.definition ?? { type: item.kind }, options ?? {}),
+    definition: schemaWithOptions({ ...(item.definition ?? { type: item.kind }), "x-nelysia-optional": true }, options ?? {}),
     validate(value, path = "body") {
       if (value === undefined) return undefined
       return item.validate(value, path) as Infer<Item> | Promise<Infer<Item>>
@@ -299,11 +369,12 @@ export const t = {
       return value
     }
   }),
-  TemplateLiteral: <Parts extends readonly (string | Schema)[]>(parts: Parts, options: TemplateLiteralOptions = {}): Schema<string> & { readonly templateParts: Parts } => {
+  TemplateLiteral: <Parts extends readonly (string | Schema)[]>(parts: Parts | string, options: TemplateLiteralOptions = {}): Schema<string> & { readonly templateParts: Parts | readonly (string | Schema)[] } => {
     validateSchemaOptions(options, "template-literal")
-    const generatedPattern = `^${parts.map(templateFragment).join("")}$`
+    const normalizedParts = typeof parts === "string" ? parseTemplateLiteral(parts) : parts
+    const generatedPattern = `^${normalizedParts.map(templateFragment).join("")}$`
     const definition = schemaWithOptions({ type: "string", pattern: generatedPattern, "x-templateLiteral": true }, options)
-    return runtimeSchema<string, { readonly templateParts: Parts }>({ kind: "template-literal", templateParts: parts, definition })
+    return runtimeSchema<string, { readonly templateParts: Parts | readonly (string | Schema)[] }>({ kind: "template-literal", templateParts: normalizedParts, definition })
   },
   Partial: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>, options?: ObjectOptions): Schema<Partial<ShapeInfer<Shape>>> => {
     const shape = Object.fromEntries(Object.entries(schema.shape).map(([key, item]) => [key, t.Optional(item)])) as Shape
@@ -333,22 +404,20 @@ export const t = {
       return output as UnionToIntersection<Infer<Items[number]>>
     }
   }),
-  Enum: <Values extends readonly (string | number)[]>(values: Values, options?: SchemaOptions): Schema<Values[number]> => ({
-    kind: "enum",
-    definition: schemaWithOptions({ enum: [...values] }, options ?? {}),
-    validate(value, path = "body") {
-      if (!values.includes(value as Values[number])) throw new HttpError(400, `${path} must be one of ${values.join(", ")}`)
-      return value as Values[number]
+  Enum: <Input extends EnumInput>(values: Input, options?: SchemaOptions): Schema<EnumInfer<Input>> => {
+    const entries = Array.isArray(values)
+      ? [...values]
+      : Object.keys(values).filter((key) => Number.isNaN(Number(key))).map((key) => (values as Readonly<Record<string, string | number>>)[key])
+    return {
+      kind: "enum",
+      definition: schemaWithOptions({ enum: entries }, options ?? {}),
+      validate(value, path = "body") {
+        if (!entries.some((entry) => Object.is(entry, value))) throw new HttpError(400, `${path} must be one of ${entries.join(", ")}`)
+        return value as EnumInfer<Input>
+      }
     }
-  }),
-  Record: <Item extends Schema>(item: Item, options: RecordOptions = {}): Schema<Record<string, Infer<Item>>> & { readonly item: Item } => {
-    validateSchemaOptions(options, "record")
-    const definition = {
-      ...schemaDefinition("object", options),
-      additionalProperties: item.definition ?? { type: item.kind },
-    }
-    return runtimeSchema<Record<string, Infer<Item>>, { readonly item: Item }>({ kind: "record", item, definition })
   },
+  Record: createRecord,
   Required: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>, options: ObjectOptions = {}): ObjectSchema<RequiredShape<Shape>> => {
     const shape = Object.fromEntries(Object.entries(schema.shape).map(([key, item]) => [key, unwrapOptional(item)])) as RequiredShape<Shape>
     return t.Object(shape, objectOptionsFromSchema(schema, options)) as ObjectSchema<RequiredShape<Shape>>
@@ -356,14 +425,7 @@ export const t = {
   Readonly: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>, options: ObjectOptions = {}): Schema<Readonly<ShapeInfer<Shape>>> => {
     return t.Object(schema.shape, { ...objectOptionsFromSchema(schema, options), readOnly: true }) as Schema<Readonly<ShapeInfer<Shape>>>
   },
-  Composite: <Items extends readonly ObjectSchema<Record<string, Schema>>[]>(items: Items, options: ObjectOptions = {}): Schema<CompositeInfer<Items>> => {
-    const shape: Record<string, Schema> = {}
-    for (const item of items) {
-      if (!item.shape) throw new TypeError("Composite requires object schemas")
-      for (const [key, value] of Object.entries(item.shape)) shape[key] = value
-    }
-    return t.Object(shape, options) as Schema<CompositeInfer<Items>>
-  },
+  Composite: createComposite,
 }
 
 function schemaDefinition(kind: string, options: SchemaOptions): Record<string, unknown> {
@@ -421,7 +483,26 @@ function templateFragment(part: string | Schema): string {
   if (part.kind === "enum" && Array.isArray(part.definition?.enum)) return `(?:${part.definition.enum.map((value) => escapePattern(String(value))).join("|")})`
   if (part.kind === "integer" || part.kind === "number") return "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?"
   if (part.kind === "boolean") return "(?:true|false)"
+  if (part.kind === "bigint") return "-?(?:0|[1-9]\\d*)n"
   return ".*"
+}
+
+function parseTemplateLiteral(template: string): readonly (string | Schema)[] {
+  const parts: Array<string | Schema> = []
+  const token = /\$\{([^}]+)\}/g
+  let cursor = 0
+  for (let match = token.exec(template); match; match = token.exec(template)) {
+    if (match.index > cursor) parts.push(template.slice(cursor, match.index))
+    const expression = match[1]?.trim()
+    if (expression === "number") parts.push(t.Number())
+    else if (expression === "integer") parts.push(t.Integer())
+    else if (expression === "boolean") parts.push(t.Boolean())
+    else if (expression === "bigint") parts.push(t.BigInt())
+    else parts.push(`\${${match[1]}}`)
+    cursor = match.index + match[0].length
+  }
+  if (cursor < template.length) parts.push(template.slice(cursor))
+  return parts
 }
 
 function escapePattern(value: string): string {

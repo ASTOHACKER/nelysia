@@ -99,6 +99,18 @@ function convertNode(node: SchemaIRNode, state: ConversionState, inlineRoot = fa
     case "object":
       return convertObject(node, metadata, state)
     case "record":
+      if (isRecord(definition.patternProperties)) {
+        const output: Record<string, unknown> = {
+          ...metadata,
+          patternProperties: Object.fromEntries(Object.entries(definition.patternProperties).map(([pattern, value]) => [pattern, convertRaw(value, state)])),
+          type: "object",
+        }
+        if (Object.prototype.hasOwnProperty.call(definition, "additionalProperties")) {
+          const additional = definition.additionalProperties
+          output.additionalProperties = typeof additional === "boolean" ? additional : convertRaw(additional, state)
+        }
+        return output
+      }
       return { ...metadata, additionalProperties: node.children[0] ? convertNode(node.children[0], state) : convertRaw(definition.additionalProperties, state), type: "object" }
     case "array":
       return { ...metadata, items: node.children[0] ? convertNode(node.children[0], state) : convertRaw(definition.items, state), type: "array" }
@@ -134,6 +146,9 @@ function convertObject(node: SchemaIRNode, metadata: Record<string, unknown>, st
     const additional = node.definition.additionalProperties
     output.additionalProperties = typeof additional === "boolean" ? additional : convertRaw(additional, state)
   }
+  if (isRecord(node.definition.patternProperties)) {
+    output.patternProperties = Object.fromEntries(Object.entries(node.definition.patternProperties).map(([pattern, value]) => [pattern, convertRaw(value, state)]))
+  }
   return output
 }
 
@@ -155,10 +170,10 @@ function convertNullable(node: SchemaIRNode, metadata: Record<string, unknown>, 
 }
 
 function metadataFrom(definition: Readonly<Record<string, unknown>>, asComponent: boolean): Record<string, unknown> {
-  const structural = new Set(["type", "properties", "required", "additionalProperties", "items", "prefixItems", "anyOf", "oneOf", "allOf", "not", "const", "enum"])
+  const structural = new Set(["type", "properties", "required", "additionalProperties", "patternProperties", "items", "prefixItems", "anyOf", "oneOf", "allOf", "not", "const", "enum"])
   const output: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(definition)) {
-    if (structural.has(key) || (asComponent && key === "$id")) continue
+    if (structural.has(key) || key.startsWith("x-nelysia-") || (asComponent && key === "$id")) continue
     output[key] = value
   }
   return output
@@ -203,6 +218,9 @@ function convertRaw(value: unknown, state: ConversionState): Record<string, unkn
   for (const [key, entry] of Object.entries(value)) {
     if (key === "anyOf" || key === "oneOf" || key === "allOf" || key === "prefixItems") output[key] = Array.isArray(entry) ? entry.map((item) => convertRaw(item, state)) : entry
     else if (key === "items" || key === "additionalProperties") output[key] = isRecord(entry) ? convertRaw(entry, state) : entry
+    else if (key === "properties") output[key] = isRecord(entry) ? Object.fromEntries(Object.entries(entry).map(([property, value]) => [property, convertRaw(value, state)])) : entry
+    else if (key === "patternProperties") output[key] = isRecord(entry) ? Object.fromEntries(Object.entries(entry).map(([pattern, value]) => [pattern, convertRaw(value, state)])) : entry
+    else if (key.startsWith("x-nelysia-")) continue
     else if (key === "type" && (entry === "any" || entry === "unknown")) continue
     else if (key === "type" && entry === "never") { output.not = {}; continue }
     else output[key] = entry

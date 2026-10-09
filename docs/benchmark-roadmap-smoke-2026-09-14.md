@@ -1,6 +1,6 @@
 # Post-v0.5.1 Benchmark Smoke Evidence — 2026-09-14
 
-> **Archived — historical smoke, not current.** Current package คือ `v1.2.1`; ดู evidence ล่าสุดที่ [benchmark-latest-readable-2026-09-16.md](./benchmark-latest-readable-2026-09-16.md).
+> **Archived — historical smoke, not current.** Current package คือ `v1.2.2`; ดู evidence ล่าสุดที่ [benchmark-latest-readable-2026-09-16.md](./benchmark-latest-readable-2026-09-16.md).
 
 This is a runner smoke after the roadmap changes. It verifies that the revised
 Bun workload taxonomy, Hono comparison, RSS sampling, and failure accounting

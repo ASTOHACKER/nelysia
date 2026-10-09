@@ -88,6 +88,38 @@ test("converts object additional-property schemas", () => {
   })
 })
 
+test("converts TypeBox-style keyed records to patternProperties", () => {
+  const schema = t.Record(t.Integer(), t.Number({ minimum: 1 }))
+
+  assert.deepEqual(schemaToJSONSchema(normalizeSchemaIR(schema)), {
+    patternProperties: {
+      "^-?(?:0|[1-9][0-9]*)$": { minimum: 1, type: "number" },
+    },
+    type: "object",
+  })
+})
+
+test("converts nested schemas inside keyed records", () => {
+  const schema = t.Record(t.String(), t.Object({ count: t.Optional(t.Number()) }))
+
+  assert.deepEqual(schemaToJSONSchema(normalizeSchemaIR(schema)), {
+    patternProperties: {
+      "^.*$": { properties: { count: { type: "number" } }, required: [], type: "object" },
+    },
+    type: "object",
+  })
+})
+
+test("preserves keyed Record additional-property policy", () => {
+  const schema = t.Record(t.String(), t.Number(), { additionalProperties: false })
+
+  assert.deepEqual(schemaToJSONSchema(normalizeSchemaIR(schema)), {
+    additionalProperties: false,
+    patternProperties: { "^.*$": { type: "number" } },
+    type: "object",
+  })
+})
+
 test("supports OpenAPI 3.0 nullable and tuple compatibility mode", () => {
   const schema = t.Object({ value: t.Nullable(t.String()), pair: t.Tuple([t.String(), t.Number()] as const) })
   const output = schemaToOpenAPI(normalizeSchemaIR(schema), { dialect: "openapi-3.0" })

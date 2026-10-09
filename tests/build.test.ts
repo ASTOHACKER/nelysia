@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { spawn } from "node:child_process"
-import { compile, createGeneratedMatcher, generateBuildArtifact, generateMatcherSource, generateSerializerSource, generateValidatorSource, generateServerSource, generateStandaloneServerSource, unsupportedRouteDiagnostic } from "../packages/compiler/src/index.ts"
+import { compile, createGeneratedMatcher, createGeneratedValidator, createSchemaIR, generateBuildArtifact, generateMatcherSource, generateSerializerSource, generateValidatorSource, generateServerSource, generateStandaloneServerSource, unsupportedRouteDiagnostic } from "../packages/compiler/src/index.ts"
 import { Nelysia, t } from "../packages/core/src/index.ts"
 import { normalizeSchemaIR } from "../packages/core/src/schema-ir.ts"
 import { lowerSchemaIR } from "../packages/compiler/src/dispatcher.ts"
@@ -159,12 +159,41 @@ test("generated validators apply nested additional-property schemas", async () =
   await assert.rejects(async () => await schema.validate({ fixed: "ok", score: 0 }), /minimum/)
 })
 
+test("generated validators preserve TypeBox keyed Record semantics", () => {
+  const schema = t.Record(t.String(), t.Number({ minimum: 1 }))
+  const generated = createGeneratedValidator(createSchemaIR(schema)!)
+  assert.deepEqual(generated.validate({ score: 2 }), { score: 2 })
+  assert.throws(() => generated.validate({ score: 0 }), /minimum/)
+  assert.throws(() => generated.validate({ score: "2" }), /number/)
+})
+
+test("date schemas stay on the reference lane instead of changing value semantics", () => {
+  const app = new Nelysia().get("/date", () => new Date("2026-01-01T00:00:00Z"), { response: t.Date() })
+  const compiled = compile(app)
+  assert.equal(compiled.analyses[0]?.execution, "generic")
+})
+
 test("static-only builds emit a standalone handler without the generic router", () => {
   const app = new Nelysia().get("/", { ok: true }).get("/users/:id", ({ params }) => ({ id: params.id }))
   const source = generateStandaloneServerSource({ entry: "./app.ts", target: "bun", compiled: compile(app) })
   assert.ok(source)
   assert.doesNotMatch(source, /createCompiledBunHandler|createNodeServer/)
   assert.match(source, /const routes/)
+})
+
+test("standalone validators preserve optional and keyed Record schema definitions", () => {
+  const app = new Nelysia().post("/records", ({ body }) => body, {
+    body: t.Object({
+      values: t.Record(t.String(), t.Number({ minimum: 1 })),
+      optional: t.Optional(t.String()),
+    }),
+  })
+  const source = generateStandaloneServerSource({ entry: "./app.ts", target: "bun", compiled: compile(app) })
+
+  assert.ok(source)
+  assert.match(source, /patternProperties/)
+  assert.match(source, /x-nelysia-optional/)
+  assert.match(source, /must be never/)
 })
 
 test("generated standalone handlers execute static and params-only routes", async () => {

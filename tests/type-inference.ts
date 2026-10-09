@@ -113,19 +113,39 @@ void bigintValue
 const invalidBigintValue: Infer<typeof bigintSchema> = 2
 void invalidBigintValue
 
+const keyedRecordSchema = t.Record(t.String(), t.Number({ minimum: 1 }))
+const keyedRecordValue: Infer<typeof keyedRecordSchema> = { score: 2 }
+void keyedRecordValue
+// @ts-expect-error keyed records must infer the value schema
+const invalidKeyedRecordValue: Infer<typeof keyedRecordSchema> = { score: "2" }
+void invalidKeyedRecordValue
+
+const enumObjectSchema = t.Enum({ Admin: "admin", User: "user" } as const)
+const enumObjectValue: Infer<typeof enumObjectSchema> = "admin"
+void enumObjectValue
+// @ts-expect-error enum-like objects must infer their values
+const invalidEnumObjectValue: Infer<typeof enumObjectSchema> = "owner"
+void invalidEnumObjectValue
+
 const transformSource = t.Object({ id: t.String(), name: t.Optional(t.String()) })
 const requiredSchema = t.Required(transformSource)
 const readonlySchema = t.Readonly(transformSource)
 const compositeSchema = t.Composite([t.Object({ id: t.String() }), t.Object({ active: t.Boolean() })] as const)
+const binaryCompositeSchema = t.Composite(t.Object({ id: t.String() }), t.Object({ active: t.Boolean() }))
 const templateSchema = t.TemplateLiteral([t.Literal("user-"), t.Integer()] as const)
+const templateStringSchema = t.TemplateLiteral("user-${number}")
 const requiredValue: Infer<typeof requiredSchema> = { id: "1", name: "Ada" }
 const readonlyValue: Infer<typeof readonlySchema> = { id: "1" }
 const compositeValue: Infer<typeof compositeSchema> = { id: "1", active: true }
+const binaryCompositeValue: Infer<typeof binaryCompositeSchema> = { id: "1", active: true }
 const templateValue: Infer<typeof templateSchema> = "user-42"
+const templateStringValue: Infer<typeof templateStringSchema> = "user-42"
 void requiredValue
 void readonlyValue
 void compositeValue
+void binaryCompositeValue
 void templateValue
+void templateStringValue
 // @ts-expect-error Required must make the optional property required
 const invalidRequiredValue: Infer<typeof requiredSchema> = { id: "1" }
 void invalidRequiredValue

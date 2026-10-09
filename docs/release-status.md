@@ -40,7 +40,7 @@ claims.
 - [x] Bun three-seed parity evidence is recorded with zero failures and zero status/body mismatches
 - [x] TypeBox `1.3.30` schema compatibility matrix covers 29 constructors, 13 cases, four runtimes, OpenAPI/JSON Schema, and explicit fallback diagnostics
 - [x] Deterministic schema fuzz, generated/reference differential checks, and validation-cost evidence are recorded without a performance claim
-- [x] Local full verification passes typecheck, 262 tests, Bun tests, package consumer/import checks, 5/5 framework fixtures, integrations, and docs checks
+- [x] Local full verification passes typecheck, 272 tests, Bun tests, package consumer/import checks, 5/5 framework fixtures, integrations, and docs checks
 - [ ] Hybrid AOT dispatcher reaches the full Bun, Node, Fetch, memory, latency, and stability gates
 - [ ] Node and Fetch throughput/latency matrix is recorded against its declared baselines
 - [ ] 25 package exports, five framework fixtures, and integration smoke are attached to the same workspace evidence set
