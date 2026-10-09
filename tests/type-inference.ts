@@ -98,6 +98,41 @@ const schemaSurfaceValue: SchemaSurface = {
 }
 void schemaSurfaceValue
 
+const tupleSchema = t.Tuple([t.String(), t.Integer()] as const)
+type TupleValue = Infer<typeof tupleSchema>
+const tupleValue: TupleValue = ["id", 1]
+void tupleValue
+// @ts-expect-error tuple item order and length must be preserved
+const invalidTupleValue: TupleValue = [1, "id"]
+void invalidTupleValue
+
+const bigintSchema = t.BigInt({ minimum: 1n })
+const bigintValue: Infer<typeof bigintSchema> = 2n
+void bigintValue
+// @ts-expect-error bigint schemas must not infer number values
+const invalidBigintValue: Infer<typeof bigintSchema> = 2
+void invalidBigintValue
+
+const transformSource = t.Object({ id: t.String(), name: t.Optional(t.String()) })
+const requiredSchema = t.Required(transformSource)
+const readonlySchema = t.Readonly(transformSource)
+const compositeSchema = t.Composite([t.Object({ id: t.String() }), t.Object({ active: t.Boolean() })] as const)
+const templateSchema = t.TemplateLiteral([t.Literal("user-"), t.Integer()] as const)
+const requiredValue: Infer<typeof requiredSchema> = { id: "1", name: "Ada" }
+const readonlyValue: Infer<typeof readonlySchema> = { id: "1" }
+const compositeValue: Infer<typeof compositeSchema> = { id: "1", active: true }
+const templateValue: Infer<typeof templateSchema> = "user-42"
+void requiredValue
+void readonlyValue
+void compositeValue
+void templateValue
+// @ts-expect-error Required must make the optional property required
+const invalidRequiredValue: Infer<typeof requiredSchema> = { id: "1" }
+void invalidRequiredValue
+// @ts-expect-error Composite must require properties from every object branch
+const invalidCompositeValue: Infer<typeof compositeSchema> = { id: "1" }
+void invalidCompositeValue
+
 async function responseAndErrorsInjectChecks() {
   const result = await responseAndErrorsApp.inject({ method: "POST", path: "/response-and-errors" })
   const success = await result.json()

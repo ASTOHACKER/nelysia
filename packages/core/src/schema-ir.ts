@@ -26,6 +26,7 @@ type SchemaWithChildren = Schema & {
   readonly item?: Schema
   readonly items?: readonly Schema[]
   readonly inner?: Schema
+  readonly templateParts?: readonly (string | Schema)[]
 }
 
 const compiledKinds = new Set([
@@ -49,6 +50,7 @@ const compiledKinds = new Set([
   "intersect",
   "nullable",
   "optional",
+  "template-literal",
 ])
 
 const referenceKinds = new Set(["standard"])
@@ -129,6 +131,7 @@ function getChildSchemas(schema: Schema): { readonly schemas: readonly Schema[];
     return { schemas: keys.map((key) => source.shape?.[key]).filter((child): child is Schema => child !== undefined), keys }
   }
   if (source.items && Array.isArray(source.items)) return { schemas: source.items, keys: [] }
+  if (source.templateParts && Array.isArray(source.templateParts)) return { schemas: source.templateParts.filter((part): part is Schema => typeof part !== "string"), keys: [] }
   if (source.item) return { schemas: [source.item], keys: [] }
   if (source.inner) return { schemas: [source.inner], keys: [] }
   return { schemas: [], keys: [] }

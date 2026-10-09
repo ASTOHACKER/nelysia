@@ -12,6 +12,7 @@ export interface Schema<T = unknown> {
   readonly item?: Schema
   readonly items?: readonly Schema[]
   readonly inner?: Schema
+  readonly templateParts?: readonly (string | Schema)[]
 }
 
 export interface StandardSchema<T = unknown> {
@@ -60,6 +61,26 @@ export interface ArrayOptions extends SchemaOptions {
   readonly uniqueItems?: boolean
 }
 
+export interface BigIntOptions extends SchemaOptions {
+  readonly exclusiveMaximum?: bigint
+  readonly exclusiveMinimum?: bigint
+  readonly maximum?: bigint
+  readonly minimum?: bigint
+  readonly multipleOf?: bigint
+}
+
+export interface TupleOptions extends SchemaOptions {
+  readonly maxItems?: number
+  readonly minItems?: number
+}
+
+export interface RecordOptions extends SchemaOptions {
+  readonly maxProperties?: number
+  readonly minProperties?: number
+}
+
+export interface TemplateLiteralOptions extends StringOptions {}
+
 export type Infer<S extends Schema> = S extends Schema<infer T> ? T : never
 
 type UnionToIntersection<Value> = (Value extends unknown ? (argument: Value) => void : never) extends ((argument: infer Intersection) => void) ? Intersection : never
@@ -71,6 +92,16 @@ type ShapeInfer<Shape extends Record<string, Schema>> = {
 }
 
 type ObjectSchema<Shape extends Record<string, Schema>> = Schema<ShapeInfer<Shape>> & { readonly shape: Shape }
+
+type TupleInfer<Items extends readonly Schema[]> = { -readonly [K in keyof Items]: Infer<Items[K]> }
+
+type RemoveOptional<SchemaType extends Schema> = Schema<Exclude<Infer<SchemaType>, undefined>>
+
+type RequiredShape<Shape extends Record<string, Schema>> = {
+  [K in keyof Shape]: RemoveOptional<Shape[K]>
+}
+
+type CompositeInfer<Items extends readonly Schema[]> = UnionToIntersection<Infer<Items[number]>>
 
 const primitive = <T>(kind: string, check: (value: unknown) => value is T, options: SchemaOptions = {}): Schema<T> => {
   validateSchemaOptions(options, kind)
@@ -86,11 +117,38 @@ const primitive = <T>(kind: string, check: (value: unknown) => value is T, optio
   return schema
 }
 
+function runtimeSchema<T, Extra extends object = {}>(schema: Omit<Schema<T>, "validate"> & Extra): Schema<T> & Extra {
+  let normalized: SchemaIR
+  const result = {
+    ...schema,
+    validate(value: unknown, path = "body") {
+      return validateSchema(value, normalized, { path }) as T
+    }
+  } as Schema<T> & Extra
+  normalized = normalizeSchemaIR(result)
+  return result
+}
+
+function schemaWithOptions(definition: Record<string, unknown>, options: SchemaOptions): Record<string, unknown> {
+  const output = { ...definition }
+  applySchemaOptions(output, options)
+  return output
+}
+
 export const t = {
   String: (options?: StringOptions) => primitive("string", (value): value is string => typeof value === "string", options),
   Number: (options?: NumberOptions) => primitive("number", (value): value is number => typeof value === "number" && Number.isFinite(value), options),
   Integer: (options?: NumberOptions) => primitive("integer", (value): value is number => typeof value === "number" && Number.isInteger(value), options),
-  Boolean: () => primitive("boolean", (value): value is boolean => typeof value === "boolean"),
+  Boolean: (options?: SchemaOptions) => primitive("boolean", (value): value is boolean => typeof value === "boolean", options),
+  BigInt: (options?: BigIntOptions) => {
+    validateSchemaOptions(options ?? {}, "bigint")
+    return runtimeSchema<bigint>({
+      kind: "bigint",
+      definition: { ...schemaDefinition("integer", options ?? {}), "x-nelysia-kind": "bigint" },
+    })
+  },
+  Null: (options?: SchemaOptions) => runtimeSchema<null>({ kind: "null", definition: schemaDefinition("null", options ?? {}) }),
+  Never: (options?: SchemaOptions) => runtimeSchema<never>({ kind: "never", definition: schemaDefinition("never", options ?? {}) }),
   Object: <Shape extends Record<string, Schema>>(shape: Shape, options: ObjectOptions = {}): ObjectSchema<Shape> => {
     validateSchemaOptions(options, "object")
     let normalized: SchemaIR
@@ -146,18 +204,28 @@ export const t = {
     normalized = normalizeSchemaIR(schema)
     return schema
   },
-  Literal: <T extends string | number | boolean | null>(value: T): Schema<T> => ({
+  Tuple: <Items extends readonly Schema[]>(items: Items, options: TupleOptions = {}): Schema<TupleInfer<Items>> & { readonly items: Items } => {
+    validateSchemaOptions(options, "tuple")
+    const definition = {
+      ...schemaDefinition("array", options),
+      prefixItems: items.map((item) => item.definition ?? { type: item.kind }),
+      minItems: options.minItems ?? items.length,
+      maxItems: options.maxItems ?? items.length,
+    }
+    return runtimeSchema<TupleInfer<Items>, { readonly items: Items }>({ kind: "tuple", items, definition })
+  },
+  Literal: <T extends string | number | boolean | null>(value: T, options?: SchemaOptions): Schema<T> => ({
     kind: "literal",
-    definition: { const: value },
+    definition: schemaWithOptions({ const: value }, options ?? {}),
     validate(input, path = "body") {
       if (input !== value) throw new HttpError(400, `${path} must be ${String(value)}`)
       return value
     }
   }),
-  Union: <Items extends readonly Schema[]>(items: Items): Schema<Infer<Items[number]>> & { readonly items: Items } => ({
+  Union: <Items extends readonly Schema[]>(items: Items, options?: SchemaOptions): Schema<Infer<Items[number]>> & { readonly items: Items } => ({
     kind: "union",
     items,
-    definition: { anyOf: items.map((item) => item.definition ?? { type: item.kind }) },
+    definition: schemaWithOptions({ anyOf: items.map((item) => item.definition ?? { type: item.kind }) }, options ?? {}),
     async validate(value, path = "body") {
       for (const item of items) {
         try { return await item.validate(value, path) as Infer<Items[number]> } catch { /* try next branch */ }
@@ -165,52 +233,58 @@ export const t = {
       throw new HttpError(400, `${path} does not match any allowed value`)
     }
   }),
-  Nullable: <Item extends Schema>(item: Item): Schema<Infer<Item> | null> & { readonly inner: Item } => ({
+  Nullable: <Item extends Schema>(item: Item, options?: SchemaOptions): Schema<Infer<Item> | null> & { readonly inner: Item } => ({
     kind: "nullable",
     inner: item,
-    definition: { anyOf: [item.definition ?? { type: item.kind }, { type: "null" }] },
+    definition: schemaWithOptions({ anyOf: [item.definition ?? { type: item.kind }, { type: "null" }] }, options ?? {}),
     validate(value, path = "body") {
       if (value === null) return null
       return item.validate(value, path) as Infer<Item> | Promise<Infer<Item>>
     }
   }),
-  Optional: <Item extends Schema>(item: Item): Schema<Infer<Item> | undefined> & { readonly optional: true; readonly inner: Item } => ({
+  Optional: <Item extends Schema>(item: Item, options?: SchemaOptions): Schema<Infer<Item> | undefined> & { readonly optional: true; readonly inner: Item } => ({
     kind: item.kind,
     optional: true,
     inner: item,
-    definition: item.definition,
+    definition: schemaWithOptions(item.definition ?? { type: item.kind }, options ?? {}),
     validate(value, path = "body") {
       if (value === undefined) return undefined
       return item.validate(value, path) as Infer<Item> | Promise<Infer<Item>>
     }
   }),
-  Any: (): Schema<unknown> => ({ kind: "any", definition: {}, validate: (value) => value }),
-  Unknown: (): Schema<unknown> => ({ kind: "unknown", definition: {}, validate: (value) => value }),
-  Date: (): Schema<Date> => ({
+  Any: (options?: SchemaOptions): Schema<unknown> => ({ kind: "any", definition: schemaDefinition("any", options ?? {}), validate: (value) => value }),
+  Unknown: (options?: SchemaOptions): Schema<unknown> => ({ kind: "unknown", definition: schemaDefinition("unknown", options ?? {}), validate: (value) => value }),
+  Date: (options?: SchemaOptions): Schema<Date> => ({
     kind: "date",
-    definition: { type: "string", format: "date-time" },
+    definition: schemaWithOptions({ type: "string", format: "date-time" }, options ?? {}),
     validate(value, path = "body") {
       if (!(value instanceof Date) || Number.isNaN(value.getTime())) throw new HttpError(400, `${path} must be date`)
       return value
     }
   }),
-  Partial: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>): Schema<Partial<ShapeInfer<Shape>>> => {
+  TemplateLiteral: <Parts extends readonly (string | Schema)[]>(parts: Parts, options: TemplateLiteralOptions = {}): Schema<string> & { readonly templateParts: Parts } => {
+    validateSchemaOptions(options, "template-literal")
+    const generatedPattern = `^${parts.map(templateFragment).join("")}$`
+    const definition = schemaWithOptions({ type: "string", pattern: generatedPattern, "x-templateLiteral": true }, options)
+    return runtimeSchema<string, { readonly templateParts: Parts }>({ kind: "template-literal", templateParts: parts, definition })
+  },
+  Partial: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>, options?: ObjectOptions): Schema<Partial<ShapeInfer<Shape>>> => {
     const shape = Object.fromEntries(Object.entries(schema.shape).map(([key, item]) => [key, t.Optional(item)])) as Shape
-    return t.Object(shape) as Schema<Partial<ShapeInfer<Shape>>>
+    return t.Object(shape, options) as Schema<Partial<ShapeInfer<Shape>>>
   },
-  Pick: <Shape extends Record<string, Schema>, Keys extends readonly (keyof Shape)[]>(schema: ObjectSchema<Shape>, keys: Keys): Schema<Pick<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>> => {
+  Pick: <Shape extends Record<string, Schema>, Keys extends readonly (keyof Shape)[]>(schema: ObjectSchema<Shape>, keys: Keys, options?: ObjectOptions): Schema<Pick<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>> => {
     const shape = Object.fromEntries(keys.map((key) => [key, schema.shape[key]])) as Pick<Shape, Keys[number]>
-    return t.Object(shape) as unknown as Schema<Pick<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
+    return t.Object(shape, options) as unknown as Schema<Pick<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
   },
-  Omit: <Shape extends Record<string, Schema>, Keys extends readonly (keyof Shape)[]>(schema: ObjectSchema<Shape>, keys: Keys): Schema<Omit<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>> => {
+  Omit: <Shape extends Record<string, Schema>, Keys extends readonly (keyof Shape)[]>(schema: ObjectSchema<Shape>, keys: Keys, options?: ObjectOptions): Schema<Omit<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>> => {
     const excluded = new Set(keys)
     const shape = Object.fromEntries(Object.entries(schema.shape).filter(([key]) => !excluded.has(key))) as Omit<Shape, Keys[number]>
-    return t.Object(shape) as unknown as Schema<Omit<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
+    return t.Object(shape, options) as unknown as Schema<Omit<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
   },
-  Intersect: <Items extends readonly Schema[]>(items: Items): Schema<UnionToIntersection<Infer<Items[number]>>> & { readonly items: Items } => ({
+  Intersect: <Items extends readonly Schema[]>(items: Items, options?: SchemaOptions): Schema<UnionToIntersection<Infer<Items[number]>>> & { readonly items: Items } => ({
     kind: "intersect",
     items,
-    definition: { allOf: items.map((item) => item.definition ?? { type: item.kind }) },
+    definition: schemaWithOptions({ allOf: items.map((item) => item.definition ?? { type: item.kind }) }, options ?? {}),
     async validate(value, path = "body") {
       let output = value
       for (const item of items) {
@@ -222,37 +296,86 @@ export const t = {
       return output as UnionToIntersection<Infer<Items[number]>>
     }
   }),
-  Enum: <Values extends readonly (string | number)[]>(values: Values): Schema<Values[number]> => ({
+  Enum: <Values extends readonly (string | number)[]>(values: Values, options?: SchemaOptions): Schema<Values[number]> => ({
     kind: "enum",
-    definition: { enum: [...values] },
+    definition: schemaWithOptions({ enum: [...values] }, options ?? {}),
     validate(value, path = "body") {
       if (!values.includes(value as Values[number])) throw new HttpError(400, `${path} must be one of ${values.join(", ")}`)
       return value as Values[number]
     }
   }),
-  Record: <Item extends Schema>(item: Item): Schema<Record<string, Infer<Item>>> & { readonly item: Item } => ({
-    kind: "record",
-    item,
-    definition: { type: "object", additionalProperties: item.definition ?? { type: item.kind } },
-    async validate(value, path = "body") {
-      if (typeof value !== "object" || value === null || Array.isArray(value)) throw new HttpError(400, `${path} must be object`)
-      return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, entry]) => [key, await item.validate(entry, `${path}.${key}`)])))
+  Record: <Item extends Schema>(item: Item, options: RecordOptions = {}): Schema<Record<string, Infer<Item>>> & { readonly item: Item } => {
+    validateSchemaOptions(options, "record")
+    const definition = {
+      ...schemaDefinition("object", options),
+      additionalProperties: item.definition ?? { type: item.kind },
     }
-  })
+    return runtimeSchema<Record<string, Infer<Item>>, { readonly item: Item }>({ kind: "record", item, definition })
+  },
+  Required: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>, options: ObjectOptions = {}): ObjectSchema<RequiredShape<Shape>> => {
+    const shape = Object.fromEntries(Object.entries(schema.shape).map(([key, item]) => [key, unwrapOptional(item)])) as RequiredShape<Shape>
+    return t.Object(shape, { ...schemaOptionsFromDefinition(schema.definition), ...options }) as ObjectSchema<RequiredShape<Shape>>
+  },
+  Readonly: <Shape extends Record<string, Schema>>(schema: ObjectSchema<Shape>, options: ObjectOptions = {}): Schema<Readonly<ShapeInfer<Shape>>> => {
+    const definition = schemaOptionsFromDefinition(schema.definition)
+    return t.Object(schema.shape, { ...definition, ...options, readOnly: true }) as Schema<Readonly<ShapeInfer<Shape>>>
+  },
+  Composite: <Items extends readonly ObjectSchema<Record<string, Schema>>[]>(items: Items, options: ObjectOptions = {}): Schema<CompositeInfer<Items>> => {
+    const shape: Record<string, Schema> = {}
+    for (const item of items) {
+      if (!item.shape) throw new TypeError("Composite requires object schemas")
+      for (const [key, value] of Object.entries(item.shape)) shape[key] = value
+    }
+    return t.Object(shape, options) as Schema<CompositeInfer<Items>>
+  },
 }
 
 function schemaDefinition(kind: string, options: SchemaOptions): Record<string, unknown> {
   const definition: Record<string, unknown> = { type: kind }
+  applySchemaOptions(definition, options)
+  return definition
+}
+
+function applySchemaOptions(definition: Record<string, unknown>, options: SchemaOptions): void {
   for (const [key, value] of Object.entries(options)) {
     if (value === undefined) continue
-    if (key === "pattern" && value instanceof RegExp) {
+    if (typeof value === "bigint") {
+      definition[key] = value.toString()
+      definition[`x-${key}Type`] = "bigint"
+    } else if (key === "pattern" && value instanceof RegExp) {
       definition[key] = value.source
       definition["x-patternFlags"] = value.flags
     } else {
       definition[key] = value
     }
   }
-  return definition
+}
+
+function schemaOptionsFromDefinition(definition: Record<string, unknown> | undefined): SchemaOptions {
+  if (!definition) return {}
+  const structural = new Set(["type", "properties", "required", "items", "prefixItems", "anyOf", "allOf", "const", "enum", "additionalProperties", "x-templateLiteral"])
+  const options: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(definition)) {
+    if (!structural.has(key) && !key.startsWith("x-")) options[key] = value
+  }
+  return options
+}
+
+function unwrapOptional(schema: Schema): Schema {
+  return schema.optional === true && schema.inner ? schema.inner : schema
+}
+
+function templateFragment(part: string | Schema): string {
+  if (typeof part === "string") return escapePattern(part)
+  if (part.kind === "literal") return escapePattern(String(part.definition?.const ?? ""))
+  if (part.kind === "enum" && Array.isArray(part.definition?.enum)) return `(?:${part.definition.enum.map((value) => escapePattern(String(value))).join("|")})`
+  if (part.kind === "integer" || part.kind === "number") return "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?"
+  if (part.kind === "boolean") return "(?:true|false)"
+  return ".*"
+}
+
+function escapePattern(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 function validatePrimitiveOptions(kind: string, value: unknown, options: SchemaOptions, path: string): void {

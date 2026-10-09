@@ -803,6 +803,84 @@ test("supports reusable object schema transformations and enums", async () => {
   await assert.rejects(async () => await user.validate({ id: 1, name: "Ada", role: "owner" }))
 })
 
+test("validates tuple prefix items and exact length", async () => {
+  const tuple = t.Tuple([t.String(), t.Integer()] as const)
+  assert.deepEqual(await tuple.validate(["user", 42]), ["user", 42])
+  await assert.rejects(async () => await tuple.validate(["user"]))
+  await assert.rejects(async () => await tuple.validate(["user", "42"]))
+  await assert.rejects(async () => await tuple.validate(["user", 42, true]))
+})
+
+test("validates bigint and null schemas", async () => {
+  const bigint = t.BigInt({ minimum: 1n })
+  assert.equal(await bigint.validate(2n), 2n)
+  await assert.rejects(async () => await bigint.validate(0n))
+  await assert.rejects(async () => await bigint.validate(2))
+  assert.equal(await t.Null().validate(null), null)
+  await assert.rejects(async () => await t.Null().validate(undefined))
+  await assert.rejects(async () => await t.Never().validate("never"))
+})
+
+test("validates record values and options", async () => {
+  const record = t.Record(t.Integer({ minimum: 1 }), { minProperties: 1, maxProperties: 2 })
+  assert.deepEqual(await record.validate({ first: 1 }), { first: 1 })
+  await assert.rejects(async () => await record.validate({}))
+  await assert.rejects(async () => await record.validate({ first: 0 }))
+  await assert.rejects(async () => await record.validate({ first: 1, second: 2, third: 3 }))
+})
+
+test("required and readonly preserve transformed object contracts", async () => {
+  const source = t.Object({ id: t.String(), name: t.Optional(t.String()) })
+  const required = t.Required(source)
+  const readonly = t.Readonly(source)
+
+  await assert.rejects(async () => await required.validate({ id: "1" }))
+  assert.deepEqual(await required.validate({ id: "1", name: "Ada" }), { id: "1", name: "Ada" })
+  assert.equal(source.shape.name?.optional, true)
+  assert.equal((readonly.definition as Record<string, unknown>).readOnly, true)
+  assert.equal(source.definition?.readOnly, undefined)
+})
+
+test("composite merges object properties", async () => {
+  const composite = t.Composite([
+    t.Object({ id: t.String() }),
+    t.Object({ active: t.Boolean() }),
+  ] as const)
+  assert.deepEqual(await composite.validate({ id: "1", active: true }), { id: "1", active: true })
+  await assert.rejects(async () => await composite.validate({ id: "1" }))
+})
+
+test("template literal validates its generated pattern", async () => {
+  const template = t.TemplateLiteral([t.Literal("user-"), t.Integer()] as const)
+  assert.equal(await template.validate("user-42"), "user-42")
+  await assert.rejects(async () => await template.validate("user-ada"))
+  await assert.rejects(async () => await template.validate("admin-42"))
+})
+
+test("accepts metadata options across schema constructors", () => {
+  const options = { title: "Metadata", description: "shared options" }
+  const source = t.Object({ id: t.String() })
+  const schemas = [
+    t.Any(options),
+    t.Unknown(options),
+    t.Boolean(options),
+    t.Date(options),
+    t.Literal("ok", options),
+    t.Enum(["ok"] as const, options),
+    t.Union([t.String()] as const, options),
+    t.Nullable(t.String(), options),
+    t.Optional(t.String(), options),
+    t.Intersect([source] as const, options),
+    t.Partial(source, options),
+    t.Pick(source, ["id"] as const, options),
+    t.Omit(source, [], options),
+  ]
+  for (const schema of schemas) {
+    assert.equal(schema.definition?.title, "Metadata", schema.kind)
+    assert.equal(schema.definition?.description, "shared options", schema.kind)
+  }
+})
+
 test("built-in schemas keep runtime, OpenAPI, and client contracts aligned", async () => {
   const base = t.Object({ id: t.String(), count: t.Number() })
   const cases: Array<{ name: string; schema: Schema; valid: unknown; invalid?: unknown }> = [
@@ -838,6 +916,68 @@ test("built-in schemas keep runtime, OpenAPI, and client contracts aligned", asy
     assert.ok((spec.paths[`/schema/${item.name}`]?.post as { requestBody?: unknown }).requestBody, item.name)
     assert.match(generateClientTypes(app), new RegExp(`POST \\/schema\\/${item.name}`), item.name)
   }
+})
+
+test("supports TypeBox-style primitive schema options", async () => {
+  const payload = t.Object({
+    count: t.Number({ minimum: 1, maximum: 10 }),
+    name: t.String({ minLength: 1, maxLength: 20, pattern: "^[A-Z]" })
+  })
+  const app = new Nelysia().post("/schema-options", ({ body }) => body, { body: payload })
+
+  assert.deepEqual(await payload.validate({ count: 3, name: "Ada" }), { count: 3, name: "Ada" })
+  await assert.rejects(async () => await payload.validate({ count: 0, name: "Ada" }), /minimum/)
+  await assert.rejects(async () => await payload.validate({ count: 3, name: "ada" }), /pattern|format/)
+  await assert.rejects(async () => await payload.validate({ count: 3, name: "" }), /short|minLength/)
+
+  const valid = await app.inject({ method: "POST", path: "/schema-options", body: { count: 3, name: "Ada" } })
+  assert.equal(valid.status, 200)
+  const invalid = await app.inject({ method: "POST", path: "/schema-options", body: { count: 0, name: "Ada" } })
+  assert.equal(invalid.status, 400)
+
+  const definition = payload.definition as { properties: Record<string, Record<string, unknown>> }
+  assert.equal(definition.properties.count.minimum, 1)
+  assert.equal(definition.properties.name.minLength, 1)
+  assert.equal(definition.properties.name.pattern, "^[A-Z]")
+})
+
+test("supports object and array schema options", async () => {
+  const object = t.Object({ name: t.String() }, { minProperties: 1, maxProperties: 2 })
+  const strictObject = t.Object({ name: t.String() }, { additionalProperties: false })
+  const passthroughObject = t.Object({ name: t.String() }, { additionalProperties: true })
+  const array = t.Array(t.String({ minLength: 2 }), { minItems: 1, maxItems: 2, uniqueItems: true })
+
+  assert.deepEqual(await object.validate({ name: "Ada" }), { name: "Ada" })
+  await assert.rejects(async () => await object.validate({}), /properties/)
+  await assert.rejects(async () => await object.validate({ name: "Ada", first: true, second: true }), /properties/)
+  await assert.rejects(async () => await strictObject.validate({ name: "Ada", extra: true }), /additional/)
+  assert.deepEqual(await passthroughObject.validate({ name: "Ada", extra: true }), { name: "Ada", extra: true })
+  assert.deepEqual(await array.validate(["Ada"]), ["Ada"])
+  await assert.rejects(async () => await array.validate([]), /items/)
+  await assert.rejects(async () => await array.validate(["Ada", "Ada"]), /unique/)
+
+  const objectDefinition = object.definition as Record<string, unknown>
+  const arrayDefinition = array.definition as Record<string, unknown>
+  assert.equal(objectDefinition.minProperties, 1)
+  assert.equal((strictObject.definition as Record<string, unknown>).additionalProperties, false)
+  assert.equal(arrayDefinition.minItems, 1)
+  assert.equal(arrayDefinition.uniqueItems, true)
+})
+
+test("supports common string formats and integer schemas", async () => {
+  const email = t.String({ format: "email" })
+  const uuid = t.String({ format: "uuid" })
+  const url = t.String({ format: "url" })
+  const integer = t.Integer({ minimum: 1, maximum: 3 })
+
+  assert.equal(await email.validate("ada@example.com"), "ada@example.com")
+  assert.equal(await uuid.validate("550e8400-e29b-41d4-a716-446655440000"), "550e8400-e29b-41d4-a716-446655440000")
+  assert.equal(await url.validate("https://example.com/path"), "https://example.com/path")
+  assert.equal(await integer.validate(2), 2)
+  await assert.rejects(async () => await email.validate("invalid"), /format/)
+  await assert.rejects(async () => await uuid.validate("invalid"), /format/)
+  await assert.rejects(async () => await url.validate("/relative"), /format/)
+  await assert.rejects(async () => await integer.validate(1.5), /integer/)
 })
 
 test("mounts a Web Standard fetch handler under a route prefix", async () => {
