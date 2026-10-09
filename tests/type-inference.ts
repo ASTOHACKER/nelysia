@@ -1,4 +1,5 @@
 import { Nelysia, t } from "../packages/core/src/index.ts"
+import type { Infer } from "../packages/core/src/index.ts"
 
 type RoutesOf<App> = App extends Nelysia<any, infer Routes, any, any> ? Routes : never
 type Assert<T extends true> = T
@@ -44,6 +45,58 @@ const responseAndErrorsBody: ResponseAndErrorsContract["response"] = { id: "item
 void responseAndErrorsBody
 const responseAndErrorsStatus: ResponseAndErrorsContract["responses"][400] = { error: "bad request" }
 void responseAndErrorsStatus
+
+const constrainedApp = new Nelysia().post("/constraints", ({ body }) => body, {
+  body: t.Object({
+    count: t.Number({ minimum: 1 }),
+    name: t.String({ minLength: 1 })
+  })
+})
+type ConstrainedBody = RoutesOf<typeof constrainedApp>["POST /constraints"]["body"]
+const constrainedBody: ConstrainedBody = { count: 1, name: "Ada" }
+void constrainedBody
+
+const compositeOptionsApp = new Nelysia().post("/composite-options", ({ body }) => body, {
+  body: t.Object({
+    items: t.Array(t.Integer({ minimum: 1 }), { minItems: 1 }),
+    name: t.String({ format: "email" })
+  }, { additionalProperties: false })
+})
+type CompositeOptionsBody = RoutesOf<typeof compositeOptionsApp>["POST /composite-options"]["body"]
+const compositeOptionsBody: CompositeOptionsBody = { items: [1], name: "ada@example.com" }
+void compositeOptionsBody
+
+const schemaSurface = t.Object({
+  text: t.String(),
+  count: t.Number(),
+  integer: t.Integer(),
+  enabled: t.Boolean(),
+  maybe: t.Nullable(t.String()),
+  optional: t.Optional(t.String()),
+  literal: t.Literal("ready"),
+  choice: t.Union([t.String(), t.Number()] as const),
+  values: t.Enum(["one", "two"] as const),
+  records: t.Record(t.String()),
+  when: t.Date(),
+  unknown: t.Unknown(),
+  anything: t.Any(),
+})
+type SchemaSurface = Infer<typeof schemaSurface>
+const schemaSurfaceValue: SchemaSurface = {
+  text: "hello",
+  count: 1.5,
+  integer: 2,
+  enabled: true,
+  maybe: null,
+  literal: "ready",
+  choice: 3,
+  values: "one",
+  records: { key: "value" },
+  when: new Date(),
+  unknown: { nested: true },
+  anything: Symbol("value"),
+}
+void schemaSurfaceValue
 
 async function responseAndErrorsInjectChecks() {
   const result = await responseAndErrorsApp.inject({ method: "POST", path: "/response-and-errors" })

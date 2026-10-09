@@ -5,6 +5,10 @@ export interface Schema<T = unknown> {
   readonly optional?: boolean
   validate(value: unknown, path?: string): T | Promise<T>
   readonly definition?: Record<string, unknown>
+  readonly shape?: Readonly<Record<string, Schema>>
+  readonly item?: Schema
+  readonly items?: readonly Schema[]
+  readonly inner?: Schema
 }
 
 export interface StandardSchema<T = unknown> {
@@ -12,6 +16,45 @@ export interface StandardSchema<T = unknown> {
     readonly version: 1
     readonly validate: (value: unknown) => T | { value: T } | Promise<T | { value: T } | { issues: readonly { message: string; path?: readonly (string | number)[] }[] }> | { issues: readonly { message: string; path?: readonly (string | number)[] }[] }
   }
+}
+
+export interface SchemaOptions {
+  readonly [key: string]: unknown
+  readonly $schema?: string
+  readonly $id?: string
+  readonly title?: string
+  readonly description?: string
+  readonly default?: unknown
+  readonly examples?: unknown
+  readonly readOnly?: boolean
+  readonly writeOnly?: boolean
+}
+
+export interface NumberOptions extends SchemaOptions {
+  readonly exclusiveMaximum?: number
+  readonly exclusiveMinimum?: number
+  readonly maximum?: number
+  readonly minimum?: number
+  readonly multipleOf?: number
+}
+
+export interface StringOptions extends SchemaOptions {
+  readonly format?: string
+  readonly minLength?: number
+  readonly maxLength?: number
+  readonly pattern?: string | RegExp
+}
+
+export interface ObjectOptions extends SchemaOptions {
+  readonly additionalProperties?: boolean
+  readonly maxProperties?: number
+  readonly minProperties?: number
+}
+
+export interface ArrayOptions extends SchemaOptions {
+  readonly maxItems?: number
+  readonly minItems?: number
+  readonly uniqueItems?: boolean
 }
 
 export type Infer<S extends Schema> = S extends Schema<infer T> ? T : never
@@ -26,39 +69,59 @@ type ShapeInfer<Shape extends Record<string, Schema>> = {
 
 type ObjectSchema<Shape extends Record<string, Schema>> = Schema<ShapeInfer<Shape>> & { readonly shape: Shape }
 
-const primitive = <T>(kind: string, check: (value: unknown) => value is T): Schema<T> => ({
+const primitive = <T>(kind: string, check: (value: unknown) => value is T, options: SchemaOptions = {}): Schema<T> => ({
   kind,
-  definition: { type: kind },
+  definition: schemaDefinition(kind, options),
   validate(value, path = "body") {
     if (!check(value)) throw new HttpError(400, `${path} must be ${kind}`)
+    validatePrimitiveOptions(kind, value, options, path)
     return value
   }
 })
 
 export const t = {
-  String: () => primitive("string", (value): value is string => typeof value === "string"),
-  Number: () => primitive("number", (value): value is number => typeof value === "number" && Number.isFinite(value)),
+  String: (options?: StringOptions) => primitive("string", (value): value is string => typeof value === "string", options),
+  Number: (options?: NumberOptions) => primitive("number", (value): value is number => typeof value === "number" && Number.isFinite(value), options),
+  Integer: (options?: NumberOptions) => primitive("integer", (value): value is number => typeof value === "number" && Number.isInteger(value), options),
   Boolean: () => primitive("boolean", (value): value is boolean => typeof value === "boolean"),
-  Object: <Shape extends Record<string, Schema>>(shape: Shape): ObjectSchema<Shape> => ({
+  Object: <Shape extends Record<string, Schema>>(shape: Shape, options: ObjectOptions = {}): ObjectSchema<Shape> => ({
     kind: "object",
     shape,
-    definition: { type: "object", properties: Object.fromEntries(Object.entries(shape).map(([key, schema]) => [key, schema.definition ?? { type: schema.kind }]),), required: Object.entries(shape).filter(([, schema]) => !schema.optional).map(([key]) => key) },
+    definition: { ...schemaDefinition("object", options), properties: Object.fromEntries(Object.entries(shape).map(([key, schema]) => [key, schema.definition ?? { type: schema.kind }]),), required: Object.entries(shape).filter(([, schema]) => !schema.optional).map(([key]) => key) },
     async validate(value, path = "body") {
       if (typeof value !== "object" || value === null || Array.isArray(value)) throw new HttpError(400, `${path} must be object`)
+      const input = value as Record<string, unknown>
+      const keys = Object.keys(input)
+      if (typeof options.minProperties === "number" && keys.length < options.minProperties) throw new HttpError(400, `${path} must have at least ${options.minProperties} properties`)
+      if (typeof options.maxProperties === "number" && keys.length > options.maxProperties) throw new HttpError(400, `${path} must have at most ${options.maxProperties} properties`)
+      const extraKeys = keys.filter((key) => !Object.prototype.hasOwnProperty.call(shape, key))
+      if (options.additionalProperties === false && extraKeys.length > 0) throw new HttpError(400, `${path} must not contain additional properties`)
       const output: Record<string, unknown> = {}
       for (const [key, schema] of Object.entries(shape)) {
-        const field = (value as Record<string, unknown>)[key]
+        const field = input[key]
         if (field === undefined && schema.optional) continue
         setSafeProperty(output, key, await schema.validate(field, `${path}.${key}`))
       }
+      if (options.additionalProperties === true) for (const key of extraKeys) setSafeProperty(output, key, input[key])
       return output as ShapeInfer<Shape>
     }
   }),
-  Array: <Item extends Schema>(item: Item): Schema<Infer<Item>[]> => ({
+  Array: <Item extends Schema>(item: Item, options: ArrayOptions = {}): Schema<Infer<Item>[]> & { readonly item: Item } => ({
     kind: "array",
-    definition: { type: "array", items: item.definition ?? { type: item.kind } },
+    item,
+    definition: { ...schemaDefinition("array", options), items: item.definition ?? { type: item.kind } },
     async validate(value, path = "body") {
       if (!Array.isArray(value)) throw new HttpError(400, `${path} must be array`)
+      if (typeof options.minItems === "number" && value.length < options.minItems) throw new HttpError(400, `${path} has too few items; minimum is ${options.minItems}`)
+      if (typeof options.maxItems === "number" && value.length > options.maxItems) throw new HttpError(400, `${path} has too many items; maximum is ${options.maxItems}`)
+      if (options.uniqueItems === true) {
+        const seen = new Set<string>()
+        for (const entry of value) {
+          const identity = JSON.stringify(entry) ?? String(entry)
+          if (seen.has(identity)) throw new HttpError(400, `${path} must contain unique items`)
+          seen.add(identity)
+        }
+      }
       return Promise.all(value.map((entry, index) => item.validate(entry, `${path}.${index}`))) as Promise<Infer<Item>[]>
     }
   }),
@@ -70,8 +133,9 @@ export const t = {
       return value
     }
   }),
-  Union: <Items extends readonly Schema[]>(items: Items): Schema<Infer<Items[number]>> => ({
+  Union: <Items extends readonly Schema[]>(items: Items): Schema<Infer<Items[number]>> & { readonly items: Items } => ({
     kind: "union",
+    items,
     definition: { anyOf: items.map((item) => item.definition ?? { type: item.kind }) },
     async validate(value, path = "body") {
       for (const item of items) {
@@ -80,17 +144,19 @@ export const t = {
       throw new HttpError(400, `${path} does not match any allowed value`)
     }
   }),
-  Nullable: <Item extends Schema>(item: Item): Schema<Infer<Item> | null> => ({
+  Nullable: <Item extends Schema>(item: Item): Schema<Infer<Item> | null> & { readonly inner: Item } => ({
     kind: "nullable",
+    inner: item,
     definition: { anyOf: [item.definition ?? { type: item.kind }, { type: "null" }] },
     validate(value, path = "body") {
       if (value === null) return null
       return item.validate(value, path) as Infer<Item> | Promise<Infer<Item>>
     }
   }),
-  Optional: <Item extends Schema>(item: Item): Schema<Infer<Item> | undefined> => ({
+  Optional: <Item extends Schema>(item: Item): Schema<Infer<Item> | undefined> & { readonly optional: true; readonly inner: Item } => ({
     kind: item.kind,
     optional: true,
+    inner: item,
     definition: item.definition,
     validate(value, path = "body") {
       if (value === undefined) return undefined
@@ -120,8 +186,9 @@ export const t = {
     const shape = Object.fromEntries(Object.entries(schema.shape).filter(([key]) => !excluded.has(key))) as Omit<Shape, Keys[number]>
     return t.Object(shape) as unknown as Schema<Omit<ShapeInfer<Shape>, Extract<Keys[number], keyof ShapeInfer<Shape>>>>
   },
-  Intersect: <Items extends readonly Schema[]>(items: Items): Schema<UnionToIntersection<Infer<Items[number]>>> => ({
+  Intersect: <Items extends readonly Schema[]>(items: Items): Schema<UnionToIntersection<Infer<Items[number]>>> & { readonly items: Items } => ({
     kind: "intersect",
+    items,
     definition: { allOf: items.map((item) => item.definition ?? { type: item.kind }) },
     async validate(value, path = "body") {
       let output = value
@@ -142,14 +209,57 @@ export const t = {
       return value as Values[number]
     }
   }),
-  Record: <Item extends Schema>(item: Item): Schema<Record<string, Infer<Item>>> => ({
+  Record: <Item extends Schema>(item: Item): Schema<Record<string, Infer<Item>>> & { readonly item: Item } => ({
     kind: "record",
+    item,
     definition: { type: "object", additionalProperties: item.definition ?? { type: item.kind } },
     async validate(value, path = "body") {
       if (typeof value !== "object" || value === null || Array.isArray(value)) throw new HttpError(400, `${path} must be object`)
       return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, entry]) => [key, await item.validate(entry, `${path}.${key}`)])))
     }
   })
+}
+
+function schemaDefinition(kind: string, options: SchemaOptions): Record<string, unknown> {
+  const definition: Record<string, unknown> = { type: kind }
+  for (const [key, value] of Object.entries(options)) {
+    if (value === undefined) continue
+    definition[key] = key === "pattern" && value instanceof RegExp ? value.source : value
+  }
+  return definition
+}
+
+function validatePrimitiveOptions(kind: string, value: unknown, options: SchemaOptions, path: string): void {
+  if (kind === "string" && typeof value === "string") {
+    if (typeof options.minLength === "number" && value.length < options.minLength) throw new HttpError(400, `${path} is too short; minimum length is ${options.minLength}`)
+    if (typeof options.maxLength === "number" && value.length > options.maxLength) throw new HttpError(400, `${path} is too long; maximum length is ${options.maxLength}`)
+    if (options.pattern instanceof RegExp) {
+      if (!new RegExp(options.pattern.source, options.pattern.flags).test(value)) throw new HttpError(400, `${path} has an invalid format`)
+    } else if (typeof options.pattern === "string") {
+      if (!new RegExp(options.pattern).test(value)) throw new HttpError(400, `${path} has an invalid format`)
+    }
+    if (typeof options.format === "string") validateStringFormat(value, options.format, path)
+    return
+  }
+  if ((kind !== "number" && kind !== "integer") || typeof value !== "number") return
+  if (typeof options.minimum === "number" && value < options.minimum) throw new HttpError(400, `${path} is below minimum`)
+  if (typeof options.maximum === "number" && value > options.maximum) throw new HttpError(400, `${path} is above maximum`)
+  if (typeof options.exclusiveMinimum === "number" && value <= options.exclusiveMinimum) throw new HttpError(400, `${path} is below exclusive minimum`)
+  if (typeof options.exclusiveMaximum === "number" && value >= options.exclusiveMaximum) throw new HttpError(400, `${path} is above exclusive maximum`)
+  if (typeof options.multipleOf === "number" && options.multipleOf > 0) {
+    const quotient = value / options.multipleOf
+    if (Math.abs(quotient - Math.round(quotient)) > Number.EPSILON * Math.max(1, Math.abs(quotient))) throw new HttpError(400, `${path} must be a multiple of ${options.multipleOf}`)
+  }
+}
+
+function validateStringFormat(value: string, format: string, path: string): void {
+  if (format === "date-time" && Number.isNaN(Date.parse(value))) throw new HttpError(400, `${path} has an invalid format`)
+  if (format === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))) throw new HttpError(400, `${path} has an invalid format`)
+  if (format === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new HttpError(400, `${path} has an invalid format`)
+  if (format === "uuid" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) throw new HttpError(400, `${path} has an invalid format`)
+  if (format === "url" || format === "uri") {
+    try { new URL(value) } catch { throw new HttpError(400, `${path} has an invalid format`) }
+  }
 }
 
 function setSafeProperty(target: Record<string, unknown>, key: string, value: unknown): void {
