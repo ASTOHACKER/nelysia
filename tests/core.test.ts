@@ -1065,6 +1065,12 @@ test("rejects circular named model definitions with a readable diagnostic", () =
   assert.throws(() => new Nelysia().model({ Node: schema }), /Circular model definition: Node/)
 })
 
+test("rejects conflicting model schemas that reuse the same $id", () => {
+  const first = t.Object({ id: t.String() }, { $id: "SharedModel" })
+  const second = t.Object({ count: t.Number() }, { $id: "SharedModel" })
+  assert.throws(() => new Nelysia().model({ First: first, Second: second }), /Conflicting schema id: SharedModel/)
+})
+
 test("exports query and header schemas as correctly required OpenAPI parameters", () => {
   const app = new Nelysia().get("/users/:id", () => "ok", {
     params: t.Object({ id: t.String() }),

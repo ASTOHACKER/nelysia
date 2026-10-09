@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { t } from "../packages/core/src/index.ts"
 import type { Schema } from "../packages/core/src/schema.ts"
-import { normalizeSchemaIR, schemaCapability, schemaIRHash } from "../packages/core/src/schema-ir.ts"
+import { normalizeSchemaIR, resolveSchemaReference, schemaCapability, schemaIRHash } from "../packages/core/src/schema-ir.ts"
 
 test("normalizes primitive and nested definitions", () => {
   const schema = t.Object({
@@ -72,4 +72,19 @@ test("preserves schema metadata without mutation", () => {
     ;(ir.root.definition as Record<string, unknown>).description = "changed"
   }, TypeError)
   assert.equal(schema.definition?.description, "Display name")
+})
+
+test("normalizes and resolves reusable schema references", () => {
+  const user = t.Object({ id: t.String() }, { $id: "User" })
+  const ir = normalizeSchemaIR(t.Ref("User"))
+  const resolved = resolveSchemaReference("User", new Map([["User", user]]))
+
+  assert.equal(ir.root.ref, "User")
+  assert.equal(ir.root.capability, "reference")
+  assert.equal(resolved.kind, "object")
+  assert.equal(resolved.id, "User")
+})
+
+test("reports unknown schema references deterministically", () => {
+  assert.throws(() => resolveSchemaReference("Missing", new Map()), /Unknown schema reference: Missing/)
 })

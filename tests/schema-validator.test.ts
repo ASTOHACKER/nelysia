@@ -116,3 +116,24 @@ test("rejects invalid schema options during construction", () => {
   assert.throws(() => t.Array(t.String(), { maxItems: -1 }), /maxItems/)
   assert.throws(() => t.Number({ multipleOf: 0 }), /multipleOf/)
 })
+
+test("validates bounded cyclic schemas and rejects excessive depth", async () => {
+  const tree = t.Cyclic((self) => t.Object({
+    value: t.Integer(),
+    children: t.Array(self),
+  }), { $id: "Tree", maxDepth: 2 })
+
+  const valid = { value: 1, children: [{ value: 2, children: [] }] }
+  assert.deepEqual(await tree.validate(valid), valid)
+
+  const tooDeep = { value: 1, children: [{ value: 2, children: [{ value: 3, children: [{ value: 4, children: [] }] }] }] }
+  await assert.rejects(async () => await tree.validate(tooDeep), /depth|reference/)
+})
+
+test("resolves refs from an explicit registry and rejects unknown refs", () => {
+  const user = t.Object({ id: t.String() }, { $id: "User" })
+  const reference = t.Ref("User")
+  const registry = new Map([["User", normalizeSchemaIR(user)]])
+  assert.deepEqual(validateSchema({ id: "1" }, normalizeSchemaIR(reference), { references: registry }), { id: "1" })
+  assert.throws(() => validateSchema({ id: "1" }, normalizeSchemaIR(t.Ref("Missing")), { references: registry }), /Unknown schema reference: Missing/)
+})

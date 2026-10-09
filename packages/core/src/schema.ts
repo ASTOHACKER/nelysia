@@ -103,6 +103,8 @@ type RequiredShape<Shape extends Record<string, Schema>> = {
 
 type CompositeInfer<Items extends readonly Schema[]> = UnionToIntersection<Infer<Items[number]>>
 
+let cyclicSchemaId = 0
+
 const primitive = <T>(kind: string, check: (value: unknown) => value is T, options: SchemaOptions = {}): Schema<T> => {
   validateSchemaOptions(options, kind)
   const schema: Schema<T> = {
@@ -149,6 +151,36 @@ export const t = {
   },
   Null: (options?: SchemaOptions) => runtimeSchema<null>({ kind: "null", definition: schemaDefinition("null", options ?? {}) }),
   Never: (options?: SchemaOptions) => runtimeSchema<never>({ kind: "never", definition: schemaDefinition("never", options ?? {}) }),
+  Ref: (id: string, options?: SchemaOptions): Schema<unknown> => {
+    if (!id) throw new TypeError("Schema reference id must not be empty")
+    let normalized: SchemaIR
+    const schema: Schema<unknown> = {
+      kind: "ref",
+      definition: schemaWithOptions({ $ref: id }, options ?? {}),
+      validate(value, path = "body") {
+        return validateSchema(value, normalized, { path })
+      }
+    }
+    normalized = normalizeSchemaIR(schema)
+    return schema
+  },
+  Cyclic: <T extends Schema>(builder: (self: Schema) => T, options: SchemaOptions = {}): T => {
+    const id = typeof options.$id === "string" && options.$id.length > 0 ? options.$id : `NelysiaCyclic${++cyclicSchemaId}`
+    const self = t.Ref(id)
+    const target = builder(self)
+    const definition = schemaWithOptions({ ...(target.definition ?? { type: target.kind }), $id: id }, options)
+    let normalized: SchemaIR
+    const schema = {
+      ...target,
+      definition,
+      validate(value: unknown, path = "body") {
+        const maxDepth = typeof options.maxDepth === "number" ? options.maxDepth : 32
+        return validateSchema(value, normalized, { path, references: { [id]: normalized }, maxDepth }) as Infer<T>
+      }
+    } as T
+    normalized = normalizeSchemaIR(schema)
+    return schema
+  },
   Object: <Shape extends Record<string, Schema>>(shape: Shape, options: ObjectOptions = {}): ObjectSchema<Shape> => {
     validateSchemaOptions(options, "object")
     let normalized: SchemaIR

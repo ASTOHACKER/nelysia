@@ -586,6 +586,14 @@ export class Nelysia<Extensions extends Record<string, unknown> = {}, Routes ext
       if (hasCircularSchemaDefinition(schema)) throw new Error(`Circular model definition: ${name}`)
       const existing = this.models.get(name)
       if (existing !== undefined && stableSchema(existing) !== stableSchema(schema)) throw new Error(`Conflicting model definition: ${name}`)
+      const id = schemaId(schema)
+      if (id) {
+        for (const [existingName, existingSchema] of this.models) {
+          if (existingName !== name && schemaId(existingSchema) === id && stableSchema(existingSchema) !== stableSchema(schema)) {
+            throw new Error(`Conflicting schema id: ${id}`)
+          }
+        }
+      }
       this.models.set(name, schema)
     }
     return this as unknown as Nelysia<Extensions, Routes, Models & ModelValues<Definitions>, MacroNames>
@@ -2687,6 +2695,11 @@ function stableSchema(schema: Schema | StandardSchema): string {
   } catch {
     return String(schema)
   }
+}
+
+function schemaId(schema: Schema | StandardSchema): string | undefined {
+  const definition = (schema as unknown as { definition?: Record<string, unknown> }).definition
+  return typeof definition?.$id === "string" ? definition.$id : undefined
 }
 
 function hasCircularSchemaDefinition(schema: Schema | StandardSchema): boolean {

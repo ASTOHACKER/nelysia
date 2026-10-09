@@ -1,8 +1,10 @@
 import { HttpError } from "./types.ts"
-import type { SchemaIR, SchemaIRNode } from "./schema-ir.ts"
+import { resolveSchemaReference, type SchemaIR, type SchemaIRNode, type SchemaReferenceRegistry } from "./schema-ir.ts"
 
 export interface SchemaValidationOptions {
   readonly path?: string
+  readonly references?: SchemaReferenceRegistry
+  readonly maxDepth?: number
 }
 
 export type SchemaFormatValidator = (value: string) => boolean
@@ -31,7 +33,7 @@ export function validateSchemaFormat(name: string, value: string): boolean {
 
 export function validateSchema(value: unknown, ir: SchemaIR | SchemaIRNode, options: SchemaValidationOptions = {}): unknown {
   const node = "root" in ir ? ir.root : ir
-  return evaluate(value, node, options.path ?? "body")
+  return evaluate(value, node, options.path ?? "body", { references: options.references, depth: 0, maxDepth: options.maxDepth ?? 32 })
 }
 
 export async function validateSchemaAsync(value: unknown, ir: SchemaIR | SchemaIRNode, options: SchemaValidationOptions = {}): Promise<unknown> {
@@ -55,6 +57,14 @@ export function validateSchemaOptions(options: Record<string, unknown>, kind: st
   if (typeof options.minProperties === "number" && typeof options.maxProperties === "number" && options.minProperties > options.maxProperties) {
     throw new TypeError(`${kind} minProperties cannot exceed maxProperties`)
   }
+  if (kind === "bigint") {
+    for (const key of ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"]) {
+      if (options[key] !== undefined && typeof options[key] !== "bigint") throw new TypeError(`${kind} ${key} must be a bigint`)
+    }
+    if (typeof options.multipleOf === "bigint" && options.multipleOf <= 0n) throw new TypeError(`${kind} multipleOf must be greater than zero`)
+    if (typeof options.minimum === "bigint" && typeof options.maximum === "bigint" && options.minimum > options.maximum) throw new TypeError(`${kind} minimum cannot exceed maximum`)
+    return
+  }
   if (options.multipleOf !== undefined && (typeof options.multipleOf !== "number" || !Number.isFinite(options.multipleOf) || options.multipleOf <= 0)) {
     throw new TypeError(`${kind} multipleOf must be greater than zero`)
   }
@@ -68,7 +78,18 @@ export function validateSchemaOptions(options: Record<string, unknown>, kind: st
   }
 }
 
-function evaluate(value: unknown, node: SchemaIRNode, path: string): unknown {
+interface EvaluationState {
+  readonly references?: SchemaReferenceRegistry
+  readonly depth: number
+  readonly maxDepth: number
+}
+
+function evaluate(value: unknown, node: SchemaIRNode, path: string, state: EvaluationState): unknown {
+  if (node.ref) {
+    if (!state.references) throw new HttpError(400, `Unknown schema reference: ${node.ref}`)
+    if (state.depth >= state.maxDepth) reject(path, `exceeds schema reference depth ${state.maxDepth}`)
+    return evaluate(value, resolveSchemaReference(node.ref, state.references), path, { ...state, depth: state.depth + 1 })
+  }
   if (node.optional && value === undefined) return undefined
   if (node.kind === "optional" && value === undefined) return undefined
 
@@ -86,13 +107,14 @@ function evaluate(value: unknown, node: SchemaIRNode, path: string): unknown {
       return value
     case "string":
       return validateString(value, node, path)
+    case "template-literal":
+      return validateString(value, node, path)
     case "number":
       return validateNumber(value, node, path, false)
     case "integer":
       return validateNumber(value, node, path, true)
     case "bigint":
-      if (typeof value !== "bigint") fail(path, "bigint")
-      return value
+      return validateBigInt(value, node, path)
     case "date":
       if (!(value instanceof Date) || Number.isNaN(value.getTime())) fail(path, "date")
       return value
@@ -103,24 +125,24 @@ function evaluate(value: unknown, node: SchemaIRNode, path: string): unknown {
       if (!Array.isArray(node.definition.enum) || !node.definition.enum.some((entry) => Object.is(entry, value))) fail(path, "one of the allowed values")
       return value
     case "object":
-      return validateObject(value, node, path)
+      return validateObject(value, node, path, state)
     case "record":
-      return validateRecord(value, node, path)
+      return validateRecord(value, node, path, state)
     case "array":
-      return validateArray(value, node, path)
+      return validateArray(value, node, path, state)
     case "tuple":
-      return validateTuple(value, node, path)
+      return validateTuple(value, node, path, state)
     case "union":
       for (const child of node.children) {
-        try { return evaluate(value, child, path) } catch { /* try the next branch */ }
+        try { return evaluate(value, child, path, state) } catch { /* try the next branch */ }
       }
       fail(path, "one of the allowed values")
     case "nullable":
-      return value === null ? null : evaluate(value, node.children[0] ?? node, path)
+      return value === null ? null : evaluate(value, node.children[0] ?? node, path, state)
     case "intersect": {
       let output = value
       for (const child of node.children) {
-        const validated = evaluate(output, child, path)
+        const validated = evaluate(output, child, path, state)
         output = isRecord(output) && isRecord(validated) ? mergeSafe(output, validated) : validated
       }
       return output
@@ -162,7 +184,23 @@ function validateNumber(value: unknown, node: SchemaIRNode, path: string, intege
   return value
 }
 
-function validateObject(value: unknown, node: SchemaIRNode, path: string): Record<string, unknown> {
+function validateBigInt(value: unknown, node: SchemaIRNode, path: string): bigint {
+  if (typeof value !== "bigint") fail(path, "bigint")
+  const definition = node.definition
+  const minimum = toBigInt(definition.minimum)
+  const maximum = toBigInt(definition.maximum)
+  const exclusiveMinimum = toBigInt(definition.exclusiveMinimum)
+  const exclusiveMaximum = toBigInt(definition.exclusiveMaximum)
+  const multipleOf = toBigInt(definition.multipleOf)
+  if (minimum !== undefined && value < minimum) reject(path, "is below minimum")
+  if (maximum !== undefined && value > maximum) reject(path, "is above maximum")
+  if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) reject(path, "is below exclusive minimum")
+  if (exclusiveMaximum !== undefined && value >= exclusiveMaximum) reject(path, "is above exclusive maximum")
+  if (multipleOf !== undefined && value % multipleOf !== 0n) reject(path, `must be a multiple of ${multipleOf}`)
+  return value
+}
+
+function validateObject(value: unknown, node: SchemaIRNode, path: string, state: EvaluationState): Record<string, unknown> {
   if (!isRecord(value)) fail(path, "object")
   const keys = Object.keys(value)
   const definition = node.definition
@@ -180,7 +218,7 @@ function validateObject(value: unknown, node: SchemaIRNode, path: string): Recor
     const present = Object.prototype.hasOwnProperty.call(value, key) && value[key] !== undefined
     if (!present && !required.has(key)) continue
     if (!present && required.has(key)) fail(`${path}.${key}`, "a value")
-    setSafeProperty(output, key, evaluate(value[key], child, `${path}.${key}`))
+    setSafeProperty(output, key, evaluate(value[key], child, `${path}.${key}`, state))
   }
   if (definition.additionalProperties === true) {
     for (const key of extraKeys) setSafeProperty(output, key, value[key])
@@ -188,16 +226,26 @@ function validateObject(value: unknown, node: SchemaIRNode, path: string): Recor
   return output
 }
 
-function validateRecord(value: unknown, node: SchemaIRNode, path: string): Record<string, unknown> {
+function validateRecord(value: unknown, node: SchemaIRNode, path: string, state: EvaluationState): Record<string, unknown> {
   if (!isRecord(value)) fail(path, "object")
+  const keys = Object.keys(value)
+  const definition = node.definition
+  if (typeof definition.minProperties === "number" && keys.length < definition.minProperties) reject(path, `must have at least ${definition.minProperties} properties`)
+  if (typeof definition.maxProperties === "number" && keys.length > definition.maxProperties) reject(path, `must have at most ${definition.maxProperties} properties`)
   const child = node.children[0]
   if (!child) return { ...value }
   const output: Record<string, unknown> = {}
-  for (const [key, entry] of Object.entries(value)) setSafeProperty(output, key, evaluate(entry, child, `${path}.${key}`))
+  for (const [key, entry] of Object.entries(value)) setSafeProperty(output, key, evaluate(entry, child, `${path}.${key}`, state))
   return output
 }
 
-function validateArray(value: unknown, node: SchemaIRNode, path: string): unknown[] {
+function toBigInt(value: unknown): bigint | undefined {
+  if (typeof value === "bigint") return value
+  if (typeof value === "string" && /^-?\d+$/.test(value)) return BigInt(value)
+  return undefined
+}
+
+function validateArray(value: unknown, node: SchemaIRNode, path: string, state: EvaluationState): unknown[] {
   if (!Array.isArray(value)) fail(path, "array")
   const definition = node.definition
   if (typeof definition.minItems === "number" && value.length < definition.minItems) reject(path, `has too few items; minimum is ${definition.minItems}`)
@@ -205,10 +253,10 @@ function validateArray(value: unknown, node: SchemaIRNode, path: string): unknow
   if (definition.uniqueItems === true) assertUnique(value, path)
   const child = node.children[0]
   if (!child) return [...value]
-  return value.map((entry, index) => evaluate(entry, child, `${path}.${index}`))
+  return value.map((entry, index) => evaluate(entry, child, `${path}.${index}`, state))
 }
 
-function validateTuple(value: unknown, node: SchemaIRNode, path: string): unknown[] {
+function validateTuple(value: unknown, node: SchemaIRNode, path: string, state: EvaluationState): unknown[] {
   if (!Array.isArray(value)) fail(path, "array")
   const definition = node.definition
   const minItems = typeof definition.minItems === "number" ? definition.minItems : node.children.length
@@ -216,7 +264,7 @@ function validateTuple(value: unknown, node: SchemaIRNode, path: string): unknow
   if (value.length < minItems || value.length > maxItems) fail(path, `an array with length between ${minItems} and ${maxItems}`)
   return value.map((entry, index) => {
     const child = node.children[index]
-    return child ? evaluate(entry, child, `${path}.${index}`) : entry
+    return child ? evaluate(entry, child, `${path}.${index}`, state) : entry
   })
 }
 

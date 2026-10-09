@@ -1,4 +1,5 @@
 import type { Schema } from "./schema.ts"
+import { HttpError } from "./types.ts"
 
 export type SchemaCapability = "compiled" | "reference" | "unsupported"
 
@@ -20,6 +21,9 @@ export interface SchemaIR {
   readonly capability: SchemaCapability
   readonly hash: string
 }
+
+export type SchemaReference = Schema | SchemaIR | SchemaIRNode
+export type SchemaReferenceRegistry = ReadonlyMap<string, SchemaReference> | Readonly<Record<string, SchemaReference>>
 
 type SchemaWithChildren = Schema & {
   readonly shape?: Record<string, Schema>
@@ -53,7 +57,7 @@ const compiledKinds = new Set([
   "template-literal",
 ])
 
-const referenceKinds = new Set(["standard"])
+const referenceKinds = new Set(["standard", "ref"])
 
 /**
  * Normalize a public schema into the immutable representation shared by the
@@ -75,6 +79,14 @@ export function normalizeSchemaIR(schema: Schema): SchemaIR {
 
 export function schemaCapability(ir: SchemaIR | SchemaIRNode): SchemaCapability {
   return "root" in ir ? ir.root.capability : ir.capability
+}
+
+export function resolveSchemaReference(id: string, registry: SchemaReferenceRegistry): SchemaIRNode {
+  const value = lookupReference(id, registry)
+  if (!value) throw new HttpError(400, `Unknown schema reference: ${id}`)
+  if (isSchemaIR(value)) return value.root
+  if (isSchemaIRNode(value)) return value
+  return normalizeSchemaIR(value).root
 }
 
 export function schemaIRHash(ir: SchemaIR | SchemaIRNode): string {
@@ -198,6 +210,23 @@ function freezeValue<T>(value: T, active = new Set<object>()): T {
 
 function readString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined
+}
+
+function lookupReference(id: string, registry: SchemaReferenceRegistry): SchemaReference | undefined {
+  const candidates = [id, id.replace(/^#\/(?:\$defs|components\/schemas)\//, "")]
+  for (const candidate of candidates) {
+    const value = registry instanceof Map ? registry.get(candidate) : (registry as Readonly<Record<string, SchemaReference>>)[candidate]
+    if (value !== undefined) return value
+  }
+  return undefined
+}
+
+function isSchemaIR(value: SchemaReference): value is SchemaIR {
+  return typeof value === "object" && value !== null && "root" in value && "hash" in value
+}
+
+function isSchemaIRNode(value: SchemaReference): value is SchemaIRNode {
+  return typeof value === "object" && value !== null && "children" in value && "capability" in value
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
