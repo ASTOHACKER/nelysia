@@ -1,6 +1,8 @@
 import type { Nelysia } from "../../core/src/app.ts"
 import { HttpError, responseMarker, type Context, type ResponseData, type RouteRecord } from "../../core/src/types.ts"
 import type { Schema } from "../../core/src/schema.ts"
+import { normalizeSchemaIR, schemaCapability, type SchemaIR as CoreSchemaIR, type SchemaIRNode } from "../../core/src/schema-ir.ts"
+import { validateSchemaFormat } from "../../core/src/schema-validator.ts"
 
 export const jsonContentType = "application/json; charset=utf-8"
 export const textContentType = "text/plain; charset=utf-8"
@@ -37,6 +39,14 @@ export interface GeneratedRouteSchema {
   headers?: GeneratedValidator
   response?: GeneratedValidator
   responses?: Record<string, GeneratedValidator>
+}
+
+export interface ValidationOperation {
+  readonly kind: string
+  readonly path: string
+  readonly keyword?: string
+  readonly capability: "compiled" | "reference" | "unsupported"
+  readonly definition: Readonly<Record<string, unknown>>
 }
 
 /** Stable, JSON-compatible intermediate representation used by code
@@ -299,8 +309,25 @@ export function compileDispatcher(app: Nelysia<any, any, any>): CompiledDispatch
  * transforms, and unknown keywords intentionally use the generic runtime. */
 export function canGenerateSchema(schema: Schema | undefined): boolean {
   if (schema === undefined || schema.kind === "standard" || schema.kind === "date") return false
-  const definition = schema.definition
-  return definition !== undefined && supportedDefinition(definition)
+  const normalized = normalizeSchemaIR(schema)
+  return schemaCapability(normalized) === "compiled" && supportedDefinition(normalized.root.definition)
+}
+
+export function lowerSchemaIR(ir: CoreSchemaIR | SchemaIRNode): ValidationOperation[] {
+  const root = "root" in ir ? ir.root : ir
+  const operations: ValidationOperation[] = []
+  const visit = (node: SchemaIRNode, path: string): void => {
+    operations.push({
+      kind: node.kind,
+      path,
+      keyword: firstUnsupportedKeyword(node.definition),
+      capability: node.capability,
+      definition: node.definition,
+    })
+    for (let index = 0; index < node.children.length; index++) visit(node.children[index], `${path}.${node.childKeys[index] ?? index}`)
+  }
+  visit(root, "root")
+  return operations
 }
 
 function createGeneratedRouteSchema(route: RouteRecord): GeneratedRouteSchema | undefined {
@@ -327,11 +354,11 @@ function createGeneratedRouteSchema(route: RouteRecord): GeneratedRouteSchema | 
 function supportedDefinition(definition: Record<string, unknown>): boolean {
   const allowed = new Set([
     "type", "properties", "required", "additionalProperties", "items", "prefixItems",
-    "enum", "const", "anyOf", "allOf", "minimum", "maximum", "minLength", "maxLength",
-    "pattern", "format", "minItems", "maxItems", "description", "default", "examples"
+    "enum", "const", "anyOf", "allOf", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength",
+    "pattern", "x-patternFlags", "format", "minItems", "maxItems", "uniqueItems", "minProperties", "maxProperties", "description", "default", "examples", "$id", "$schema", "title", "readOnly", "writeOnly", "x-templateLiteral", "x-nelysia-kind", "x-minimumType", "x-maximumType", "x-exclusiveMinimumType", "x-exclusiveMaximumType", "x-multipleOfType"
   ])
   for (const key of Object.keys(definition)) if (!allowed.has(key)) return false
-  if (definition.format !== undefined && definition.format !== "date-time") return false
+  if (definition.format !== undefined && !["date-time", "date", "email", "uuid", "url", "uri", "ipv4", "ipv6", "hostname"].includes(String(definition.format))) return false
   for (const key of ["anyOf", "allOf", "prefixItems"]) {
     const value = definition[key]
     if (value !== undefined && (!Array.isArray(value) || !value.every((item) => isSupportedDefinition(item)))) return false
@@ -355,10 +382,15 @@ export function createGeneratedValidator(definition: Record<string, unknown>): G
 
 export function createSchemaIR(schema: Schema | undefined): SchemaIR | undefined {
   if (!canGenerateSchema(schema)) return undefined
-  return stableDefinition(schema!.definition!)
+  return stableDefinition(normalizeSchemaIR(schema!).root.definition)
 }
 
-function stableDefinition(value: Record<string, unknown>): SchemaIR {
+function firstUnsupportedKeyword(definition: Readonly<Record<string, unknown>>): string | undefined {
+  const supported = new Set(["type", "properties", "required", "additionalProperties", "items", "prefixItems", "enum", "const", "anyOf", "allOf", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength", "pattern", "x-patternFlags", "format", "minItems", "maxItems", "uniqueItems", "minProperties", "maxProperties", "description", "default", "examples", "$id", "$schema", "title", "readOnly", "writeOnly", "x-templateLiteral", "x-nelysia-kind", "x-minimumType", "x-maximumType", "x-exclusiveMinimumType", "x-exclusiveMaximumType", "x-multipleOfType"])
+  return Object.keys(definition).find((key) => !supported.has(key))
+}
+
+function stableDefinition(value: Readonly<Record<string, unknown>>): SchemaIR {
   const output: Record<string, unknown> = {}
   for (const key of Object.keys(value).sort()) {
     const child = value[key]
@@ -392,16 +424,39 @@ function validateGeneratedValue(value: unknown, schema: Record<string, unknown>,
   if (schema.type === "null") { if (value !== null) throw invalidGenerated(path + " must be null"); return value }
   if (schema.type === "string") {
     if (typeof value !== "string") throw invalidGenerated(path + " must be string")
-    if (typeof schema.minLength === "number" && value.length < schema.minLength) throw invalidGenerated(path + " is too short")
-    if (typeof schema.maxLength === "number" && value.length > schema.maxLength) throw invalidGenerated(path + " is too long")
-    if (typeof schema.pattern === "string" && !(new RegExp(schema.pattern)).test(value)) throw invalidGenerated(path + " has an invalid format")
+    if (typeof schema.minLength === "number" && Array.from(value).length < schema.minLength) throw invalidGenerated(path + " is too short")
+    if (typeof schema.maxLength === "number" && Array.from(value).length > schema.maxLength) throw invalidGenerated(path + " is too long")
+    if (typeof schema.pattern === "string" && !(new RegExp(schema.pattern, typeof schema["x-patternFlags"] === "string" ? schema["x-patternFlags"] : "")).test(value)) throw invalidGenerated(path + " has an invalid format")
     if (schema.format === "date-time" && Number.isNaN(Date.parse(value))) throw invalidGenerated(path + " must be a date-time")
+    if (schema.format === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value + "T00:00:00Z")))) throw invalidGenerated(path + " has an invalid format")
+    if (schema.format === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw invalidGenerated(path + " has an invalid format")
+    if (schema.format === "uuid" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) throw invalidGenerated(path + " has an invalid format")
+    if (schema.format === "url" || schema.format === "uri") { try { new URL(value) } catch { throw invalidGenerated(path + " has an invalid format") } }
+    if (typeof schema.format === "string" && !validateSchemaFormat(schema.format, value)) throw invalidGenerated(path + " has an invalid format")
+    return value
+  }
+  if (schema["x-nelysia-kind"] === "bigint") {
+    if (typeof value !== "bigint") throw invalidGenerated(path + " must be bigint")
+    const option = (key: string): bigint | undefined => typeof schema[key] === "string" && /^-?\d+$/.test(schema[key] as string) ? BigInt(schema[key] as string) : undefined
+    const minimum = option("minimum")
+    const maximum = option("maximum")
+    const exclusiveMinimum = option("exclusiveMinimum")
+    const exclusiveMaximum = option("exclusiveMaximum")
+    const multipleOf = option("multipleOf")
+    if (minimum !== undefined && value < minimum) throw invalidGenerated(path + " is below minimum")
+    if (maximum !== undefined && value > maximum) throw invalidGenerated(path + " is above maximum")
+    if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) throw invalidGenerated(path + " is below exclusive minimum")
+    if (exclusiveMaximum !== undefined && value >= exclusiveMaximum) throw invalidGenerated(path + " is above exclusive maximum")
+    if (multipleOf !== undefined && value % multipleOf !== 0n) throw invalidGenerated(path + " must be a multiple of " + multipleOf)
     return value
   }
   if (schema.type === "number" || schema.type === "integer") {
     if (typeof value !== "number" || !Number.isFinite(value) || (schema.type === "integer" && !Number.isInteger(value))) throw invalidGenerated(path + " must be " + String(schema.type))
     if (typeof schema.minimum === "number" && value < schema.minimum) throw invalidGenerated(path + " is below minimum")
     if (typeof schema.maximum === "number" && value > schema.maximum) throw invalidGenerated(path + " is above maximum")
+    if (typeof schema.exclusiveMinimum === "number" && value <= schema.exclusiveMinimum) throw invalidGenerated(path + " is below exclusive minimum")
+    if (typeof schema.exclusiveMaximum === "number" && value >= schema.exclusiveMaximum) throw invalidGenerated(path + " is above exclusive maximum")
+    if (typeof schema.multipleOf === "number" && schema.multipleOf > 0) { const quotient = value / schema.multipleOf; if (Math.abs(quotient - Math.round(quotient)) > Number.EPSILON * Math.max(1, Math.abs(quotient))) throw invalidGenerated(path + " must be a multiple of " + schema.multipleOf) }
     return value
   }
   if (schema.type === "boolean") { if (typeof value !== "boolean") throw invalidGenerated(path + " must be boolean"); return value }
@@ -409,6 +464,7 @@ function validateGeneratedValue(value: unknown, schema: Record<string, unknown>,
     if (!Array.isArray(value)) throw invalidGenerated(path + " must be array")
     if (typeof schema.minItems === "number" && value.length < schema.minItems) throw invalidGenerated(path + " has too few items")
     if (typeof schema.maxItems === "number" && value.length > schema.maxItems) throw invalidGenerated(path + " has too many items")
+    if (schema.uniqueItems === true && new Set(value.map((entry) => JSON.stringify(entry) ?? String(entry))).size !== value.length) throw invalidGenerated(path + " must contain unique items")
     if (Array.isArray(schema.prefixItems)) {
       if (value.length !== schema.prefixItems.length) throw invalidGenerated(path + " has an invalid tuple length")
       const prefixItems = schema.prefixItems as unknown[]
@@ -419,10 +475,14 @@ function validateGeneratedValue(value: unknown, schema: Record<string, unknown>,
   if (schema.type === "object") {
     if (value === null || typeof value !== "object" || Array.isArray(value)) throw invalidGenerated(path + " must be object")
     const input = value as Record<string, unknown>
+    if (typeof schema.minProperties === "number" && Object.keys(input).length < schema.minProperties) throw invalidGenerated(path + " must have at least " + schema.minProperties + " properties")
+    if (typeof schema.maxProperties === "number" && Object.keys(input).length > schema.maxProperties) throw invalidGenerated(path + " must have at most " + schema.maxProperties + " properties")
+    if (schema.additionalProperties === false) for (const key of Object.keys(input)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) throw invalidGenerated(path + " must not contain additional properties")
     for (const key of Array.isArray(schema.required) ? schema.required : []) if (input[key] === undefined) throw invalidGenerated(path + "." + key + " is required")
     const output: Record<string, unknown> = {}
     const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties) ? schema.properties as Record<string, unknown> : undefined
     if (properties !== undefined) for (const [key, child] of Object.entries(properties)) if (input[key] !== undefined) setSafe(output, key, validateGeneratedValue(input[key], child as Record<string, unknown>, path + "." + key))
+    if (schema.additionalProperties === true) for (const [key, entry] of Object.entries(input)) if (properties === undefined || !Object.prototype.hasOwnProperty.call(properties, key)) setSafe(output, key, entry)
     if (properties === undefined && schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) setSafe(output, key, validateGeneratedValue(entry, schema.additionalProperties as Record<string, unknown>, path + "." + key))
     return output
   }

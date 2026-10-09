@@ -6,6 +6,8 @@ import { join } from "node:path"
 import { spawn } from "node:child_process"
 import { compile, createGeneratedMatcher, generateBuildArtifact, generateMatcherSource, generateSerializerSource, generateValidatorSource, generateServerSource, generateStandaloneServerSource, unsupportedRouteDiagnostic } from "../packages/compiler/src/index.ts"
 import { Nelysia, t } from "../packages/core/src/index.ts"
+import { normalizeSchemaIR } from "../packages/core/src/schema-ir.ts"
+import { lowerSchemaIR } from "../packages/compiler/src/dispatcher.ts"
 
 test("generates runnable Bun and Node server entrypoints", () => {
   const bun = generateServerSource({ entry: "../examples/hello/app.ts", target: "bun" })
@@ -103,6 +105,42 @@ test("generated validators preserve nested, union, nullable, enum, and tuple rul
   assert.throws(() => validate({ name: "Ada", kind: "guest", note: null, values: [1] }), /allowed value|match/)
   assert.throws(() => validate({ name: "Ada", kind: "user", note: 1, values: [1] }), /string/)
   assert.throws(() => validate({ name: "Ada", kind: "user", note: null, values: ["1"] }), /number/)
+})
+
+test("generated validators preserve TypeBox-style constraint parity", async () => {
+  const schema = t.Object({
+    count: t.Integer({ exclusiveMinimum: 0, multipleOf: 2 }),
+    tags: t.Array(t.String({ minLength: 2 }), { minItems: 1, maxItems: 2, uniqueItems: true })
+  }, { additionalProperties: true })
+  const generated = new Function(`${generateValidatorSource(schema).replace("export function", "function")}\nreturn validateGenerated`)() as (value: unknown) => unknown
+  const valid = { count: 2, tags: ["Ada"], extra: true }
+  assert.deepEqual(generated(valid), await schema.validate(valid))
+  assert.throws(() => generated({ count: 1, tags: ["Ada"] }), /exclusive|multiple/)
+  assert.throws(() => generated({ count: 2, tags: ["A"] }), /short/)
+  assert.throws(() => generated({ count: 2, tags: ["Ada", "Ada"] }), /unique/)
+  await assert.rejects(async () => await schema.validate({ count: 2, tags: ["Ada", "Ada"] }), /unique/)
+})
+
+test("generated validators match the canonical IR for tuple, record, Unicode, and extra properties", async () => {
+  const schema = t.Object({
+    tuple: t.Tuple([t.String(), t.Integer()] as const),
+    record: t.Record(t.Integer()),
+    label: t.String({ minLength: 1, pattern: /^ada$/i }),
+  }, { additionalProperties: true })
+  const generated = new Function(`${generateValidatorSource(schema).replace("export function", "function")}\nreturn validateGenerated`)() as (value: unknown) => unknown
+  const valid = { tuple: ["id", 1], record: { count: 2 }, label: "ADA", extra: true }
+  assert.deepEqual(generated(valid), await schema.validate(valid))
+  for (const invalid of [
+    { ...valid, tuple: ["id"] },
+    { ...valid, record: { count: "2" } },
+    { ...valid, label: "grace" },
+  ]) {
+    assert.throws(() => generated(invalid))
+    await assert.rejects(async () => await schema.validate(invalid))
+  }
+  const operations = lowerSchemaIR(normalizeSchemaIR(schema))
+  assert.ok(operations.some((operation) => operation.kind === "tuple"))
+  assert.ok(operations.some((operation) => operation.kind === "record"))
 })
 
 test("static-only builds emit a standalone handler without the generic router", () => {

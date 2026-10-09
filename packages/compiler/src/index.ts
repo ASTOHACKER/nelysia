@@ -3,11 +3,11 @@ import { HttpError } from "../../core/src/types.ts"
 import { requestIdFor, responseMarker, type Context, type RouteGraph, type RouteRecord } from "../../core/src/types.ts"
 import type { Schema } from "../../core/src/schema.ts"
 import { createBunRuntimeHandler } from "../../runtime-bun/src/handler.ts"
-import { canGenerateSchema, compileDispatcher, createSchemaIR, executeGeneratedGet, fastPathname, isCompilableRoute, isParamsOnlyHandler, isStaticFastPathRoute, jsonContentType, lookupCompiled, matchSingleDynamicUrl, serializeStaticValue, textContentType, type CompiledRoute } from "./dispatcher.ts"
+import { canGenerateSchema, compileDispatcher, createSchemaIR, executeGeneratedGet, fastPathname, isCompilableRoute, isParamsOnlyHandler, isStaticFastPathRoute, jsonContentType, lookupCompiled, lowerSchemaIR, matchSingleDynamicUrl, serializeStaticValue, textContentType, type CompiledRoute } from "./dispatcher.ts"
 import { createHash } from "node:crypto"
 
-export { canGenerateSchema, createGeneratedMatcher, createGeneratedValidator, createSchemaIR, executeGeneratedGet, isParamsOnlyHandler, isStaticFastPathRoute } from "./dispatcher.ts"
-export type { CompiledDispatcher, CompiledLookup, CompiledRoute, GeneratedRouteSchema, GeneratedValidator, SchemaIR, SerializedBody } from "./dispatcher.ts"
+export { canGenerateSchema, createGeneratedMatcher, createGeneratedValidator, createSchemaIR, executeGeneratedGet, isParamsOnlyHandler, isStaticFastPathRoute, lowerSchemaIR } from "./dispatcher.ts"
+export type { CompiledDispatcher, CompiledLookup, CompiledRoute, GeneratedRouteSchema, GeneratedValidator, SchemaIR, SerializedBody, ValidationOperation } from "./dispatcher.ts"
 
 export type ExecutionLane = "COMPILED" | "SPECIALIZED" | "GENERIC"
 
@@ -342,16 +342,41 @@ function validate(value, schema, path) {
   if (schema.type === "null") { if (value !== null) throw invalid(path + " must be null"); return value }
   if (schema.type === "string") {
     if (typeof value !== "string") throw invalid(path + " must be string")
-    if (schema.minLength !== undefined && value.length < schema.minLength) throw invalid(path + " is too short")
-    if (schema.maxLength !== undefined && value.length > schema.maxLength) throw invalid(path + " is too long")
-    if (schema.pattern !== undefined && !(new RegExp(schema.pattern)).test(value)) throw invalid(path + " has an invalid format")
+    if (schema.minLength !== undefined && Array.from(value).length < schema.minLength) throw invalid(path + " is too short")
+    if (schema.maxLength !== undefined && Array.from(value).length > schema.maxLength) throw invalid(path + " is too long")
+    if (schema.pattern !== undefined && !(new RegExp(schema.pattern, schema["x-patternFlags"] || "")).test(value)) throw invalid(path + " has an invalid format")
     if (schema.format === "date-time" && Number.isNaN(Date.parse(value))) throw invalid(path + " must be a date-time")
+    if (schema.format === "date" && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value) || Number.isNaN(Date.parse(value + "T00:00:00Z")))) throw invalid(path + " has an invalid format")
+    if (schema.format === "email" && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) throw invalid(path + " has an invalid format")
+    if (schema.format === "uuid" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) throw invalid(path + " has an invalid format")
+    if (schema.format === "url" || schema.format === "uri") { try { new URL(value) } catch { throw invalid(path + " has an invalid format") } }
+    if (schema.format === "ipv4" && !/^(?:0|[1-9]\d{0,2})(?:\.(?:0|[1-9]\d{0,2})){3}$/.test(value)) throw invalid(path + " has an invalid format")
+    if (schema.format === "ipv6" && !value.includes(":")) throw invalid(path + " has an invalid format")
+    if (schema.format === "hostname" && !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/.test(value)) throw invalid(path + " has an invalid format")
+    return value
+  }
+  if (schema["x-nelysia-kind"] === "bigint") {
+    if (typeof value !== "bigint") throw invalid(path + " must be bigint")
+    const option = (key) => typeof schema[key] === "string" && /^-?\d+$/.test(schema[key]) ? BigInt(schema[key]) : undefined
+    const minimum = option("minimum")
+    const maximum = option("maximum")
+    const exclusiveMinimum = option("exclusiveMinimum")
+    const exclusiveMaximum = option("exclusiveMaximum")
+    const multipleOf = option("multipleOf")
+    if (minimum !== undefined && value < minimum) throw invalid(path + " is below minimum")
+    if (maximum !== undefined && value > maximum) throw invalid(path + " is above maximum")
+    if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) throw invalid(path + " is below exclusive minimum")
+    if (exclusiveMaximum !== undefined && value >= exclusiveMaximum) throw invalid(path + " is above exclusive maximum")
+    if (multipleOf !== undefined && value % multipleOf !== 0n) throw invalid(path + " must be a multiple of " + multipleOf)
     return value
   }
   if (schema.type === "number" || schema.type === "integer") {
     if (typeof value !== "number" || !Number.isFinite(value) || (schema.type === "integer" && !Number.isInteger(value))) throw invalid(path + " must be " + schema.type)
     if (schema.minimum !== undefined && value < schema.minimum) throw invalid(path + " is below minimum")
     if (schema.maximum !== undefined && value > schema.maximum) throw invalid(path + " is above maximum")
+    if (schema.exclusiveMinimum !== undefined && value <= schema.exclusiveMinimum) throw invalid(path + " is below exclusive minimum")
+    if (schema.exclusiveMaximum !== undefined && value >= schema.exclusiveMaximum) throw invalid(path + " is above exclusive maximum")
+    if (typeof schema.multipleOf === "number" && schema.multipleOf > 0) { const quotient = value / schema.multipleOf; if (Math.abs(quotient - Math.round(quotient)) > Number.EPSILON * Math.max(1, Math.abs(quotient))) throw invalid(path + " must be a multiple of " + schema.multipleOf) }
     return value
   }
   if (schema.type === "boolean") { if (typeof value !== "boolean") throw invalid(path + " must be boolean"); return value }
@@ -359,6 +384,7 @@ function validate(value, schema, path) {
     if (!Array.isArray(value)) throw invalid(path + " must be array")
     if (schema.minItems !== undefined && value.length < schema.minItems) throw invalid(path + " has too few items")
     if (schema.maxItems !== undefined && value.length > schema.maxItems) throw invalid(path + " has too many items")
+    if (schema.uniqueItems === true && new Set(value.map((entry) => JSON.stringify(entry) ?? String(entry))).size !== value.length) throw invalid(path + " must contain unique items")
     if (Array.isArray(schema.prefixItems)) {
       if (value.length !== schema.prefixItems.length) throw invalid(path + " has an invalid tuple length")
       return value.map((entry, index) => validate(entry, schema.prefixItems[index], path + "." + index))
@@ -370,7 +396,11 @@ function validate(value, schema, path) {
     const input = value
     for (const key of schema.required || []) if (input[key] === undefined) throw invalid(path + "." + key + " is required")
     const output = {}
+    if (schema.minProperties !== undefined && Object.keys(value).length < schema.minProperties) throw invalid(path + " must have at least " + schema.minProperties + " properties")
+    if (schema.maxProperties !== undefined && Object.keys(value).length > schema.maxProperties) throw invalid(path + " must have at most " + schema.maxProperties + " properties")
+    if (schema.additionalProperties === false) for (const key of Object.keys(value)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) throw invalid(path + " must not contain additional properties")
     for (const [key, child] of Object.entries(schema.properties || {})) if (input[key] !== undefined) setSafe(output, key, validate(input[key], child, path + "." + key))
+    if (schema.additionalProperties === true) for (const [key, entry] of Object.entries(input)) if (!schema.properties || !Object.prototype.hasOwnProperty.call(schema.properties, key)) setSafe(output, key, entry)
     if (!schema.properties && schema.additionalProperties && typeof schema.additionalProperties === "object") for (const [key, entry] of Object.entries(input)) setSafe(output, key, validate(entry, schema.additionalProperties, path + "." + key))
     return output
   }
