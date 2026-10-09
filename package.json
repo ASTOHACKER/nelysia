@@ -68,6 +68,7 @@
     "package:imports": "node spec/scripts/check-package-imports.mjs",
     "package:consumer": "node spec/scripts/check-packed-build.mjs",
     "framework:check": "node spec/scripts/check-framework-fixtures.mjs",
+    "schema:verify": "node spec/scripts/check-schema-compatibility.mjs",
   "docs:check": "node spec/scripts/check-docs.mjs",
   "api:freeze:check": "node spec/scripts/check-api-freeze.mjs",
   "release:check:win-matrix": "npm run typecheck && npm test && bun test && npm run package:build && npm run package:imports && npm run package:consumer && npm run api:freeze:check && npm run docs:check && npm run framework:check && npm run integrations:smoke && npm run benchmark:verify:runtime-parity && npm run benchmark:verify:win-matrix && npm run soak:24h && git diff --check",

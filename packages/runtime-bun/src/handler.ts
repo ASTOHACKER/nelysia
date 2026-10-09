@@ -43,19 +43,19 @@ export function createBunRuntimeHandler(app: Nelysia<any, any, any>): BunHandler
     if (isThenable(result)) {
       return Promise.resolve(result).then(
         (value) => {
-          try { return toResponse(value as { status: number; headers: Headers; body: unknown }) }
+          try { return stripHeadBody(data.method, toResponse(value as { status: number; headers: Headers; body: unknown })) }
           catch (error) { return handleAdapterError(error, data) }
         },
         (error) => handleAdapterError(error, data)
       )
     }
-    try { return toResponse(result as { status: number; headers: Headers; body: unknown }) }
+    try { return stripHeadBody(data.method, toResponse(result as { status: number; headers: Headers; body: unknown })) }
     catch (error) { return handleAdapterError(error, data) }
   }
 
   const resolveNative = (data: RequestData | undefined, request: Request, requestId: string | undefined, result: Response | Promise<Response>): Response | Promise<Response> => {
-    if (isThenable(result)) return Promise.resolve(result).then((value) => value, (error) => handleAdapterError(error, data ?? { method: request.method, url: request.url, requestId, headers: request.headers, rawRequest: request }))
-    return result
+    if (isThenable(result)) return Promise.resolve(result).then((value) => stripHeadBody(request.method, value), (error) => handleAdapterError(error, data ?? { method: request.method, url: request.url, requestId, headers: request.headers, rawRequest: request }))
+    return stripHeadBody(request.method, result)
   }
 
   const consumePreflight = (data: RequestData, preflight: Awaited<ReturnType<RuntimeExecutor["preflight"]>>): Response | Promise<Response> => {
@@ -142,4 +142,9 @@ export function toResponse(result: { status: number; headers: Headers; body: unk
   }
   const body = typeof result.body === "string" ? result.body : JSON.stringify(result.body)
   return new Response(body, { status: result.status, headers: result.headers })
+}
+
+function stripHeadBody(method: string, response: Response): Response {
+  if (method !== "HEAD") return response
+  return new Response(null, { status: response.status, headers: response.headers })
 }

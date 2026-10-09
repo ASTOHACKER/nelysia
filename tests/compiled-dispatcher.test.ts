@@ -477,3 +477,55 @@ test("compiled and generic handlers stay equivalent across fallback boundaries",
     for (const [name, value] of slow.headers) assert.equal(fast.headers.get(name), value, `${request.method} ${request.url} header ${name}`)
   }
 })
+
+test("schema compatibility matrix keeps Bun, Fetch, and Node contracts aligned", async (testContext) => {
+  const item = t.Object({ name: t.String({ minLength: 1 }), count: t.Number({ minimum: 1 }) })
+  const mounted = new Nelysia().get("/users/:id", ({ params }) => ({ id: params.id }))
+  const app = new Nelysia({ requestId: true })
+    .mount("/api", mounted)
+    .post("/items", ({ body }) => body, { body: item, response: item })
+    .get("/error", ({ response }) => response(418, { error: "teapot" }))
+    .get("/request-id", ({ requestId }) => ({ requestId }))
+
+  const compiled = createCompiledBunHandler(app)
+  const generic = createBunHandler(app)
+  const fetchHandler = createFetchHandler(app)
+  const matrix: Array<{ method: string; path: string; body?: string; headers?: Record<string, string> }> = [
+    { method: "GET", path: "/api/users/7" },
+    { method: "POST", path: "/items", body: JSON.stringify({ name: "Ada", count: 1 }) },
+    { method: "POST", path: "/items", body: JSON.stringify({ name: "Ada", count: 0 }) },
+    { method: "GET", path: "/error" },
+    { method: "GET", path: "/missing" },
+    { method: "POST", path: "/api/users/7" },
+    { method: "OPTIONS", path: "/api/users/7" },
+    { method: "HEAD", path: "/api/users/7" },
+    { method: "GET", path: "/request-id", headers: { "x-request-id": "compat-fixed" } },
+  ]
+
+  const server = createNodeServer(app)
+  await new Promise<void>((resolve) => server.listen(0, resolve))
+  testContext.after(() => server.close())
+  const address = server.address()
+  assert.ok(address && typeof address === "object")
+
+  for (const itemCase of matrix) {
+    const headers = new Headers(itemCase.headers)
+    if (itemCase.body !== undefined) headers.set("content-type", "application/json")
+    const init = { method: itemCase.method, headers, body: itemCase.body }
+    const responses: Response[] = [
+      await compiled(new Request(`http://localhost${itemCase.path}`, init)),
+      await generic(new Request(`http://localhost${itemCase.path}`, init)),
+      await fetchHandler(new Request(`http://localhost${itemCase.path}`, init)),
+      await fetch(`http://127.0.0.1:${address.port}${itemCase.path}`, init),
+    ]
+    const bodies = await Promise.all(responses.map((response) => response.text()))
+    const expectedBody = itemCase.method === "HEAD" ? "" : bodies[0]
+    for (const [index, response] of responses.entries()) {
+      assert.equal(response.status, responses[0].status, `${itemCase.method} ${itemCase.path} runtime ${index} status`)
+      assert.equal(bodies[index], expectedBody, `${itemCase.method} ${itemCase.path} runtime ${index} body`)
+    }
+    if (itemCase.path === "/request-id") {
+      for (const response of responses) assert.equal(response.headers.get("x-request-id"), "compat-fixed")
+    }
+  }
+})

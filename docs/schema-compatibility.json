@@ -1,0 +1,75 @@
+{
+  "schema": "nelysia.schema-compatibility.v1",
+  "status": "PASS",
+  "packageVersion": "1.2.2",
+  "target": {
+    "typebox": "1.3.30",
+    "schemaDialect": "JSON Schema 2020-12",
+    "publicApi": "no-breaking-change"
+  },
+  "cases": [
+    "primitive-options",
+    "object-required",
+    "array-options",
+    "tuple",
+    "record",
+    "union-nullable-intersect",
+    "template-literal",
+    "refs-cyclic",
+    "standard-fallback",
+    "response-schema",
+    "errors",
+    "head-options-405",
+    "mounts-request-id"
+  ],
+  "constructors": [
+    { "name": "String", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Number", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Integer", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Boolean", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "BigInt", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Null", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Never", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Ref", "status": "supported", "reference": "pass", "aot": "reference", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Cyclic", "status": "supported", "reference": "pass", "aot": "reference", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Object", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Array", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Tuple", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Literal", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Union", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Nullable", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Optional", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Any", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Unknown", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Date", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "TemplateLiteral", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Partial", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Pick", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Omit", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Intersect", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Enum", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Record", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Required", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Readonly", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] },
+    { "name": "Composite", "status": "supported", "reference": "pass", "aot": "compiled", "coveredBy": ["generic", "bun", "node", "fetch"] }
+  ],
+  "runtimeResults": [
+    { "runtime": "generic", "status": "pass", "caseCount": 13, "failures": 0, "statusMismatch": 0, "bodyMismatch": 0, "errorMismatch": 0, "evidence": "npm test: core/schema-validator/openapi contract tests" },
+    { "runtime": "bun", "status": "pass", "caseCount": 13, "failures": 0, "statusMismatch": 0, "bodyMismatch": 0, "errorMismatch": 0, "evidence": "tests/compiled-dispatcher.test.ts: Bun compiled and generic handlers" },
+    { "runtime": "node", "status": "pass", "caseCount": 13, "failures": 0, "statusMismatch": 0, "bodyMismatch": 0, "errorMismatch": 0, "evidence": "tests/integration-node.test.ts: Node HTTP adapter" },
+    { "runtime": "fetch", "status": "pass", "caseCount": 13, "failures": 0, "statusMismatch": 0, "bodyMismatch": 0, "errorMismatch": 0, "evidence": "tests/compiled-dispatcher.test.ts: Fetch adapter" }
+  ],
+  "aotResults": [
+    { "lane": "compiled", "status": "pass", "fallback": false, "diagnostic": null, "evidence": "generated validators and dispatcher parity tests" },
+    { "lane": "specialized", "status": "pass", "fallback": false, "diagnostic": null, "evidence": "params/query/response generated validator tests" },
+    { "lane": "generic", "status": "pass", "fallback": true, "diagnostic": { "expected": true, "code": "NELY002", "route": "/compat/standard", "field": "schema" }, "evidence": "Standard Schema is reference-only and reports explicit fallback" }
+  ],
+  "fallbackDiagnostics": [
+    { "expected": true, "code": "NELY002", "route": "/compat/standard", "field": "schema", "reason": "Standard Schema is not source-generated" }
+  ],
+  "adapters": [
+    { "runtime": "bun", "status": "pass", "evidence": "createCompiledBunHandler/createBunHandler parity" },
+    { "runtime": "node", "status": "pass", "evidence": "createNodeServer HTTP contract tests" },
+    { "runtime": "fetch", "status": "pass", "evidence": "createFetchHandler Web Standard contract tests" }
+  ]
+}

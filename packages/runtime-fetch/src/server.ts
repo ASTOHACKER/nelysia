@@ -127,12 +127,12 @@ async function genericFetch(app: Nelysia<any, any, any>, executor: RuntimeExecut
   const data = { method: request.method, url: request.url, headers: request.headers, rawRequest: request, ...context }
   try {
     const preflight = await executor.preflight(data)
-    if (preflight.kind === "response") return responseFromData(preflight.response)
+    if (preflight.kind === "response") return stripHeadBody(request.method, responseFromData(preflight.response))
     const body = await parseWebRequestBody(request, app.bodyLimit)
     const result = await executor.handle({ ...data, body, preflight })
-    return responseFromData(result)
+    return stripHeadBody(request.method, responseFromData(result))
   } catch (error) {
-    return responseFromData(await app.handleAdapterError(error, data))
+    return stripHeadBody(request.method, responseFromData(await app.handleAdapterError(error, data)))
   }
 }
 
@@ -146,4 +146,9 @@ function responseFromData(result: { status: number; headers: Headers; body: unkn
   const output = typeof result.body === "string" ? result.body : result.body === undefined ? null : JSON.stringify(result.body)
   if (result.body !== undefined && result.body !== null && typeof result.body !== "string") result.headers.set("content-type", "application/json; charset=utf-8")
   return new Response(output, { status: result.status, headers: result.headers })
+}
+
+function stripHeadBody(method: string, response: Response): Response {
+  if (method !== "HEAD") return response
+  return new Response(null, { status: response.status, headers: response.headers })
 }
