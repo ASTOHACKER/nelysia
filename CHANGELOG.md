@@ -9,6 +9,18 @@ claims.
 Future work remains reserved for completing the Win Matrix and 24-hour soak.
 No performance or production-readiness claim is implied.
 
+## [1.2.4] — 2026-10-10
+
+Logger presentation patch.
+
+- Added colored pretty output for logger levels, methods, statuses, durations,
+  runtimes, and route lanes.
+- Added `colors: false` and `colors: true` controls while preserving JSON output.
+- Included the logger package in the release artifact.
+
+The Win Matrix remains `BLOCKED` / `NO PERFORMANCE CLAIM`; this patch does not
+declare production readiness or universal performance parity.
+
 ## [1.2.3] — 2026-10-09
 
 Logger and framework diagnostics patch.
