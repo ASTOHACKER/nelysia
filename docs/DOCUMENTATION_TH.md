@@ -1137,6 +1137,10 @@ const app = new Nelysia()
   ความล้มเหลวของ sink จะไม่เปลี่ยนผลลัพธ์ของ request โดยจะ emit event
   `server.started`, `route.registered`, `request.complete` และ `request.error`
   และปิดเป็นกลุ่มได้ด้วย `startup`, `routes`, `requests`, `errors` ส่วน
+  pretty จะแสดงเวลา method/path, status, ระยะเวลาตอบกลับ และ request ID พร้อมสี
+  แยกระดับ log, method, status และ request ที่ตอบช้า; error event จะแสดงข้อความ
+  error ด้วย โดยเปิดสีอัตโนมัติเมื่อใช้ TTY และปิดเมื่อกำหนด `NO_COLOR`; ใช้
+  `colors: false` เพื่อปิด หรือ `colors: true` เพื่อบังคับเปิดสี ส่วน
   `format: "auto"` ใช้ pretty ใน development และ JSON เมื่อ `NODE_ENV=production`
 - `app.routeDiagnostics()` คืน `{ method, path, lane }` ของทุก route โดย lane
   คือ `COMPILED`, `SPECIALIZED` หรือ `GENERIC` และ `app.onStart()` จะทำงานหลัง

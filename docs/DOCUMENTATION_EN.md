@@ -1164,8 +1164,13 @@ Contracts and limitations:
   by default. Sink failures never change the request result. It emits
   `server.started`, `route.registered`, `request.complete`, and
   `request.error`; use `startup`, `routes`, `requests`, and `errors` to disable
-  individual event groups. `format: "auto"` uses pretty output in development
-  and JSON when `NODE_ENV=production`.
+  individual event groups. Pretty output shows timestamps, request method/path,
+  status, duration, and request ID, with colors for levels, methods, statuses,
+  and slow completed requests; error events also show the error message. Colors
+  are automatic in TTYs and disabled when `NO_COLOR` is set; use
+  `colors: false` to disable or `colors: true` to force them.
+  `format: "auto"` uses pretty output in development and JSON when
+  `NODE_ENV=production`.
 - `app.routeDiagnostics()` returns `{ method, path, lane }` for every route;
   lanes are `COMPILED`, `SPECIALIZED`, or `GENERIC`. `app.onStart()` runs after
   a successful Bun or Node bind, including routes loaded by lazy modules.
